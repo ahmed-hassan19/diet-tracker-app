@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+message=$(sed -n '1p' "$1")
+pattern='^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\([a-z0-9._/-]+\))?(!)?: .+'
+
+if ! printf '%s\n' "$message" | grep -Eq "$pattern"; then
+  printf '%s\n' "Commit message must follow Conventional Commits." >&2
+  printf '%s\n' "Example: feat(nutrition): validate macro targets" >&2
+  exit 1
+fi

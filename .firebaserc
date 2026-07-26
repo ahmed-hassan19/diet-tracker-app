@@ -1,0 +1,18 @@
+{
+  "projects": {
+    "default": "diet-tracker-372ca"
+  },
+  "targets": {
+    "diet-tracker-372ca": {
+      "hosting": {
+        "main": [
+          "diet-tracker-372ca"
+        ],
+        "nice": [
+          "5asesny"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

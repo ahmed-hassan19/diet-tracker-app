@@ -8,8 +8,11 @@ This is a dependency-free, single-page Firebase application. `public/index.html`
 
 ## Development and Deployment Commands
 
-No package installation or build step is required. Use the Firebase CLI:
+The app has no runtime build step. Contributor checks use one development dependency:
 
+- `npm install` installs the development-only formatting tool and configures tracked Git hooks.
+- `npm run check` runs formatting checks, JavaScript/data validation, and reviewed-profile assertions.
+- `npm run format` formats Markdown and JSON files; `public/index.html` intentionally retains its compact style.
 - `firebase emulators:start --only hosting,firestore` serves the app and evaluates Firestore behavior locally.
 - `firebase deploy --only hosting:main` deploys `public/` to the primary site.
 - `firebase deploy --only hosting:nice` deploys the alternate site.
@@ -21,7 +24,7 @@ Run deployment commands only from the repository root and verify the active proj
 
 Follow the existing two-space indentation in JavaScript and Firebase JSON. Keep HTML and CSS compact, use double quotes in markup and JavaScript strings, and retain `"use strict"`. Existing JavaScript uses `camelCase` for functions and variables, `UPPER_SNAKE_CASE` for constants such as `MEALS`, and short kebab-case DOM IDs such as `tab-day`. Keep user-facing copy in Egyptian Arabic and preserve `lang="ar"` and `dir="rtl"`.
 
-There is no configured formatter or linter; review diffs carefully and avoid unrelated reformatting of the large single-file app.
+Prettier formats Markdown and JSON. `scripts/validate.mjs` checks the inline JavaScript, nutrition data, Firebase JSON, and reviewed-profile targets. Avoid unrelated reformatting of the large single-file app.
 
 ## Testing Guidelines
 
@@ -29,7 +32,7 @@ No automated test framework or coverage target is configured. Before submitting 
 
 ## Commit & Pull Request Guidelines
 
-Git history is not included in this checkout, so no repository-specific commit convention can be inferred. Use concise imperative subjects, for example `Fix daily water counter persistence`. Keep commits focused. Pull requests should explain behavior changes, list manual checks, link relevant issues, and include before/after screenshots for UI changes. Highlight Firebase configuration or security-rule changes explicitly.
+Use Conventional Commits, enforced by the tracked `commit-msg` hook: `type(scope): imperative summary`. Example: `fix(nutrition): correct daily protein target`. Keep commits focused. Update `CHANGELOG.md` under `Unreleased` for user-visible changes, following Keep a Changelog categories. Pull requests should explain behavior changes, list manual checks, link relevant issues, and include before/after screenshots for UI changes. Highlight Firebase configuration or security-rule changes explicitly.
 
 ## Security & Configuration
 

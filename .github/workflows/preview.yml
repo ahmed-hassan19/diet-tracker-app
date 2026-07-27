@@ -26,10 +26,10 @@ jobs:
     runs-on: ubuntu-latest
     environment: preview
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
-      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+      - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 22
           cache: npm
@@ -44,7 +44,7 @@ jobs:
         run: |
           npx firebase hosting:channel:deploy "$CHANNEL" --only main --expires 7d --project diet-tracker-372ca --json > preview.json
           node scripts/preview-url.mjs preview.json >> "$GITHUB_OUTPUT"
-      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+      - uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3
         with:
           script: |
             const marker = "<!-- firebase-preview -->";

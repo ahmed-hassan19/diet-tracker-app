@@ -17,7 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   deletion, RTL, and responsive browser checks.
 - GitHub Actions quality, expiring pull-request preview, and tagged production
   release workflows using short-lived Workload Identity credentials.
-- App Check client initialization in monitoring mode for production traffic.
+- App Check client bootstrap for monitoring mode once the production
+  reCAPTCHA v3 registration is completed.
 - Arabic privacy information, export guidance, and two-step delete-all controls.
 
 ### Changed

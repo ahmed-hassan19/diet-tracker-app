@@ -86,6 +86,8 @@ create or upload service-account keys.
 ## Privacy and security
 
 See [PRIVACY.md](PRIVACY.md) for data handling and deletion, and
-[SECURITY.md](SECURITY.md) for private vulnerability reporting. Firebase App
-Check is introduced in monitoring mode and must not be enforced until legitimate
-production and preview traffic has been measured.
+[SECURITY.md](SECURITY.md) for private vulnerability reporting. The App Check
+client bootstrap is ready, but `APP_CHECK_SITE_KEY` must remain empty until the
+reCAPTCHA v3 site and Firebase web app registration are completed. After
+registration, run App Check in monitoring mode and do not enforce it until
+legitimate production and preview traffic has been measured.

@@ -1,0 +1,58 @@
+name: preview
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  workflow_run:
+    workflows: [quality]
+    types: [completed]
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: preview-${{ github.event.pull_request.number || github.event.workflow_run.pull_requests[0].number }}
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    if: >-
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.conclusion == 'success' &&
+       github.event.workflow_run.event == 'pull_request') ||
+      (github.event_name == 'pull_request' && false)
+    runs-on: ubuntu-latest
+    environment: preview
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - id: deploy
+        env:
+          CHANNEL: pr-${{ github.event.workflow_run.pull_requests[0].number }}
+        run: |
+          npx firebase hosting:channel:deploy "$CHANNEL" --only main --expires 7d --project diet-tracker-372ca --json > preview.json
+          node scripts/preview-url.mjs preview.json >> "$GITHUB_OUTPUT"
+      - uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        with:
+          script: |
+            const marker = "<!-- firebase-preview -->";
+            const body = `${marker}\nFirebase preview (expires in 7 days): ${{ steps.deploy.outputs.url }}`;
+            const issue_number = ${{ github.event.workflow_run.pull_requests[0].number }};
+            const comments = await github.paginate(github.rest.issues.listComments, {
+              owner: context.repo.owner, repo: context.repo.repo, issue_number
+            });
+            const prior = comments.find(c => c.user.type === "Bot" && c.body.includes(marker));
+            if (prior) await github.rest.issues.updateComment({owner: context.repo.owner, repo: context.repo.repo, comment_id: prior.id, body});
+            else await github.rest.issues.createComment({owner: context.repo.owner, repo: context.repo.repo, issue_number, body});

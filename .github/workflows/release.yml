@@ -1,0 +1,48 @@
+name: release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.base_ref == null
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Require annotated tag
+        run: test "$(git cat-file -t "$GITHUB_REF_NAME")" = tag
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@c1e323688fd81a25caa38c78aa6df2d33d3e20d9
+        with:
+          distribution: temurin
+          java-version: "21"
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - run: npm run check
+      - run: npx firebase emulators:exec --project diet-tracker-372ca --only auth,firestore,hosting "npm run test:browser"
+      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+      - run: npx firebase deploy --only hosting:main,hosting:nice --project diet-tracker-372ca --non-interactive
+      - name: Verify production source
+        run: |
+          curl --fail --silent --show-error https://diet-tracker-372ca.web.app/ -o main.html
+          curl --fail --silent --show-error https://5asesny.web.app/ -o nice.html
+          cmp public/index.html main.html
+          cmp public/index.html nice.html

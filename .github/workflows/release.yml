@@ -24,7 +24,9 @@ jobs:
         with:
           fetch-depth: 0
       - name: Require annotated tag
-        run: test "$(git cat-file -t "$GITHUB_REF_NAME")" = tag
+        run: |
+          git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
+          test "$(git cat-file -t "refs/tags/${GITHUB_REF_NAME}")" = tag
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: 22

@@ -1,0 +1,80 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import test from "node:test";
+import vm from "node:vm";
+
+const html = fs.readFileSync("public/index.html", "utf8");
+
+function extractFunction(name) {
+  const start = html.indexOf(`function ${name}(`);
+  assert.notEqual(start, -1, `missing ${name}`);
+  const open = html.indexOf("{", start);
+  let depth = 0;
+  for (let i = open; i < html.length; i += 1) {
+    if (html[i] === "{") depth += 1;
+    if (html[i] === "}") depth -= 1;
+    if (depth === 0) return html.slice(start, i + 1);
+  }
+  throw new Error(`unterminated ${name}`);
+}
+
+const context = {};
+vm.createContext(context);
+vm.runInContext(
+  ["calcTargets", "validProfile", "validTargets", "macroMismatch"]
+    .map(extractFunction)
+    .join("\n"),
+  context,
+);
+
+test("reviewed profile retains its approved targets", () => {
+  assert.deepEqual(
+    {
+      ...context.calcTargets({
+        sex: "m",
+        age: 29,
+        ht: 186,
+        w: 105.5,
+        act: 1.55,
+        gw: 86,
+      }),
+    },
+    { tdee: 3220, klo: 2550, khi: 2650, plo: 172, phi: 189 },
+  );
+});
+
+test("profile validation enforces adult and BMI limits", () => {
+  assert.equal(context.validProfile({ age: 18, ht: 170, w: 70, gw: 65 }), true);
+  assert.equal(
+    context.validProfile({ age: 17, ht: 170, w: 70, gw: 65 }),
+    false,
+  );
+  assert.equal(
+    context.validProfile({ age: 30, ht: 170, w: 70, gw: 40 }),
+    false,
+  );
+});
+
+test("custom targets enforce safe ranges and ordering", () => {
+  assert.equal(
+    context.validTargets({ klo: 1200, khi: 1300, plo: 40, phi: 50 }),
+    true,
+  );
+  assert.equal(
+    context.validTargets({ klo: 1199, khi: 1300, plo: 40, phi: 50 }),
+    false,
+  );
+  assert.equal(
+    context.validTargets({ klo: 1400, khi: 1300, plo: 40, phi: 50 }),
+    false,
+  );
+  assert.equal(
+    context.validTargets({ klo: 1400, khi: 1500, plo: 80, phi: 70 }),
+    false,
+  );
+});
+
+test("macro mismatch warns beyond ten percent", () => {
+  assert.equal(context.macroMismatch({ k: 100, p: 10, f: 4, c: 6 }), false);
+  assert.equal(context.macroMismatch({ k: 300, p: 10, f: 4, c: 6 }), true);
+});

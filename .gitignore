@@ -9,6 +9,11 @@ firebase-debug.*.log*
 
 # Firebase cache
 .firebase/
+.agents/
+skills-lock.json
+test-results/
+playwright-report/
+blob-report/
 
 # Firebase config
 

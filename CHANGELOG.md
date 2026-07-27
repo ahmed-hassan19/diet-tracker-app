@@ -7,9 +7,31 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.2.0] - 2026-07-27
+
 ### Added
 
-- Repository-local Git hooks and nutrition-aware validation tooling.
+- Private-repository governance, ownership, security, privacy, and contribution
+  documentation.
+- Emulator-backed Firestore rules, profile, persistence, import/export,
+  deletion, RTL, and responsive browser checks.
+- GitHub Actions quality, expiring pull-request preview, and tagged production
+  release workflows using short-lived Workload Identity credentials.
+- Invisible reCAPTCHA v3 App Check tokens in monitoring mode for production
+  Firestore and Firebase AI traffic.
+- Arabic privacy information, export guidance, and two-step delete-all controls.
+
+### Changed
+
+- Updated the application and visible footer to 3.2.0.
+- Extended local checks and Git hooks with fast unit and Firestore rules tests.
+
+### Security
+
+- Delete-all stops synchronization before removing the authenticated tracker
+  document and clears local data only after cloud deletion succeeds.
+- Documented API-key restrictions and deferred App Check enforcement until
+  production and preview metrics are understood.
 
 ## [3.1.0] - 2026-07-27
 

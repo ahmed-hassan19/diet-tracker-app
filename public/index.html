@@ -58,6 +58,7 @@
   th{background:var(--card2); color:var(--teal)}
   .btn{background:var(--teal); color:#04231e; border:none; border-radius:9px; padding:10px 18px; font-weight:700; font-size:14px; cursor:pointer; font-family:inherit}
   .btn.ghost{background:transparent; color:var(--teal); border:1px solid var(--teal)}
+  .btn.danger{background:transparent; color:var(--red); border:1px solid var(--red)}
   .grid2{display:grid; grid-template-columns:1fr 1fr; gap:14px}
   @media(max-width:640px){.grid2{grid-template-columns:1fr}}
   @media(max-width:480px){
@@ -170,11 +171,17 @@
       <button class="btn ghost" onclick="exportData()">⬇️ نسخة احتياطية (Export)</button>
       <button class="btn ghost" onclick="document.getElementById('imp').click()">⬆️ استرجاع (Import)</button>
       <input type="file" id="imp" accept=".json" style="display:none" onchange="importData(this)">
+      <button class="btn danger" id="delete-all" onclick="deleteAllData()">حذف كل بياناتي</button>
     </div>
+    <details id="privacy" style="margin-top:14px">
+      <summary style="cursor:pointer;color:var(--teal)">الخصوصية والبيانات</summary>
+      <p class="muted" style="line-height:1.8;margin-top:8px">بنحفظ بيانات الملف الشخصي وأهداف التغذية وسجلات الأكل والصحة اليومية في مساحة المتصفح الخاصة بحسابك، وبنزامنها مع مستندك المحمي في Firestore. تقديرات الذكاء الاصطناعي تقريبية وقد تُرسل وصف الأكلة إلى Firebase AI. تقدر تصدّر نسخة من بياناتك أو تسترجعها. بنحتفظ بالبيانات لحد ما تحذفها بنفسك؛ زر «حذف كل بياناتي» يمسح مستند التتبع والنسخة المحلية ويسجّل خروجك، لكنه لا يحذف حساب Google.</p>
+      <p class="muted" style="line-height:1.8;margin-top:6px">راجع <a href="/privacy.html" style="color:var(--teal)">سياسة الخصوصية الكاملة</a>. التطبيق أداة متابعة عامة وليس تشخيصًا أو بديلًا للطبيب.</p>
+    </details>
     <p class="muted" style="text-align:center" id="sync-status"></p>
   </div>
 
-  <footer>Diet Tracker — اتبني بواسطة Claude · يوليو 2026 · <b>v3.1</b></footer>
+  <footer>Diet Tracker — اتبني بواسطة Claude · يوليو 2026 · <b>v3.2.0</b> · <a href="#privacy" style="color:var(--teal)">الخصوصية</a></footer>
 </div>
 
 <div class="wrap" id="setup" style="display:none">
@@ -354,6 +361,14 @@ function calcTargets(p){
   const mid=Math.max(1250,Math.round((tdee+delta)/50)*50);
   const proteinWeight=p.gw<p.w?p.gw:p.w;
   return {klo:mid-50,khi:mid+50,plo:Math.round(2.0*proteinWeight),phi:Math.round(2.2*proteinWeight),tdee};
+}
+function validProfile(p){
+  const goalBmi=p.gw/(p.ht/100)**2;
+  return p.age>=18&&p.age<=100 && p.ht>=120&&p.ht<=230 && p.w>=30&&p.w<=300
+    && p.gw>=30&&p.gw<=300 && goalBmi>=18.5&&goalBmi<=40;
+}
+function validTargets(t){
+  return t.klo>=1200&&t.khi>=t.klo&&t.khi<=6000&&t.plo>=40&&t.phi>=t.plo&&t.phi<=300;
 }
 (function(){
   const m=calcTargets({sex:"m",age:30,ht:175,w:90,act:1.55,gw:80});
@@ -1078,18 +1093,29 @@ const FB_BUILTIN = {
     appId: "1:142673055934:web:01206bee5403fbf1b70eef"
   }
 };
+const APP_CHECK_SITE_KEY = "";
+const TEST_MODE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new URLSearchParams(location.search).get("test")==="1";
 let FB={ref:null, active:false, pushTimer:null, unsub:null};
+let deletingAll=false;
 function setSyncStatus(s){ const el=document.getElementById("sync-status"); if(el) el.textContent=s; }
 function loadScript(src){ return new Promise((ok,bad)=>{ const s=document.createElement("script"); s.src=src; s.onload=ok; s.onerror=bad; document.head.appendChild(s); }); }
 async function initSync(){
   try{
     if(!window.firebase){
       await loadScript("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
+      if(!TEST_MODE) await loadScript("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check-compat.js");
       await loadScript("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js");
       await loadScript("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js");
     }
     if(!firebase.apps.length) firebase.initializeApp(FB_BUILTIN.config);
+    if(TEST_MODE){
+      firebase.auth().useEmulator("http://127.0.0.1:9099");
+      firebase.firestore().useEmulator("127.0.0.1",8080);
+    }else if(APP_CHECK_SITE_KEY){
+      firebase.appCheck().activate(APP_CHECK_SITE_KEY,true);
+    }
     firebase.auth().onAuthStateChanged(u=>{ u?start(u):stop(); });
+    if(TEST_MODE&&!firebase.auth().currentUser) await firebase.auth().signInAnonymously();
   }catch(e){
     document.getElementById("login").style.display="";
     document.getElementById("login-status").textContent="⚠️ مش قادر أوصل بالسيرفر — اتأكد من النت واعمل تحديث للصفحة.";
@@ -1143,10 +1169,7 @@ function showSetup(u){
 function suRead(){
   const v=id=>parseFloat(document.getElementById(id).value);
   const p={sex:document.getElementById("su-sex").value, age:v("su-age"), ht:v("su-ht"), w:v("su-w"), gw:v("su-gw"), act:parseFloat(document.getElementById("su-act").value)};
-  const goalBmi=p.gw/(p.ht/100)**2;
-  const ok=p.age>=18&&p.age<=100 && p.ht>=120&&p.ht<=230 && p.w>=30&&p.w<=300
-    && p.gw>=30&&p.gw<=300 && goalBmi>=18.5&&goalBmi<=40;
-  return ok?p:null;
+  return validProfile(p)?p:null;
 }
 function suCalc(){
   const p=suRead(); if(!p) return;
@@ -1160,7 +1183,7 @@ function suSave(){
   const t=calcTargets(p);
   const v=(id,fb)=>parseFloat(document.getElementById(id).value)||fb;
   const custom={klo:v("su-klo",t.klo),khi:v("su-khi",t.khi),plo:v("su-plo",t.plo),phi:v("su-phi",t.phi)};
-  if(custom.klo<1200||custom.khi<custom.klo||custom.khi>6000||custom.plo<40||custom.phi<custom.plo||custom.phi>300){
+  if(!validTargets(custom)){
     document.getElementById("su-err").textContent="⚠️ راجع ترتيب ونطاق أهداف السعرات والبروتين.";
     return;
   }
@@ -1192,6 +1215,32 @@ function login(){
   });
 }
 function logout(){ firebase.auth().signOut(); }
+async function deleteAllData(){
+  if(deletingAll||!FB.ref||!KEY) return;
+  if(!confirm("هتمسح كل بيانات المتابعة من الجهاز والسحابة. تحب تكمل؟")) return;
+  if(prompt('للتأكيد اكتب كلمة "حذف"')!=="حذف"){ alert("الإلغاء تم — بياناتك زي ما هي."); return; }
+  const u=firebase.auth().currentUser, ref=FB.ref, localKey=KEY;
+  deletingAll=true;
+  const btn=document.getElementById("delete-all");
+  btn.disabled=true;
+  setSyncStatus("جاري حذف بياناتك…");
+  clearTimeout(FB.pushTimer);
+  FB.pushTimer=null;
+  FB.active=false;
+  if(FB.unsub){ FB.unsub(); FB.unsub=null; }
+  try{
+    await ref.delete();
+    localStorage.removeItem(localKey);
+    S=null; KEY=null; FB.ref=null;
+    await firebase.auth().signOut();
+    alert("اتحذفت كل بيانات المتابعة من الجهاز والسحابة ✅");
+  }catch(e){
+    deletingAll=false;
+    btn.disabled=false;
+    setSyncStatus("⚠️ الحذف ماكملش. بياناتك محفوظة؛ جرّب تاني لما الاتصال يرجع.");
+    if(u) start(u);
+  }
+}
 function mergeRemote(remote){
   let changed=false;
   for(const k in remote.days){
@@ -1212,7 +1261,7 @@ function mergeRemote(remote){
   if(S.settings&&S.settings.ht&&!suEdit&&document.getElementById("setup").style.display!=="none") showApp();
 }
 function schedulePush(){
-  if(!FB.active || !FB.ref) return;
+  if(deletingAll || !FB.active || !FB.ref) return;
   clearTimeout(FB.pushTimer);
   FB.pushTimer=setTimeout(()=>{
     FB.ref.set({days:S.days, settings:S.settings||{}, foods:S.foods||{}, calref:S.calref||{}, updated:Date.now()})
@@ -1222,15 +1271,18 @@ function schedulePush(){
 }
 
 /* ================= تشغيل ================= */
+window.__dietTest={calcTargets,validProfile,validTargets,macroMismatch,totals,getState:()=>S,setState:x=>{S=x;}};
 initSync();
 </script>
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-ai.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app-check.js";
 let model=null;
 window.aiEstimate = async text => {
   if(!model){
     const app=initializeApp(FB_BUILTIN.config,"ai");
+    if(!TEST_MODE&&APP_CHECK_SITE_KEY) initializeAppCheck(app,{provider:new ReCaptchaV3Provider(APP_CHECK_SITE_KEY),isTokenAutoRefreshEnabled:true});
     model=getGenerativeModel(getAI(app,{backend:new GoogleAIBackend()}),{
       model:"gemini-flash-latest",
       generationConfig:{responseMimeType:"application/json",

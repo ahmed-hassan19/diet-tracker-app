@@ -77,12 +77,16 @@ test("calorie reference inputs offer name and quantity suggestions", async ({
   await page.locator("#tab-cal").click();
   await expect(page.locator("#calref-list")).toBeVisible();
 
+  // the stored title splits: النوع keeps the name, الكمية gets the parenthetical,
+  // so picking one from each box cannot send the quantity twice
+  await expect(page.locator('#cr-names option[value="بسبوسة"]')).toHaveCount(1);
   await expect(
     page.locator('#cr-names option[value="بسبوسة (قطعة ١٠٠ جم)"]'),
-  ).toHaveCount(1);
+  ).toHaveCount(0);
   await expect(page.locator('#cr-qty option[value="قطعة ١٠٠ جم"]')).toHaveCount(
     1,
   );
+  await expect(page.locator('#cr-qty option[value="١٠٠ جم"]')).toHaveCount(1);
   await expect(
     page.locator('#calref-list input[list="cr-names"]'),
   ).toBeVisible();

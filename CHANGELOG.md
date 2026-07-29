@@ -24,8 +24,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   byte-compare covers every deployed file rather than only `index.html`.
 
 - 🤖 calorie estimates now use `gemini-flash-lite-latest` instead of
-  `gemini-flash-latest`, cutting a round trip from ~4–5 s to ~0.8–1.3 s with no
-  measured loss of accuracy against the built-in calorie reference.
+  `gemini-flash-latest`, cutting a round trip from ~4–5 s to ~0.8–1.3 s. A
+  four-item spot-check against the built-in calorie reference put the new
+  model's mean absolute error at 4.5%; the old model was not re-measured.
 
 ### Removed
 

@@ -49,7 +49,7 @@ jobs:
           # the catch-all rewrite serves index.html (HTTP 200) for a missing .js,
           # so every file has to be compared, not just the entry point
           for host in https://diet-tracker-372ca.web.app https://5asesny.web.app; do
-            for file in index.html data.js calc.js state.js render.js sync.js privacy.html; do
+            for file in $(cd public && find . -type f -not -name '.*' | sed 's|^\./||'); do
               path="$file"
               test "$file" = index.html && path=""
               curl --fail --silent --show-error "$host/$path" -o live.out

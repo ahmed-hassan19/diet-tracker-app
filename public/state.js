@@ -83,13 +83,14 @@ function foodNames(){
   return [...out.values()];
 }
 function foodByName(t){ return foodNames().find(o=>o.t===t)||null; }
-// aiCalRef stores "النوع (الكمية)" as one string; recover the quantity from the trailing parens
+
+// calref stores "النوع (الكمية)" as one title, so the two boxes have to suggest the
+// two halves apart — offering the whole title as النوع sends the quantity twice.
+const CRQTY=/\s*\(([^()]+)\)\s*$/;
+function crNames(){ return [...new Set(foodNames().map(o=>o.t.replace(CRQTY,"")).filter(Boolean))]; }
 function qtyNames(){
-  const out=new Set();
-  (((S.calref||{}).items)||[]).slice().reverse().forEach(o=>{
-    const m=/\(([^()]+)\)\s*$/.exec((o&&o.t)||""); if(m) out.add(m[1]);
-  });
-  return [...out];
+  const items=[...(((S.calref||{}).items)||[]).slice().reverse(),...CALREF.flatMap(g=>g.items)];
+  return [...new Set(items.map(o=>(CRQTY.exec((o&&o.t)||"")||[])[1]).filter(Boolean))];
 }
 
 function totals(d){

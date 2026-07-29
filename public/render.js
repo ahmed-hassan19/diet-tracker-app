@@ -229,7 +229,7 @@ function renderCalRef(){
       +'<span style="color:var(--red);padding:0 4px;cursor:pointer" onclick="delCalRef('+i+')">✖</span></div>';
   });
   h+='<div class="opt" style="display:block;cursor:default">'
-    +dataList("cr-names",foodNames().map(o=>o.t))
+    +dataList("cr-names",crNames())
     +dataList("cr-qty",qtyNames())
     +'<div class="row">'
     +'<input style="flex:1;min-width:130px" maxlength="60" list="cr-names" placeholder="النوع... مثال: بسبوسة" value="'+esc(crDraft.t||"")+'" oninput="crDraft.t=this.value">'

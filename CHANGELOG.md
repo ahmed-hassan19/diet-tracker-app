@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.3.0] - 2026-07-29
+
 ### Added
 
 - خانات الأكل الحرة بتقترح عليك الأكلات اللي سجلتها قبل كده مع أكلات الخطة
@@ -22,18 +24,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   source files instead of scraping the HTML as text.
 - Production hosting sends `no-store` for `**/*.js`, and the tagged-release
   byte-compare covers every deployed file rather than only `index.html`.
-
 - 🤖 calorie estimates now use `gemini-flash-lite-latest` instead of
   `gemini-flash-latest`, cutting a round trip from ~4–5 s to ~0.8–1.3 s. A
   four-item spot-check against the built-in calorie reference put the new
   model's mean absolute error at 4.5%; the old model was not re-measured.
+- Consolidated repository guidance in `AGENTS.md`, documented the reviewed
+  branch-to-release cycle, and made local tool-specific instruction files
+  pointers to that single source of truth.
 
 ### Removed
 
 - `scripts/validate.mjs` no longer reimplements Mifflin-St Jeor; the unit test
   asserts the reviewed profile against the app's own `calcTargets`.
 - `SECURITY.md` and `PRIVACY.md`. `public/privacy.html` is the canonical
-  privacy policy; the key security note moved into `CLAUDE.md`.
+  privacy policy; the contributor-facing security guidance moved into
+  `AGENTS.md`.
+- The tracked `CLAUDE.md`; local compatibility copies now point to the
+  canonical `AGENTS.md`.
 
 ## [3.2.0] - 2026-07-27
 

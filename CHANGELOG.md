@@ -17,6 +17,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Production hosting sends `no-store` for `**/*.js`, and the tagged-release
   byte-compare covers every deployed file rather than only `index.html`.
 
+- 🤖 calorie estimates now use `gemini-flash-lite-latest` instead of
+  `gemini-flash-latest`, cutting a round trip from ~4–5 s to ~0.8–1.3 s with no
+  measured loss of accuracy against the built-in calorie reference.
+
 ### Removed
 
 - `scripts/validate.mjs` no longer reimplements Mifflin-St Jeor; the unit test

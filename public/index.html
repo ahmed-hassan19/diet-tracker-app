@@ -262,7 +262,7 @@ window.aiEstimate = async text => {
     const app=initializeApp(FB_BUILTIN.config,"ai");
     if(!TEST_MODE&&APP_CHECK_SITE_KEY) initializeAppCheck(app,{provider:new ReCaptchaV3Provider(APP_CHECK_SITE_KEY),isTokenAutoRefreshEnabled:true});
     model=getGenerativeModel(getAI(app,{backend:new GoogleAIBackend()}),{
-      model:"gemini-flash-latest",
+      model:"gemini-flash-lite-latest",
       generationConfig:{responseMimeType:"application/json",
         responseSchema:{type:"object",properties:{k:{type:"number"},p:{type:"number"},f:{type:"number"},c:{type:"number"}},required:["k","p","f","c"]}}
     });

@@ -65,3 +65,28 @@ function importData(inp){
   r.onload=()=>{ try{ S=JSON.parse(r.result); save(); renderDay(); alert("تم الاسترجاع ✅"); }catch(e){ alert("الملف مش صالح"); } };
   r.readAsText(f);
 }
+
+/* ================= قراءات اعتمادها على الحالة ================= */
+function T(){ return Object.assign({},DEF,S.settings||{}); }
+function getExtra(i){ return (typeof i==="string"&&i[0]==="c") ? ((S.foods&&S.foods.extras)||[])[+i.slice(1)] : EXTRAS[i]; }
+console.assert(getExtra(0)===EXTRAS[0],"getExtra predefined");
+
+function totals(d){
+  let k=0,p=0,f=0,c=0;
+  for(const key in MEALS){ const o=getOpt(key,d[key]); if(d[key]!==undefined && d[key]!==null && o){ k+=o.k; p+=o.p; f+=o.f||0; c+=o.c||0; } }
+  (d.extras||[]).forEach(i=>{ const o=getExtra(i); if(o){k+=o.k; p+=o.p; f+=o.f||0; c+=o.c||0;} });
+  return {k,p,f,c};
+}
+
+function project(fromW, fromDate){
+  const g=T(); const gw=g.gw; const intake=(g.klo+g.khi)/2;
+  const dir=gw<fromW?-1:1;
+  const pts=[]; let w=fromW; let d=new Date(fromDate+"T12:00:00");
+  for(let i=0;i<60 && (gw-w)*dir>0;i++){
+    const tdee=g.ht?calcTargets({sex:g.sex,age:g.age,ht:g.ht,act:g.act,w:w,gw:gw}).tdee:27.4*w;
+    w -= (tdee-intake)*7/7700;
+    d = new Date(d.getTime()+7*864e5);
+    pts.push({date:d.toISOString().slice(0,10), w:dir<0?Math.max(w,gw):Math.min(w,gw)});
+  }
+  return pts;
+}

@@ -1,5 +1,4 @@
 "use strict";
-function T(){ return Object.assign({},DEF,S.settings||{}); }
 /* Mifflin-St Jeor: p = {sex,age,ht,w,act,gw} */
 function calcTargets(p){
   const bmr=10*p.w+6.25*p.ht-5*p.age+(p.sex==="m"?5:-161);
@@ -64,23 +63,3 @@ const TLIMITS={
   ht:[120,230,"الطول لازم يكون بين 120 و230 سم."],
   sw:[30,300,"الوزن لازم يكون بين 30 و300 كجم."]
 };
-
-function totals(d){
-  let k=0,p=0,f=0,c=0;
-  for(const key in MEALS){ const o=getOpt(key,d[key]); if(d[key]!==undefined && d[key]!==null && o){ k+=o.k; p+=o.p; f+=o.f||0; c+=o.c||0; } }
-  (d.extras||[]).forEach(i=>{ const o=getExtra(i); if(o){k+=o.k; p+=o.p; f+=o.f||0; c+=o.c||0;} });
-  return {k,p,f,c};
-}
-
-function project(fromW, fromDate){
-  const g=T(); const gw=g.gw; const intake=(g.klo+g.khi)/2;
-  const dir=gw<fromW?-1:1;
-  const pts=[]; let w=fromW; let d=new Date(fromDate+"T12:00:00");
-  for(let i=0;i<60 && (gw-w)*dir>0;i++){
-    const tdee=g.ht?calcTargets({sex:g.sex,age:g.age,ht:g.ht,act:g.act,w:w,gw:gw}).tdee:27.4*w;
-    w -= (tdee-intake)*7/7700;
-    d = new Date(d.getTime()+7*864e5);
-    pts.push({date:d.toISOString().slice(0,10), w:dir<0?Math.max(w,gw):Math.min(w,gw)});
-  }
-  return pts;
-}

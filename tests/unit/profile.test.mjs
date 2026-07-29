@@ -3,12 +3,12 @@ import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 
-const read = (file) => fs.readFileSync(`public/${file}`, "utf8");
-
-// data.js runs console.assert at load, so the context needs a console
+// calc.js is loaded alone on purpose: it is the pure layer, so anything that
+// reaches for S or the data tables makes this throw instead of failing later.
+// Its load-time console.assert IIFE still needs a console.
 const context = { console };
 vm.createContext(context);
-vm.runInContext(`${read("data.js")}\n${read("calc.js")}`, context);
+vm.runInContext(fs.readFileSync("public/calc.js", "utf8"), context);
 
 test("reviewed profile retains its approved targets", () => {
   assert.deepEqual(

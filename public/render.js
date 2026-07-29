@@ -136,8 +136,6 @@ function delFood(ev,key,i){
   const d=day(); if(d[key]==="c"+i) d[key]=null;
   save(); renderDay();
 }
-function getExtra(i){ return (typeof i==="string"&&i[0]==="c") ? ((S.foods&&S.foods.extras)||[])[+i.slice(1)] : EXTRAS[i]; }
-console.assert(getExtra(0)===EXTRAS[0],"getExtra predefined");
 function saveExtra(){
   const t=(draft.t||"").trim().slice(0,160);
   const num=v=>Math.min(5000,Math.max(0,parseFloat(v)||0));

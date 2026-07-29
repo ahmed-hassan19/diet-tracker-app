@@ -13,7 +13,8 @@ document per authenticated user with Firebase.
 - `public/index.html`: markup, styles, and the Firebase AI module block.
 - `public/data.js`: meal, extra, and calorie-reference nutrition tables.
 - `public/calc.js`: pure calorie/protein/macro functions — no state access.
-- `public/state.js`: the `S` state object, localStorage, and import/export.
+- `public/state.js`: the `S` state object, localStorage, import/export, and the
+  accessors that read state (`T`, `totals`, `project`).
 - `public/render.js`: all four tab renderers and the UI handlers.
 - `public/sync.js`: Firebase Auth/Firestore integration, App Check bootstrap,
   and the `initSync()` entry point. Loads last.

@@ -3,29 +3,12 @@ import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 
-const html = fs.readFileSync("public/index.html", "utf8");
+const read = (file) => fs.readFileSync(`public/${file}`, "utf8");
 
-function extractFunction(name) {
-  const start = html.indexOf(`function ${name}(`);
-  assert.notEqual(start, -1, `missing ${name}`);
-  const open = html.indexOf("{", start);
-  let depth = 0;
-  for (let i = open; i < html.length; i += 1) {
-    if (html[i] === "{") depth += 1;
-    if (html[i] === "}") depth -= 1;
-    if (depth === 0) return html.slice(start, i + 1);
-  }
-  throw new Error(`unterminated ${name}`);
-}
-
-const context = {};
+// data.js runs console.assert at load, so the context needs a console
+const context = { console };
 vm.createContext(context);
-vm.runInContext(
-  ["calcTargets", "validProfile", "validTargets", "macroMismatch"]
-    .map(extractFunction)
-    .join("\n"),
-  context,
-);
+vm.runInContext(`${read("data.js")}\n${read("calc.js")}`, context);
 
 test("reviewed profile retains its approved targets", () => {
   assert.deepEqual(

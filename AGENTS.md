@@ -6,6 +6,22 @@ This is a dependency-free, build-step-free Firebase application. `public/index.h
 
 `firebase.json` defines Firestore rules and two Hosting targets (`main` and `nice`), while `.firebaserc` maps those targets to the shared Firebase project. Authorization for each user's document lives in `firestore.rules`. Generated Firebase cache data under `.firebase/` must remain untracked.
 
+### Architecture Invariants
+
+- The five application files are classic scripts, not modules. Their load order is their dependency order and preserves the inline `onclick=` handlers without `window` shims.
+- `tests/unit/profile.test.mjs` both runs `calc.js` in isolation and checks its source for forbidden state/data identifiers. A free identifier inside an uncalled function still parses, so passing a syntax/load check alone does not prove `calc.js` is isolated.
+- `S` is mirrored to `localStorage["diet_tracker_v1_" + uid]`; `save()` schedules a debounced Firestore write to `/trackers/{uid}`, and `mergeRemote()` applies remote snapshots.
+- Auth and sync lazily load the Firebase compat SDK v10.14.1. The single inline module loads the modular SDK v12.9.0 into a second named app, `"ai"`, for `aiEstimate()` and App Check. Keep that separation and the validator's one-inline-module invariant.
+- Keep the AI model on the Lite tier (`gemini-flash-lite-latest`) unless a measured change justifies moving it. The broad `gemini-flash-latest` alias previously caused a 4–5 second latency regression; re-run calorie-reference spot checks whenever the model changes.
+- Native `<datalist>` suggestions deliberately survive wholesale `innerHTML` re-renders and remote merges. Calorie-reference suggestions split stored `"النوع (الكمية)"` titles between `crNames()` and `qtyNames()` so the quantity is not duplicated in AI prompts.
+
+### Nutrition and Target Invariants
+
+- `calcTargets()` uses Mifflin-St Jeor BMR times activity. Cutting subtracts `min(900, max(300, 20% of TDEE))`; bulking adds 300 kcal.
+- Protein is capped at the 300 g ceiling enforced by `validTargets()`. Calories are deliberately not clamped: out-of-band results must be rejected instead of distorted.
+- The reviewed-profile expected values (`tdee 3220`, `klo 2550`, `khi 2650`, `plo 172`, `phi 189`) live in both the `calc.js` assertion IIFE and `tests/unit/profile.test.mjs`. Update both when formulas change, and bump `REVIEWED_PROFILE_VERSION` so `migrateReviewedProfile()` refreshes the fingerprinted stored profile.
+- Every `MEALS`, `EXTRAS`, and `CALREF` entry must satisfy `|k - (p*4 + f*9 + c*4)| / k <= 10%`. Both `data.js` and `scripts/validate.mjs` enforce this, and `macroMismatch()` surfaces it in the UI.
+
 ## Development and Deployment Commands
 
 The app has no runtime build step. Contributor checks use one development dependency:
@@ -18,7 +34,11 @@ The app has no runtime build step. Contributor checks use one development depend
 - `firebase deploy --only hosting:nice` deploys the alternate site.
 - `firebase deploy --only firestore:rules` publishes security-rule changes.
 
+Run a focused unit test with `node --test --test-name-pattern="<name>" tests/unit/<file>.test.mjs`. Run a focused browser test against an already-running emulator with `npx playwright test --project=desktop -g "<name>"`.
+
 Run deployment commands only from the repository root and verify the active project with `firebase use`.
+
+The two Hosting targets serve the same `public/` directory. Keep the `no-store` header for both `**/*.html` and `**/*.js`: otherwise returning users can receive fresh HTML with stale JavaScript. Firebase's catch-all rewrite can return missing JavaScript as HTTP 200 HTML, so release verification must byte-compare every live file against the tagged `public/`, not only `index.html`. Releases are driven by annotated `v*` tags and deploy both targets.
 
 ## Coding Style & Naming Conventions
 
@@ -32,10 +52,35 @@ Prettier formats Markdown and JSON. `scripts/validate.mjs` checks that every ref
 
 Beyond the suites, exercise login/logout, profile setup, daily entry persistence, tab navigation, import/export, and mobile layouts before submitting.
 
+`TEST_MODE` is active only on localhost or `127.0.0.1` with `?test=1`. It connects Auth and Firestore emulators, signs in anonymously, and skips App Check; production hosts ignore the flag. Keep `window.__dietTest` exports in `sync.js` aligned with browser-test needs.
+
+## Health-Content Changes
+
+Treat calorie, macro, projection, and recommendation changes as evidence-sensitive:
+
+- The 7–10 month projection to 86 kg assumes targets are recalculated as weight falls. A fixed target produces roughly 48 weeks because TDEE declines.
+- Protein at 2.0–2.2 g/kg of goal weight is an intentional adaptation, not the 2.2–3.0 g/kg recommendation in PMID 34579132.
+- The 274–308 g carbohydrate range is 42.2–47.4% of 2,600 kcal, slightly below the 45–65% AMDR band as a tradeoff of the protein-forward deficit.
+- `project()` and the rate copy use the linear 7,700 kcal/kg approximation, which ignores adaptive thermogenesis and must not be presented as a measurement.
+
+Check primary sources such as USDA FoodData Central, ISSN, FDA, NIH ODS, CDC, and IOM DRI before changing nutrition data or recommendation logic.
+
 ## Commit & Pull Request Guidelines
 
 Use Conventional Commits, enforced by the tracked `commit-msg` hook: `type(scope): imperative summary`. Example: `fix(nutrition): correct daily protein target`. Keep commits focused. Update `CHANGELOG.md` under `Unreleased` for user-visible changes, following Keep a Changelog categories. Pull requests should explain behavior changes, list manual checks, link relevant issues, and include before/after screenshots for UI changes. Highlight Firebase configuration or security-rule changes explicitly.
 
+## Release-Driven Workflow
+
+All production changes follow this cycle:
+
+1. **Branch:** Start from an up-to-date `main` (`git pull --ff-only origin main`) and create a focused `feature/<short-name>` or `fix/<short-name>` branch. Do not develop or commit directly on `main`.
+2. **Pull request:** Push the branch and open a PR into `main`. Keep the PR limited to one feature or fix, update `CHANGELOG.md` under `Unreleased`, and include the required explanation, checks, issue links, and UI evidence.
+3. **Review:** Wait for required reviews and for the quality workflow, browser suite, and preview deployment to pass. Address feedback on the same branch and repeat validation before merge.
+4. **Upgrade `main`:** Merge only the approved PR, then update the local `main` with `git pull --ff-only origin main`. Confirm that the merged commit and all intended release changes are present on `main`; never release from a topic branch.
+5. **Release:** Choose the next Semantic Version, finalize the changelog and all visible/package version references through a reviewed PR when needed, and ensure `main` is green. Create an annotated `vX.Y.Z` tag on the release commit (`git tag -a vX.Y.Z -m "vX.Y.Z"`) and push that tag. The tag-triggered release workflow runs the full checks, deploys both Hosting targets, and verifies every deployed file. Do not use a manual Firebase production deploy as a substitute for this workflow.
+
+If a release fails, fix it through a new `fix/*` branch and reviewed PR, update `main`, and publish a new SemVer tag. Do not move or reuse a published release tag.
+
 ## Security & Configuration
 
-Never commit service-account keys, `.env` files, exported user data, or debug logs. Treat changes to `firestore.rules`, Firebase project mappings, authentication, and import handling as security-sensitive.
+Never commit service-account keys, `.env` files, exported user data, or debug logs. Deployments authenticate with short-lived GitHub OIDC credentials rather than stored service-account keys. Treat changes to `firestore.rules`, Firebase project mappings, authentication, and import handling as security-sensitive.

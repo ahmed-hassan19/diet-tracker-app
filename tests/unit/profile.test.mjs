@@ -3,12 +3,22 @@ import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 
-// calc.js is loaded alone on purpose: it is the pure layer, so anything that
-// reaches for S or the data tables makes this throw instead of failing later.
+// calc.js is loaded alone on purpose: it is the pure layer, so anything it
+// touches at load time has to resolve without state or data tables.
 // Its load-time console.assert IIFE still needs a console.
+const source = fs.readFileSync("public/calc.js", "utf8");
 const context = { console };
 vm.createContext(context);
-vm.runInContext(fs.readFileSync("public/calc.js", "utf8"), context);
+vm.runInContext(source, context);
+
+// loading alone is not enough — a free identifier inside a function nobody calls
+// resolves at call time, so the boundary needs a look at the text itself
+test("calc.js names no state, data table, or DOM global", () => {
+  const forbidden = source.match(
+    /\b(S|MEALS|EXTRAS|CALREF|WORKOUTS|DEF|getOpt|getExtra|document|window|localStorage)\b/g,
+  );
+  assert.equal(forbidden, null);
+});
 
 test("reviewed profile retains its approved targets", () => {
   assert.deepEqual(

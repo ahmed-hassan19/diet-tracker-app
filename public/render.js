@@ -85,14 +85,25 @@ function pick(key,i){ const d=day(); d[key]=(d[key]===i)?null:i; save(); renderD
 let addOpen=null, draft={};
 function openAdd(key){ addOpen=key; draft={}; renderDay(); }
 function closeAdd(){ addOpen=null; draft={}; renderDay(); }
+function dataList(id,items){
+  return '<datalist id="'+id+'">'+items.map(t=>'<option value="'+esc(t)+'">').join("")+'</datalist>';
+}
+function fillFood(t){
+  const o=foodByName((t||"").trim()); if(!o) return;
+  draft.k=o.k; draft.p=o.p; draft.f=o.f||0; draft.c=o.c||0;
+  // ponytail: write the four boxes directly instead of renderDay() — a re-render would
+  // recreate the input and steal focus while the user is still picking.
+  ["k","p","f","c"].forEach(x=>{ document.getElementById("af-"+x).value=draft[x]; });
+}
 function addForm(saveCall, ph){
   return '<div class="opt" style="display:block;cursor:default">'
-    +'<input style="width:100%" maxlength="160" placeholder="'+ph+'" value="'+esc(draft.t||"")+'" oninput="draft.t=this.value">'
+    +dataList("fd-names",foodNames().map(o=>o.t))
+    +'<input style="width:100%" maxlength="160" list="fd-names" placeholder="'+ph+'" value="'+esc(draft.t||"")+'" oninput="draft.t=this.value;fillFood(this.value)">'
     +'<div class="row" style="margin-top:8px">'
-    +'<label class="muted">سعرات</label><input type="number" style="width:72px" value="'+(draft.k??"")+'" oninput="draft.k=this.value">'
-    +'<label class="muted">بروتين</label><input type="number" style="width:62px" value="'+(draft.p??"")+'" oninput="draft.p=this.value">'
-    +'<label class="muted">دهون</label><input type="number" style="width:62px" value="'+(draft.f??"")+'" oninput="draft.f=this.value">'
-    +'<label class="muted">كارب</label><input type="number" style="width:62px" value="'+(draft.c??"")+'" oninput="draft.c=this.value">'
+    +'<label class="muted">سعرات</label><input type="number" id="af-k" style="width:72px" value="'+(draft.k??"")+'" oninput="draft.k=this.value">'
+    +'<label class="muted">بروتين</label><input type="number" id="af-p" style="width:62px" value="'+(draft.p??"")+'" oninput="draft.p=this.value">'
+    +'<label class="muted">دهون</label><input type="number" id="af-f" style="width:62px" value="'+(draft.f??"")+'" oninput="draft.f=this.value">'
+    +'<label class="muted">كارب</label><input type="number" id="af-c" style="width:62px" value="'+(draft.c??"")+'" oninput="draft.c=this.value">'
     +'</div>'
     +'<div class="row" style="margin-top:8px">'
     +'<button class="btn ghost" style="padding:7px 12px" onclick="aiFill(this)">🤖 احسب السعرات</button>'
@@ -218,9 +229,11 @@ function renderCalRef(){
       +'<span style="color:var(--red);padding:0 4px;cursor:pointer" onclick="delCalRef('+i+')">✖</span></div>';
   });
   h+='<div class="opt" style="display:block;cursor:default">'
+    +dataList("cr-names",foodNames().map(o=>o.t))
+    +dataList("cr-qty",qtyNames())
     +'<div class="row">'
-    +'<input style="flex:1;min-width:130px" maxlength="60" placeholder="النوع... مثال: بسبوسة" value="'+esc(crDraft.t||"")+'" oninput="crDraft.t=this.value">'
-    +'<input style="width:150px" maxlength="40" placeholder="الكمية... قطعة ١٠٠ جم" value="'+esc(crDraft.q||"")+'" oninput="crDraft.q=this.value">'
+    +'<input style="flex:1;min-width:130px" maxlength="60" list="cr-names" placeholder="النوع... مثال: بسبوسة" value="'+esc(crDraft.t||"")+'" oninput="crDraft.t=this.value">'
+    +'<input style="width:150px" maxlength="40" list="cr-qty" placeholder="الكمية... قطعة ١٠٠ جم" value="'+esc(crDraft.q||"")+'" oninput="crDraft.q=this.value">'
     +'<button class="btn ghost" style="width:auto;padding:7px 12px" onclick="aiCalRef(this)">🤖 احسب</button>'
     +'</div>'
     +'<p class="muted" id="cr-status" style="margin-top:6px">'+esc(crDraft.st||"⚠️ تقدير AI تقريبي؛ أكده من ملصق العبوة أو وصفة موزونة قبل الاعتماد عليه.")+'</p></div>';

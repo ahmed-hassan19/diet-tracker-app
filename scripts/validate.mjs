@@ -4,24 +4,35 @@ import vm from "node:vm";
 const html = fs.readFileSync("public/index.html", "utf8");
 const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
 
-if (scripts.length !== 2) {
-  throw new Error(`Expected 2 script blocks, found ${scripts.length}`);
+const inline = scripts.filter((m) => m[1].trim());
+if (inline.length !== 1) {
+  throw new Error(`Expected 1 inline script block, found ${inline.length}`);
+}
+if (!/<script type="module">/.test(inline[0][0])) {
+  throw new Error("The remaining inline block should be the AI module");
 }
 
-new Function(scripts[0][1]);
-
-const dataMatch = html.match(
-  /const MEALS = ([\s\S]*?);\nconst EXTRAS = ([\s\S]*?);\n\/\* مرجع[\s\S]*?const CALREF=([\s\S]*?);\nconsole\.assert/,
+const sources = [...html.matchAll(/<script src="\.\/([^"]+\.js)"><\/script>/g)].map(
+  (m) => m[1],
 );
-
-if (!dataMatch) {
-  throw new Error("Could not extract nutrition data");
+if (!sources.length) {
+  throw new Error("No app scripts referenced from index.html");
 }
 
-const nutrition = {};
+for (const name of sources) {
+  const path = `public/${name}`;
+  if (!fs.existsSync(path)) {
+    throw new Error(`index.html references missing ${path}`);
+  }
+  new Function(fs.readFileSync(path, "utf8"));
+}
+
+const nutrition = { console };
 vm.createContext(nutrition);
+// data.js declares its literals with const, which stays lexical — hand them out explicitly
 vm.runInContext(
-  `MEALS=${dataMatch[1]};EXTRAS=${dataMatch[2]};CALREF=${dataMatch[3]}`,
+  `${fs.readFileSync("public/data.js", "utf8")}
+Object.assign(globalThis, { MEALS, EXTRAS, CALREF });`,
   nutrition,
 );
 
@@ -40,39 +51,10 @@ if (mismatches.length) {
   );
 }
 
-const reviewedProfile = {
-  sex: "m",
-  age: 29,
-  ht: 186,
-  w: 105.5,
-  act: 1.55,
-  gw: 86,
-};
-const bmr =
-  10 * reviewedProfile.w +
-  6.25 * reviewedProfile.ht -
-  5 * reviewedProfile.age +
-  5;
-const tdee = Math.round(bmr * reviewedProfile.act);
-const deficit = -Math.min(900, Math.max(300, tdee * 0.2));
-const midpoint = Math.max(1250, Math.round((tdee + deficit) / 50) * 50);
-const targets = {
-  tdee,
-  klo: midpoint - 50,
-  khi: midpoint + 50,
-  plo: Math.round(2 * reviewedProfile.gw),
-  phi: Math.round(2.2 * reviewedProfile.gw),
-};
-
-const expected = { tdee: 3220, klo: 2550, khi: 2650, plo: 172, phi: 189 };
-if (JSON.stringify(targets) !== JSON.stringify(expected)) {
-  throw new Error(`Reviewed profile targets changed: ${JSON.stringify(targets)}`);
-}
-
 for (const file of ["firebase.json", ".firebaserc"]) {
   JSON.parse(fs.readFileSync(file, "utf8"));
 }
 
 console.log(
-  `Validated JavaScript syntax, ${foods.length} foods, Firebase JSON, and reviewed-profile targets.`,
+  `Validated ${sources.length} app scripts, ${foods.length} foods, and Firebase JSON.`,
 );

@@ -1,0 +1,192 @@
+"use strict";
+/* ================= الدخول والمزامنة (Firebase) ================= */
+const FB_BUILTIN = {
+  config: {
+    apiKey: "AIzaSyAWEL19TBqIL9w785_R71JMj698-mwvsfU",
+    authDomain: location.hostname==="5asesny.web.app" ? "5asesny.web.app" : "diet-tracker-372ca.firebaseapp.com",
+    projectId: "diet-tracker-372ca",
+    storageBucket: "diet-tracker-372ca.firebasestorage.app",
+    messagingSenderId: "142673055934",
+    appId: "1:142673055934:web:01206bee5403fbf1b70eef"
+  }
+};
+const APP_CHECK_SITE_KEY = "6Lfp2WctAAAAADMCZ8ro60zlxHQqsv4rZXzmE_g2";
+const TEST_MODE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new URLSearchParams(location.search).get("test")==="1";
+let FB={ref:null, active:false, pushTimer:null, unsub:null};
+let deletingAll=false;
+function setSyncStatus(s){ const el=document.getElementById("sync-status"); if(el) el.textContent=s; }
+function loadScript(src){ return new Promise((ok,bad)=>{ const s=document.createElement("script"); s.src=src; s.onload=ok; s.onerror=bad; document.head.appendChild(s); }); }
+async function initSync(){
+  try{
+    if(!window.firebase){
+      await loadScript("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
+      if(!TEST_MODE) await loadScript("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check-compat.js");
+      await loadScript("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js");
+      await loadScript("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js");
+    }
+    if(!firebase.apps.length) firebase.initializeApp(FB_BUILTIN.config);
+    if(TEST_MODE){
+      firebase.auth().useEmulator("http://127.0.0.1:9099");
+      firebase.firestore().useEmulator("127.0.0.1",8080);
+    }else if(APP_CHECK_SITE_KEY){
+      firebase.appCheck().activate(APP_CHECK_SITE_KEY,true);
+    }
+    firebase.auth().onAuthStateChanged(u=>{ u?start(u):stop(); });
+    if(TEST_MODE&&!firebase.auth().currentUser) await firebase.auth().signInAnonymously();
+  }catch(e){
+    document.getElementById("login").style.display="";
+    document.getElementById("login-status").textContent="⚠️ مش قادر أوصل بالسيرفر — اتأكد من النت واعمل تحديث للصفحة.";
+  }
+}
+function start(u){
+  document.getElementById("login").style.display="none";
+  KEY="diet_tracker_v1_"+u.uid;
+  S=load();
+  if(migrateReviewedProfile()){
+    try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){}
+  }
+  FB.ref=firebase.firestore().collection("trackers").doc(u.uid);
+  FB.unsub=FB.ref.onSnapshot(doc=>{
+    if(doc.exists){ const r=doc.data(); if(r && r.days) mergeRemote(r); }
+    if(!FB.active){ FB.active=true; schedulePush(); }
+    setSyncStatus("☁️ متزامن مع السحابة · آخر تحديث "+new Date().toLocaleTimeString());
+  }, err=>setSyncStatus("⚠️ المزامنة متعطلة: "+err.message));
+  if(S.settings&&S.settings.ht) showApp(); else showSetup(u);
+}
+function setWho(){ const u=firebase.auth().currentUser; document.getElementById("who").textContent=(S&&S.settings&&S.settings.name)||(u&&(u.displayName||u.email))||""; }
+let suEdit=false;
+function editProfile(){ suEdit=true; showSetup(firebase.auth().currentUser); }
+function showApp(){
+  suEdit=false;
+  document.getElementById("setup").style.display="none";
+  document.getElementById("app").style.display="";
+  setWho();
+  showTab("day");
+  setDay(today());
+}
+function showSetup(u){
+  document.getElementById("app").style.display="none";
+  document.getElementById("setup").style.display="";
+  const s=S.settings||{};
+  const set=(id,val)=>{ document.getElementById(id).value=(val===undefined||val===null)?"":val; };
+  set("su-name", s.name||u.displayName||"");
+  document.getElementById("su-sex").value=s.sex||"m";
+  set("su-age",s.age); set("su-ht",s.ht);
+  set("su-w", s.sw!==undefined?s.sw:(weightSeries().slice(-1)[0]||{}).w);
+  set("su-gw",s.gw);
+  document.getElementById("su-act").value=s.act||"1.375";
+  suCalc();
+  ["klo","khi","plo","phi"].forEach(k=>{ if(s[k]!==undefined&&s[k]!==null) document.getElementById("su-"+k).value=s[k]; });
+  const editing=!!s.ht;
+  document.getElementById("su-back").style.display=editing?"":"none";
+  document.getElementById("su-sub").textContent=editing?"عدّل بياناتك وأهدافك":"خطوة واحدة — دخّل بياناتك وهنحسبلك أهدافك";
+  document.getElementById("su-w-label").textContent=editing?"وزن البداية (كجم):":"وزنك الحالي (كجم):";
+  document.getElementById("su-save").textContent=editing?"حفظ ✅":"ابدأ 🚀";
+}
+function suRead(){
+  const v=id=>parseFloat(document.getElementById(id).value);
+  const p={sex:document.getElementById("su-sex").value, age:v("su-age"), ht:v("su-ht"), w:v("su-w"), gw:v("su-gw"), act:parseFloat(document.getElementById("su-act").value)};
+  return validProfile(p)?p:null;
+}
+function suCalc(){
+  const p=suRead(); if(!p) return;
+  const t=calcTargets(p);
+  ["klo","khi","plo","phi"].forEach(k=>{ document.getElementById("su-"+k).value=t[k]; });
+  document.getElementById("su-tdee").textContent="السعرات اللي بتثبّت وزنك تقريبًا: ~"+t.tdee+" سعر/يوم";
+}
+function suSave(){
+  const p=suRead();
+  if(!p){ document.getElementById("su-err").textContent="⚠️ للبالغين فقط: راجع السن والطول والوزن، وخلي هدف الوزن ضمن BMI من 18.5 إلى 40 أو راجع مختص."; return; }
+  const t=calcTargets(p);
+  const v=(id,fb)=>parseFloat(document.getElementById(id).value)||fb;
+  const custom={klo:v("su-klo",t.klo),khi:v("su-khi",t.khi),plo:v("su-plo",t.plo),phi:v("su-phi",t.phi)};
+  if(!validTargets(custom)){
+    document.getElementById("su-err").textContent="⚠️ راجع ترتيب ونطاق أهداف السعرات والبروتين.";
+    return;
+  }
+  S.settings=Object.assign({},S.settings,{
+    name:document.getElementById("su-name").value.trim(),
+    sex:p.sex, age:p.age, ht:p.ht, act:p.act, sw:p.w, gw:p.gw,
+    klo:custom.klo, khi:custom.khi, plo:custom.plo, phi:custom.phi,
+    _ts:Date.now()
+  });
+  save();
+  showApp();
+}
+function stop(){
+  if(FB.unsub) FB.unsub();
+  clearTimeout(FB.pushTimer);
+  FB={ref:null, active:false, pushTimer:null, unsub:null};
+  S=null; KEY=null;
+  document.getElementById("app").style.display="none";
+  document.getElementById("setup").style.display="none";
+  document.getElementById("login").style.display="";
+}
+function login(){
+  const p=new firebase.auth.GoogleAuthProvider();
+  firebase.auth().signInWithPopup(p).catch(e=>{
+    if(e.code==="auth/popup-blocked"||e.code==="auth/operation-not-supported-in-this-environment")
+      return firebase.auth().signInWithRedirect(p);
+    if(e.code!=="auth/popup-closed-by-user"&&e.code!=="auth/cancelled-popup-request")
+      document.getElementById("login-status").textContent="⚠️ فشل الدخول: "+(e.code||e.message);
+  });
+}
+function logout(){ firebase.auth().signOut(); }
+async function deleteAllData(){
+  if(deletingAll||!FB.ref||!KEY) return;
+  if(!confirm("هتمسح كل بيانات المتابعة من الجهاز والسحابة. تحب تكمل؟")) return;
+  if(prompt('للتأكيد اكتب كلمة "حذف"')!=="حذف"){ alert("الإلغاء تم — بياناتك زي ما هي."); return; }
+  const u=firebase.auth().currentUser, ref=FB.ref, localKey=KEY;
+  deletingAll=true;
+  const btn=document.getElementById("delete-all");
+  btn.disabled=true;
+  setSyncStatus("جاري حذف بياناتك…");
+  clearTimeout(FB.pushTimer);
+  FB.pushTimer=null;
+  FB.active=false;
+  if(FB.unsub){ FB.unsub(); FB.unsub=null; }
+  try{
+    await ref.delete();
+    localStorage.removeItem(localKey);
+    S=null; KEY=null; FB.ref=null;
+    await firebase.auth().signOut();
+    alert("اتحذفت كل بيانات المتابعة من الجهاز والسحابة ✅");
+  }catch(e){
+    deletingAll=false;
+    btn.disabled=false;
+    setSyncStatus("⚠️ الحذف ماكملش. بياناتك محفوظة؛ جرّب تاني لما الاتصال يرجع.");
+    if(u) start(u);
+  }
+}
+function mergeRemote(remote){
+  let changed=false;
+  for(const k in remote.days){
+    const r=remote.days[k], l=S.days[k];
+    if(!l || (r._ts||0)>(l._ts||0)){ S.days[k]=r; changed=true; }
+  }
+  if(remote.settings && (remote.settings._ts||0)>((S.settings&&S.settings._ts)||0)){ S.settings=remote.settings; changed=true; }
+  if(remote.foods && (remote.foods._ts||0)>((S.foods&&S.foods._ts)||0)){ S.foods=remote.foods; changed=true; }
+  if(remote.calref && (remote.calref._ts||0)>((S.calref&&S.calref._ts)||0)){ S.calref=remote.calref; changed=true; }
+  if(migrateReviewedProfile()) changed=true;
+  if(changed){
+    try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
+    renderDay();
+    if(curTab==="prog") renderProg();
+    if(curTab==="cal") renderCalRef();
+  }
+  // returning user on a fresh device: cloud profile arrived while setup is showing
+  if(S.settings&&S.settings.ht&&!suEdit&&document.getElementById("setup").style.display!=="none") showApp();
+}
+function schedulePush(){
+  if(deletingAll || !FB.active || !FB.ref) return;
+  clearTimeout(FB.pushTimer);
+  FB.pushTimer=setTimeout(()=>{
+    FB.ref.set({days:S.days, settings:S.settings||{}, foods:S.foods||{}, calref:S.calref||{}, updated:Date.now()})
+      .then(()=>setSyncStatus("☁️ متزامن مع السحابة · آخر تحديث "+new Date().toLocaleTimeString()))
+      .catch(e=>setSyncStatus("⚠️ هيتزامن أول ما النت يرجع"));
+  }, 1200);
+}
+
+/* ================= تشغيل ================= */
+window.__dietTest={calcTargets,validProfile,validTargets,macroMismatch,totals,getState:()=>S,setState:x=>{S=x;}};
+initSync();

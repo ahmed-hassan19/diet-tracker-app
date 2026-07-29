@@ -1,3 +1,8 @@
 public/index.html
 .firebase/
 node_modules/
+public/data.js
+public/calc.js
+public/state.js
+public/render.js
+public/sync.js

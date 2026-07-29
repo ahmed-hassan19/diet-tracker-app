@@ -10,13 +10,17 @@ document per authenticated user with Firebase.
 
 ## Architecture
 
-- `public/index.html`: dependency-free UI, styles, state, nutrition data,
-  Firebase Auth/Firestore integration, App Check bootstrap, and Firebase AI.
+- `public/index.html`: markup, styles, and the Firebase AI module block.
+- `public/data.js`: meal, extra, and calorie-reference nutrition tables.
+- `public/calc.js`: pure calorie/protein/macro functions — no state access.
+- `public/state.js`: the `S` state object, localStorage, and import/export.
+- `public/render.js`: all four tab renderers and the UI handlers.
+- `public/sync.js`: Firebase Auth/Firestore integration, App Check bootstrap,
+  and the `initSync()` entry point. Loads last.
 - `firestore.rules`: owner-only access to `/trackers/{uid}`.
 - `firebase.json`: fixed Auth, Firestore, and Hosting emulator ports plus the
   `main` and `nice` production Hosting targets.
-- `scripts/validate.mjs`: JavaScript, nutrition, configuration, and reviewed
-  profile assertions.
+- `scripts/validate.mjs`: script-tag, nutrition, and configuration assertions.
 - `tests/`: unit, emulator-backed rules, and Playwright browser coverage.
 
 Data model:
@@ -79,13 +83,13 @@ npx firebase-tools deploy --only firestore:rules
 
 Pull requests receive an expiring seven-day preview of `main` after `quality`
 passes. Annotated `v*` tags rerun all checks, deploy both production targets,
-and compare each live response byte-for-byte with the tagged
-`public/index.html`. GitHub Actions uses Workload Identity Federation; do not
-create or upload service-account keys.
+and compare every live file byte-for-byte with the tagged `public/`. GitHub
+Actions uses Workload Identity Federation; do not create or upload
+service-account keys.
 
 ## Privacy and security
 
-See [PRIVACY.md](PRIVACY.md) for data handling and deletion, and
-[SECURITY.md](SECURITY.md) for private vulnerability reporting. App Check uses
+See [public/privacy.html](public/privacy.html) for data handling and deletion.
+Never commit service-account keys. App Check uses
 invisible reCAPTCHA v3 in monitoring mode. Do not enforce it until legitimate
 production and preview traffic has been measured.

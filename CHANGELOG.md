@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Split the inline script block in `public/index.html` into five classic
+  scripts (`data.js`, `calc.js`, `state.js`, `render.js`, `sync.js`). Pure code
+  move, no behavior change.
+- `scripts/validate.mjs` and `tests/unit/profile.test.mjs` now load the real
+  source files instead of scraping the HTML as text.
+- Production hosting sends `no-store` for `**/*.js`, and the tagged-release
+  byte-compare covers every deployed file rather than only `index.html`.
+
+### Removed
+
+- `scripts/validate.mjs` no longer reimplements Mifflin-St Jeor; the unit test
+  asserts the reviewed profile against the app's own `calcTargets`.
+- `SECURITY.md` and `PRIVACY.md`. `public/privacy.html` is the canonical
+  privacy policy; the key security note moved into `CLAUDE.md`.
+
 ## [3.2.0] - 2026-07-27
 
 ### Added

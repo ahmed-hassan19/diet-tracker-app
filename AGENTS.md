@@ -2,7 +2,7 @@
 
 ## Project Structure & Module Organization
 
-This is a dependency-free, single-page Firebase application. `public/index.html` contains the Arabic RTL interface, styles, application state, nutrition data, and client-side Firebase integration. Keep related HTML, CSS, and JavaScript sections grouped and preserve the existing section comments.
+This is a dependency-free, build-step-free Firebase application. `public/index.html` holds the Arabic RTL markup, the styles, and the Firebase AI module block; the app logic lives in five plain classic scripts it loads in order — `data.js`, `calc.js`, `state.js`, `render.js`, `sync.js`. They share one global scope, so a binding declared in any of them resolves in the ones after it. Keep the existing section comments and put new code in the file that matches its concern: `calc.js` stays free of state access, `sync.js` stays last because it ends with `initSync()`.
 
 `firebase.json` defines Firestore rules and two Hosting targets (`main` and `nice`), while `.firebaserc` maps those targets to the shared Firebase project. Authorization for each user's document lives in `firestore.rules`. Generated Firebase cache data under `.firebase/` must remain untracked.
 
@@ -12,7 +12,7 @@ The app has no runtime build step. Contributor checks use one development depend
 
 - `npm install` installs the development-only formatting tool and configures tracked Git hooks.
 - `npm run check` runs formatting checks, JavaScript/data validation, and reviewed-profile assertions.
-- `npm run format` formats Markdown and JSON files; `public/index.html` intentionally retains its compact style.
+- `npm run format` formats Markdown and JSON files; `public/index.html` and the five `public/*.js` files intentionally retain their compact style.
 - `firebase emulators:start --only hosting,firestore` serves the app and evaluates Firestore behavior locally.
 - `firebase deploy --only hosting:main` deploys `public/` to the primary site.
 - `firebase deploy --only hosting:nice` deploys the alternate site.
@@ -24,11 +24,13 @@ Run deployment commands only from the repository root and verify the active proj
 
 Follow the existing two-space indentation in JavaScript and Firebase JSON. Keep HTML and CSS compact, use double quotes in markup and JavaScript strings, and retain `"use strict"`. Existing JavaScript uses `camelCase` for functions and variables, `UPPER_SNAKE_CASE` for constants such as `MEALS`, and short kebab-case DOM IDs such as `tab-day`. Keep user-facing copy in Egyptian Arabic and preserve `lang="ar"` and `dir="rtl"`.
 
-Prettier formats Markdown and JSON. `scripts/validate.mjs` checks the inline JavaScript, nutrition data, Firebase JSON, and reviewed-profile targets. Avoid unrelated reformatting of the large single-file app.
+Prettier formats Markdown and JSON. `scripts/validate.mjs` checks that every referenced script exists and parses, plus the nutrition data and Firebase JSON. Avoid unrelated reformatting of the app files.
 
 ## Testing Guidelines
 
-No automated test framework or coverage target is configured. Before submitting changes, exercise login/logout, profile setup, daily entry persistence, tab navigation, import/export, and mobile layouts. For rule changes, confirm an authenticated user can access only `/trackers/{theirUid}` using the Firestore emulator. Check the browser console for runtime errors.
+`npm run check` is the gate the pre-commit hook runs: formatting, `scripts/validate.mjs`, `node --test tests/unit/*.test.mjs`, and emulator-backed Firestore rules tests. `npm run check:static` drops the rules tests when Java 21 is unavailable. Playwright specs run separately inside the emulator: `npx firebase-tools emulators:exec --only auth,firestore,hosting "npm run test:browser"`. Their `afterEach` asserts zero console errors, so any stray `console.error` or failed request fails every spec.
+
+Beyond the suites, exercise login/logout, profile setup, daily entry persistence, tab navigation, import/export, and mobile layouts before submitting.
 
 ## Commit & Pull Request Guidelines
 

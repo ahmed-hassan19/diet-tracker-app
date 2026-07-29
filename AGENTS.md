@@ -75,7 +75,7 @@ All production changes follow this cycle:
 
 1. **Branch:** Start from an up-to-date `main` (`git pull --ff-only origin main`) and create a focused `feature/<short-name>` or `fix/<short-name>` branch. Do not develop or commit directly on `main`.
 2. **Pull request:** Push the branch and open a PR into `main`. Keep the PR limited to one feature or fix, update `CHANGELOG.md` under `Unreleased`, and include the required explanation, checks, issue links, and UI evidence.
-3. **Review:** Wait for required reviews and for the quality workflow, browser suite, and preview deployment to pass. Address feedback on the same branch and repeat validation before merge.
+3. **Review:** Wait for required reviews, including Qodo's automated review when the GitHub App is enabled, and for the quality workflow, browser suite, and preview deployment to pass. Resolve or explicitly acknowledge Qodo findings before merge. Address feedback on the same branch and repeat validation before merge.
 4. **Upgrade `main`:** Merge only the approved PR, then update the local `main` with `git pull --ff-only origin main`. Confirm that the merged commit and all intended release changes are present on `main`; never release from a topic branch.
 5. **Release:** Choose the next Semantic Version, finalize the changelog and all visible/package version references through a reviewed PR when needed, and ensure `main` is green. Create an annotated `vX.Y.Z` tag on the release commit (`git tag -a vX.Y.Z -m "vX.Y.Z"`) and push that tag. The tag-triggered release workflow runs the full checks, deploys both Hosting targets, and verifies every deployed file. Do not use a manual Firebase production deploy as a substitute for this workflow.
 

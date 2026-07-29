@@ -1,0 +1,20 @@
+[github_app]
+pr_commands = [
+  "/agentic_describe",
+  "/agentic_review",
+]
+handle_push_trigger = true
+push_commands = [
+  "/agentic_review",
+]
+
+[review_agent]
+comments_location_policy = "both"
+inline_comments_severity_threshold = 2
+issues_user_guidelines = """
+Read AGENTS.md before reviewing. Treat it as the canonical repository policy.
+Focus on correctness, regressions, security, Firebase boundaries, test coverage,
+and violations of the architecture, nutrition, and release invariants it defines.
+Keep feedback concise and avoid purely stylistic suggestions already enforced by
+the repository checks.
+"""

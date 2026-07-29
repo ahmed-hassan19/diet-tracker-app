@@ -2,14 +2,16 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-`AGENTS.md` holds the contributor-facing conventions (style, commit format, deploy commands, security posture) and still applies — except its "Testing Guidelines" section, which is stale: automated tests exist (see below).
+`AGENTS.md` holds the contributor-facing conventions (style, commit format, deploy commands, security posture) and still applies.
+
+Never commit service-account keys; deploys authenticate through short-lived GitHub OIDC credentials.
 
 ## Commands
 
 ```sh
 npm run check          # format:check + lint + test:unit + test:rules — what the pre-commit hook runs
 npm run check:static   # same minus test:rules (no Java/emulator needed)
-npm run lint           # scripts/validate.mjs — parses public/index.html
+npm run lint           # scripts/validate.mjs — parses public/*.js and index.html
 npm run test:unit      # node --test tests/unit/*.test.mjs
 npm run test:rules     # boots the Firestore emulator (needs Java 21 on PATH)
 
@@ -25,30 +27,40 @@ Playwright's `afterEach` asserts the console produced **zero** errors, so any st
 
 ## Architecture
 
-The whole app is `public/index.html` (~1300 lines): markup, CSS, state, nutrition data, and Firebase wiring. There is no build step — the deployed file is the source file.
+There is no build step — the deployed files are the source files. `public/index.html` (~275 lines) is markup, CSS, and the AI module; the app logic is five plain classic scripts it loads in order:
 
-**Two script blocks, two Firebase SDKs.** `scripts/validate.mjs` hard-fails if the count isn't exactly 2.
+| File        | Holds                                                                                                                                             |
+| ----------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `data.js`   | `MEALS`, `EXTRAS`, `CALREF` and their `console.assert`s, `WORKOUTS`, `DEF`                                                                        |
+| `calc.js`   | `T`, `calcTargets`, `validProfile`, `validTargets`, `macroHints`, `macroMismatch`, `macros`, `TLIMITS`, `totals`, `project` — **no state access** |
+| `state.js`  | `S`, `KEY`, `load`/`save`, `migrateReviewedProfile`, `day`, `esc`, `weightSeries`, export/import                                                  |
+| `render.js` | the four tab renderers, `drawChart`, and every UI handler                                                                                         |
+| `sync.js`   | Firebase auth/sync, `TEST_MODE`, `window.__dietTest`, and the trailing `initSync()`                                                               |
 
-1. Classic `<script>`: app logic. Lazily `loadScript()`s the **compat** SDK v10.14.1 (app / auth / firestore / app-check) for auth and sync.
-2. `<script type="module">`: the **modular** SDK v12.9.0, initializing a _second_ named Firebase app (`"ai"`) purely for `aiEstimate()` (Gemini via `getGenerativeModel`, `gemini-flash-latest`, JSON response schema). It gets its own App Check instance.
+They are **classic scripts, not modules**, deliberately: one shared global scope means bindings resolve across files as they did inside the old single block, and the 34 inline `onclick=` handlers keep working with no `window.x = x` shims. Load order is the dependency order; `sync.js` must stay last because it ends with the `initSync()` call. Anything new that reads `S` belongs in `state.js` or later, never `calc.js`.
 
-**Tooling parses the HTML as text.** `validate.mjs` regex-matches `const MEALS = …;\nconst EXTRAS = …;` and `const CALREF=…;\nconsole.assert`; `tests/unit/profile.test.mjs` locates functions by scanning for `function <name>(` and brace-matching. Renaming those bindings, reformatting the data literals, or nesting those functions breaks lint/tests even though the app still runs.
+**Two Firebase SDKs.** The classic scripts lazily `loadScript()` the **compat** SDK v10.14.1 (app / auth / firestore / app-check) for auth and sync. The one remaining inline block is `<script type="module">`: the **modular** SDK v12.9.0, initializing a _second_ named Firebase app (`"ai"`) purely for `aiEstimate()` (Gemini via `getGenerativeModel`, `gemini-flash-latest`, JSON response schema), with its own App Check instance. Modules execute after all classic scripts, so it resolves `FB_BUILTIN`/`TEST_MODE` from the global scope. `validate.mjs` asserts exactly one inline block and that every `src="./*.js"` resolves to a real file.
 
-**Calorie/protein target pipeline** (`calcTargets` → `validTargets`, around line 356):
+**Calorie/protein target pipeline** (`calcTargets` → `validTargets` in `calc.js`):
 
 - Mifflin-St Jeor BMR × activity → TDEE; cut = −min(900, max(300, 20% TDEE)), bulk = +300.
 - Protein is clamped to the 300 g ceiling `validTargets` enforces.
 - Calories are deliberately **not** clamped — an earlier 6000 ceiling inverted the intended deficit for extreme profiles, so out-of-band results are now rejected instead. `recalcTargets()` gates on `validTargets()` and alerts rather than saving a distorted target. Don't reintroduce an energy clamp.
-- The reviewed-profile expected values (`tdee 3220 / klo 2550 / khi 2650 / plo 172 / phi 189`) are asserted in **three** places: the inline `console.assert` IIFE in `index.html`, the `reviewedProfile` block in `scripts/validate.mjs`, and `tests/unit/profile.test.mjs`. Any formula change must update all three.
+- The reviewed-profile expected values (`tdee 3220 / klo 2550 / khi 2650 / plo 172 / phi 189`) are asserted in **two** places: the `console.assert` IIFE in `calc.js`, and `tests/unit/profile.test.mjs`. Any formula change must update both. `validate.mjs` used to carry a third, hand-reimplemented copy of Mifflin-St Jeor — it was deleted; the unit test executes the real `calcTargets` instead, and `check:static` runs lint and unit tests together.
 - `migrateReviewedProfile()` / `REVIEWED_PROFILE_VERSION` fingerprint one specific real user's profile and rewrite their stored targets on load. Bump the version when the formula changes.
 
-**Food data invariant:** every entry in `MEALS`/`EXTRAS`/`CALREF` must satisfy `|k − (p·4 + f·9 + c·4)| / k ≤ 10%`. Enforced by an inline `console.assert`, by `validate.mjs`, and surfaced in the UI through `macroMismatch()`.
+**Food data invariant:** every entry in `MEALS`/`EXTRAS`/`CALREF` must satisfy `|k − (p·4 + f·9 + c·4)| / k ≤ 10%`. Enforced by a `console.assert` in `data.js`, by `validate.mjs` (which `vm`-runs `data.js`), and surfaced in the UI through `macroMismatch()`.
 
 **Storage:** `S` is the single in-memory state object, mirrored to `localStorage["diet_tracker_v1_" + uid]` by `save()`, which also `schedulePush()`es a debounced Firestore write to `/trackers/{uid}`. Remote snapshots merge back via `mergeRemote()`. `firestore.rules` allows access only when `request.auth.uid == uid`.
 
-**Test mode:** `TEST_MODE` is true only on localhost/127.0.0.1 with `?test=1` — it points auth/firestore at the emulators, signs in anonymously, and skips App Check. Production hosts ignore the flag. `window.__dietTest` exposes `calcTargets`, `validProfile`, `validTargets`, `macroMismatch`, `totals`, and state accessors for the browser specs.
+**Test mode:** `TEST_MODE` is true only on localhost/127.0.0.1 with `?test=1` — it points auth/firestore at the emulators, signs in anonymously, and skips App Check. Production hosts ignore the flag. `window.__dietTest` (in `sync.js`) exposes `calcTargets`, `validProfile`, `validTargets`, `macroMismatch`, `totals`, and state accessors for the browser specs.
 
-**Hosting:** one Firebase project (`diet-tracker-372ca`) serves two targets from the same `public/` — `main` (diet-tracker-372ca.web.app) and `nice` (5asesny.web.app). `authDomain` is switched at runtime based on `location.hostname`. Releases are driven by annotated `v*` tags, which deploy both targets and byte-compare the live response against the tagged file.
+**Hosting:** one Firebase project (`diet-tracker-372ca`) serves two targets from the same `public/` — `main` (diet-tracker-372ca.web.app) and `nice` (5asesny.web.app). `authDomain` is switched at runtime based on `location.hostname`. Releases are driven by annotated `v*` tags, which deploy both targets and byte-compare every live file against the tagged `public/`.
+
+Two hosting traps worth knowing:
+
+- The catch-all `rewrites` rule returns **HTTP 200 with `content-type: text/html`** for a missing `.js` — not a 404 — so a partially-uploaded deploy silently ships an app whose scripts the browser refuses to execute. The per-file `cmp` loop in `release.yml` is what turns that into a red build; don't shrink it back to checking `index.html` alone.
+- `firebase.json` carries a `**/*.js` `no-store` header on **both** targets alongside `**/*.html`. Without it the JS defaults to `max-age=3600`, and a returning user gets fresh HTML against up-to-an-hour-stale logic.
 
 ## Health-content changes
 

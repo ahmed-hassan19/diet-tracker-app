@@ -71,6 +71,27 @@ function T(){ return Object.assign({},DEF,S.settings||{}); }
 function getExtra(i){ return (typeof i==="string"&&i[0]==="c") ? ((S.foods&&S.foods.extras)||[])[+i.slice(1)] : EXTRAS[i]; }
 console.assert(getExtra(0)===EXTRAS[0],"getExtra predefined");
 
+// ponytail: no length cap — renderDay() already emits one row per history entry,
+// so the datalist can't be what makes the DOM big first. Slice if history ever grows.
+function foodNames(){
+  const f=S.foods||{};
+  const mine=Object.keys(f).filter(k=>k!=="_ts").flatMap(k=>f[k]||[]).reverse();
+  const refs=(((S.calref||{}).items)||[]).slice().reverse();
+  const builtin=[...Object.values(MEALS).flatMap(m=>m.opts),...EXTRAS,...CALREF.flatMap(g=>g.items)];
+  const out=new Map();
+  [...mine,...refs,...builtin].forEach(o=>{ if(o&&o.t&&!out.has(o.t)) out.set(o.t,o); });
+  return [...out.values()];
+}
+function foodByName(t){ return foodNames().find(o=>o.t===t)||null; }
+// aiCalRef stores "النوع (الكمية)" as one string; recover the quantity from the trailing parens
+function qtyNames(){
+  const out=new Set();
+  (((S.calref||{}).items)||[]).slice().reverse().forEach(o=>{
+    const m=/\(([^()]+)\)\s*$/.exec((o&&o.t)||""); if(m) out.add(m[1]);
+  });
+  return [...out];
+}
+
 function totals(d){
   let k=0,p=0,f=0,c=0;
   for(const key in MEALS){ const o=getOpt(key,d[key]); if(d[key]!==undefined && d[key]!==null && o){ k+=o.k; p+=o.p; f+=o.f||0; c+=o.c||0; } }

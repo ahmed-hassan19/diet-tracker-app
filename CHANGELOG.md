@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- خانات الأكل الحرة بتقترح عليك الأكلات اللي سجلتها قبل كده مع أكلات الخطة
+  الجاهزة، ولو اخترت أكلة متسجلة بيتملى السعرات والبروتين والدهون والكارب
+  تلقائيًا. الاقتراحات كمان في خانتي النوع والكمية في مرجع السعرات.
+
 ### Changed
 
 - Split the inline script block in `public/index.html` into five classic

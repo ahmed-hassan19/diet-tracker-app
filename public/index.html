@@ -358,9 +358,11 @@ function calcTargets(p){
   const tdee=Math.round(bmr*p.act);
   const delta=p.gw<p.w?-Math.min(900,Math.max(300,tdee*0.2)):p.gw>p.w?300:0;
   /* 1250 يخلي الحد الأدنى 1200، نفس الحد اللي بيرفضه التحقق عند الحفظ */
+  /* مفيش سقف سعرات هنا: القص لـ6000 كان بيقلب العجز المقصود لعجز أكبر بكتير، والرفض أأمن من رقم غلط */
   const mid=Math.max(1250,Math.round((tdee+delta)/50)*50);
   const proteinWeight=p.gw<p.w?p.gw:p.w;
-  return {klo:mid-50,khi:mid+50,plo:Math.round(2.0*proteinWeight),phi:Math.round(2.2*proteinWeight),tdee};
+  const phi=Math.min(300,Math.round(2.2*proteinWeight));
+  return {klo:mid-50,khi:mid+50,plo:Math.min(phi,Math.round(2.0*proteinWeight)),phi,tdee};
 }
 function validProfile(p){
   const goalBmi=p.gw/(p.ht/100)**2;
@@ -381,6 +383,10 @@ function validTargets(t){
   console.assert(personal.tdee===3220&&personal.klo===2550&&personal.khi===2650&&personal.plo===172&&personal.phi===189,"calcTargets reviewed profile",personal);
   const small=calcTargets({sex:"f",age:20,ht:150,w:45,act:1.2,gw:40});
   console.assert(small.klo>=1200,"calcTargets never pre-fills below the 1200 floor",small);
+  const heavy=calcTargets({sex:"m",age:30,ht:186,w:140,act:1.55,gw:138});
+  console.assert(validTargets(heavy),"calcTargets clamps protein instead of emitting an unsaveable target",heavy);
+  const huge=calcTargets({sex:"m",age:18,ht:230,w:300,act:1.9,gw:98});
+  console.assert(!validTargets(huge)&&huge.khi>6000,"calcTargets rejects rather than clamps energy needs above the supported band",huge);
 })();
 function macroHints(g){
   const kmid=(g.klo+g.khi)/2, pmid=(g.plo+g.phi)/2;
@@ -637,6 +643,7 @@ function recalcTargets(){
   const ws=weightSeries();
   const w=ws.length?ws[ws.length-1].w:g.sw;
   const t=calcTargets({sex:g.sex,age:g.age,ht:g.ht,w:w,act:g.act,gw:g.gw});
+  if(!validTargets(t)){ alert("احتياجك المقدّر ("+t.klo+"–"+t.khi+" سعر) خارج النطاق اللي التطبيق بيدعمه (1200–6000). حط هدفك يدويًا من الخانات فوق وراجع مختص تغذية."); return; }
   S.settings=Object.assign({},S.settings,{klo:t.klo,khi:t.khi,plo:t.plo,phi:t.phi,_ts:Date.now()});
   save(); renderProg();
 }
@@ -743,7 +750,7 @@ function renderPlan(){
       <div class="stat"><div class="v">${mh.clo}–${mh.chi} جم</div><div class="l">كربوهيدرات</div></div>
     </div>
     <div class="note">🔀 مدى الدهون والكربوهيدرات بديلين لبعض: كل جرام دهون زيادة بيقلّل الكارب المتاح، فمينفعش توصل لأعلى رقم في الاتنين مع بعض من غير ما تعدّي سقف السعرات.</div>
-    <div class="note">💡 الهدف المبدئي ${kmid} سعر ≈ ${rateTxt} حسب معادلة تقديرية، مش قياس مباشر للحرق. حافظ على تمارين المقاومة والبروتين، واضغط "🔄 احسب تلقائي" لما الوزن أو النشاط يتغير.</div>
+    <div class="note">💡 الهدف المبدئي ${kmid} سعر ≈ ${rateTxt} حسب معادلة تقديرية، مش قياس مباشر للحرق. حافظ على تمارين المقاومة والبروتين. التقدير <b>خطي</b> (7,700 سعر ≈ كيلو) وبيميل يبالغ في سرعة النزول لأن الحرق بيقل مع نقص الوزن، فاضغط "🔄 احسب تلقائي" كل ما الوزن أو النشاط يتغير.</div>
     <div class="note">📊 استخدم <b>متوسط 3 أسابيع</b>: لو النزول 0.4–0.8 كجم/أسبوع كمّل. لو أسرع من 0.8 بعد أول أسبوعين، أو القوة/الدوخة ساءت، زوّد 100–200 سعر. لو أقل من 0.4 مع تسجيل دقيق 3 أسابيع، قلّل 100–150 سعر. متعوّضش التمرين بأكل إضافي تلقائيًا؛ النشاط داخل تقدير الهدف بالفعل.</div>
     <div class="note">⚖️ الوجبات الأساسية وحدها بتعمل تقريبًا 2,040–2,340 سعر حسب اختياراتك. استخدم الإضافات الموزونة للوصول لهدفك الظاهر فوق؛ الاختيارات <b>متقاربة وليست متطابقة</b>، وملصق العبوة وميزان المطبخ أدق من القيم التقديرية.</div>
     <div class="note">⚕️ التطبيق للتتبع والتثقيف، مش تشخيص أو وصفة علاج. بسبب الضغط المنخفض وأعراض الدوخة، راجع طبيبك لو الأعراض زادت مع العجز أو التمرين، ومتغيّرش الملح أو السوائل أو المكملات كعلاج من نفسك.</div>

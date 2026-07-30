@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.4.0] - 2026-07-30
+
 ### Added
 
 - لما وزنك ينزل كفاية عشان المقترح يتغيّر فعلًا، صفحة التقدم بتوريك ملاحظة

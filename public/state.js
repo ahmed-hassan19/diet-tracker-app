@@ -22,7 +22,7 @@ function migrateReviewedProfile(){
   const act=1.55;
   const t=calcTargets({sex:"m",age:29,ht:186,w,act,gw:86});
   S.settings=Object.assign({},s,{
-    sex:"m",age:29,ht:186,act,gw:86,
+    sex:"m",age:29,ht:186,act,gw:86,tw:w,
     klo:t.klo,khi:t.khi,plo:t.plo,phi:t.phi,
     reviewedProfileVersion:REVIEWED_PROFILE_VERSION,_ts:Date.now()
   });

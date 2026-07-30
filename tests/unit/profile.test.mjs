@@ -73,6 +73,30 @@ test("cut deficit tracks bodyweight, not activity", () => {
   assert.ok(deficit(1.2) < deficit(1.55));
 });
 
+test("basis weight averages only the last 14 days", () => {
+  const series = [
+    { date: "2026-07-01", w: 105 },
+    { date: "2026-07-25", w: 100 },
+    { date: "2026-07-29", w: 99.2 },
+  ];
+  assert.equal(context.basisWeight(series, "2026-07-30"), 99.6);
+});
+
+test("basis weight falls back to the last weigh-in when the window is empty", () => {
+  const stale = [{ date: "2026-01-05", w: 101 }];
+  assert.equal(context.basisWeight(stale, "2026-07-30"), 101);
+  assert.equal(context.basisWeight([], "2026-07-30"), null);
+});
+
+test("stale-target prompt fires only after a full rounding step", () => {
+  const at = (w) =>
+    context.calcTargets({ sex: "m", age: 29, ht: 186, w, act: 1.55, gw: 86 });
+  const reviewed = at(99.6);
+  // 4.4 kg of loss moves the suggestion 2250-2350 -> 2200-2300
+  assert.equal(context.targetsMoved(reviewed, at(95.2)), true);
+  assert.equal(context.targetsMoved(reviewed, at(96.0)), false);
+});
+
 test("profile validation enforces adult and BMI limits", () => {
   assert.equal(context.validProfile({ age: 18, ht: 170, w: 70, gw: 65 }), true);
   assert.equal(

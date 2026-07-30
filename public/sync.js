@@ -106,7 +106,7 @@ function suSave(){
   }
   S.settings=Object.assign({},S.settings,{
     name:document.getElementById("su-name").value.trim(),
-    sex:p.sex, age:p.age, ht:p.ht, act:p.act, sw:p.w, gw:p.gw,
+    sex:p.sex, age:p.age, ht:p.ht, act:p.act, sw:p.w, gw:p.gw, tw:p.w,
     klo:custom.klo, khi:custom.khi, plo:custom.plo, phi:custom.phi,
     _ts:Date.now()
   });

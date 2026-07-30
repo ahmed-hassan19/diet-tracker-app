@@ -7,6 +7,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- العجز في السعرات بقى مربوط بوزن جسمك (~0.75% من الوزن كل أسبوع) بدل نسبة من
+  إجمالي الحرق، فالنشاط الزيادة مبقاش يكبّر العجز — التمرين بيرفع الحرق بس مش
+  بيرفع مخزون الدهون. وزيادة على كده التطبيق مبقاش يقترح سعرات أقل من حرق
+  الراحة (BMR) نهائيًا، فلو نشاطك قليل هتلاقي العجز أصغر ومعاه نصيحة تزوّد
+  النشاط بدل إنك تقلّل الأكل أكتر. شباك معدل النزول المقبول بقى محسوب من وزنك
+  (0.5–1.0% أسبوعيًا) بدل رقم ثابت.
+- `calcTargets()` now derives the cut deficit from bodyweight,
+  `min(1100, max(300, 8.25 * kg))`, instead of `min(900, max(300, 20% of TDEE))`,
+  and floors every result at `max(1250, ceil(BMR/50)*50)` so no target can fall
+  below resting metabolism. The reviewed profile moves from 2550–2650 to
+  2300–2400 at 105.5 kg and reads 2250–2350 at 99.6 kg;
+  `REVIEWED_PROFILE_VERSION` is bumped to 3 so stored targets are rewritten, and
+  its weight fingerprint now matches from 95 kg rather than 100 kg.
+
 ## [3.3.0] - 2026-07-29
 
 ### Added

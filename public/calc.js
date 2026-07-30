@@ -3,14 +3,19 @@
 function calcTargets(p){
   const bmr=10*p.w+6.25*p.ht-5*p.age+(p.sex==="m"?5:-161);
   const tdee=Math.round(bmr*p.act);
-  const delta=p.gw<p.w?-Math.min(900,Math.max(300,tdee*0.2)):p.gw>p.w?300:0;
-  /* 1250 يخلي الحد الأدنى 1200، نفس الحد اللي بيرفضه التحقق عند الحفظ */
+  /* عجز مربوط بوزن الجسم (~0.75% من الوزن/أسبوع = 8.25 سعر/كجم/يوم) مش بنسبة من TDEE:
+     النسبة من TDEE كانت بتكبّر العجز مع النشاط، والنشاط مش بيزود مخزون الدهون */
+  const delta=p.gw<p.w?-Math.min(1100,Math.max(300,8.25*p.w)):p.gw>p.w?300:0;
+  /* أرضية BMR: التطبيق ميقترحش أقل من حرق الراحة. 1250 يخلي الحد الأدنى 1200، نفس اللي بيرفضه التحقق عند الحفظ */
   /* مفيش سقف سعرات هنا: القص لـ6000 كان بيقلب العجز المقصود لعجز أكبر بكتير، والرفض أأمن من رقم غلط */
-  const mid=Math.max(1250,Math.round((tdee+delta)/50)*50);
+  const floor=Math.max(1250,Math.ceil(bmr/50)*50);
+  const mid=Math.max(floor,Math.round((tdee+delta)/50)*50);
   const proteinWeight=p.gw<p.w?p.gw:p.w;
   const phi=Math.min(300,Math.round(2.2*proteinWeight));
   return {klo:mid-50,khi:mid+50,plo:Math.min(phi,Math.round(2.0*proteinWeight)),phi,tdee};
 }
+/* شباك قبول معدل النزول: 0.5–1.0% من الوزن/أسبوع، حاضن هدف الـ0.75% اللي العجز مبني عليه */
+function rateBand(w){ return {lo:(0.005*w).toFixed(1),hi:(0.01*w).toFixed(1)}; }
 function validProfile(p){
   const goalBmi=p.gw/(p.ht/100)**2;
   return p.age>=18&&p.age<=100 && p.ht>=120&&p.ht<=230 && p.w>=30&&p.w<=300
@@ -21,13 +26,17 @@ function validTargets(t){
 }
 (function(){
   const m=calcTargets({sex:"m",age:30,ht:175,w:90,act:1.55,gw:80});
-  console.assert(m.klo===2250&&m.khi===2350&&m.plo===160&&m.phi===176,"calcTargets male cut",m);
+  console.assert(m.klo===2050&&m.khi===2150&&m.plo===160&&m.phi===176,"calcTargets male cut",m);
   const f=calcTargets({sex:"f",age:30,ht:165,w:70,act:1.375,gw:60});
-  console.assert(f.klo===1500&&f.khi===1600&&f.plo===120&&f.phi===132,"calcTargets female cut",f);
+  console.assert(f.klo===1400&&f.khi===1500&&f.plo===120&&f.phi===132,"calcTargets female cut",f);
   const b=calcTargets({sex:"m",age:25,ht:180,w:60,act:1.55,gw:70});
   console.assert(b.khi-b.klo===100&&(b.klo+b.khi)/2>b.tdee,"calcTargets bulk",b);
   const personal=calcTargets({sex:"m",age:29,ht:186,w:105.5,act:1.55,gw:86});
-  console.assert(personal.tdee===3220&&personal.klo===2550&&personal.khi===2650&&personal.plo===172&&personal.phi===189,"calcTargets reviewed profile",personal);
+  console.assert(personal.tdee===3220&&personal.klo===2300&&personal.khi===2400&&personal.plo===172&&personal.phi===189,"calcTargets reviewed profile",personal);
+  const personalNow=calcTargets({sex:"m",age:29,ht:186,w:99.6,act:1.55,gw:86});
+  console.assert(personalNow.klo===2250&&personalNow.khi===2350,"calcTargets reviewed profile at current weight",personalNow);
+  const band=rateBand(99.6);
+  console.assert(band.lo==="0.5"&&band.hi==="1.0","rateBand brackets the 0.75%/week target",band);
   const small=calcTargets({sex:"f",age:20,ht:150,w:45,act:1.2,gw:40});
   console.assert(small.klo>=1200,"calcTargets never pre-fills below the 1200 floor",small);
   const heavy=calcTargets({sex:"m",age:30,ht:186,w:140,act:1.55,gw:138});

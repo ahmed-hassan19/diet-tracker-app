@@ -191,11 +191,18 @@ function setT(k,v){
 function recalcTargets(){
   const g=T();
   if(!g.ht){ alert("كمّل بيانات الطول والسن الأول"); return; }
-  const ws=weightSeries();
-  const w=ws.length?ws[ws.length-1].w:g.sw;
+  const w=basisWeight(weightSeries(),today())||g.sw;
   const t=calcTargets({sex:g.sex,age:g.age,ht:g.ht,w:w,act:g.act,gw:g.gw});
   if(!validTargets(t)){ alert("احتياجك المقدّر ("+t.klo+"–"+t.khi+" سعر) خارج النطاق اللي التطبيق بيدعمه (1200–6000). حط هدفك يدويًا من الخانات فوق وراجع مختص تغذية."); return; }
-  S.settings=Object.assign({},S.settings,{klo:t.klo,khi:t.khi,plo:t.plo,phi:t.phi,_ts:Date.now()});
+  S.settings=Object.assign({},S.settings,{klo:t.klo,khi:t.khi,plo:t.plo,phi:t.phi,tw:w,_ts:Date.now()});
+  save(); renderProg();
+}
+/* الاحتفاظ بالهدف بيسجّل الوزن اللي المراجعة حصلت عنده — مفيش فلاج تجاهل منفصل،
+   نفس الحقل هو اللي بيمنع السؤال يتكرر لحد ما المقترح يتحرك خطوة كاملة تانية */
+function keepTargets(){
+  const w=basisWeight(weightSeries(),today());
+  if(!w) return;
+  S.settings=Object.assign({},S.settings,{tw:w,_ts:Date.now()});
   save(); renderProg();
 }
 
@@ -446,6 +453,15 @@ function renderProg(){
   const lost = ws.length>=2 ? (ws[0].w - last.w) : 0;
   const goalDate = proj.length? proj[proj.length-1].date : "—";
   const {lo:rateLo,hi:rateHi}=rateBand(last.w);
+  // المقترح بيتقارن بالمقترح، مش بالهدف المحفوظ — عشان هدف مكتوب بالإيد ميتنبّهش عليه
+  const basis=basisWeight(ws,today());
+  let stale=null;
+  if(g.ht&&basis){
+    const at=w=>calcTargets({sex:g.sex,age:g.age,ht:g.ht,w:w,act:g.act,gw:g.gw});
+    const tw=Number(g.tw)||basis;
+    const sug=at(basis);
+    if(targetsMoved(at(tw),sug)&&validTargets(sug)) stale={tw,sug};
+  }
   // weekly averages
   const wk={};
   ws.forEach(p=>{
@@ -495,6 +511,14 @@ function renderProg(){
     .map(a=>'<option value="'+a[0]+'"'+(+g.act===a[0]?" selected":"")+'>'+a[1]+'</option>').join("");
 
   document.getElementById("pg-prog").innerHTML = `
+  ${stale?`<div class="note" id="stale-note">
+    ⚖️ متوسط وزنك آخر ١٤ يوم ${basis.toFixed(1)} كجم، وآخر مراجعة للهدف كانت عند ${stale.tw.toFixed(1)} كجم.
+    المقترح دلوقتي <b>${stale.sug.klo}–${stale.sug.khi} سعر</b> · بروتين ${stale.sug.plo}–${stale.sug.phi} جم، وهدفك الحالي ${g.klo}–${g.khi} سعر.
+    <div class="row" style="margin-top:8px">
+      <button class="btn" style="width:auto;padding:7px 12px" onclick="recalcTargets()">تطبيق المقترح</button>
+      <button class="btn ghost" style="width:auto;padding:7px 12px" onclick="keepTargets()">الاحتفاظ بالهدف الحالي</button>
+    </div>
+  </div>`:""}
   <div class="card">
     <div class="grid2">
       <div class="stat"><div class="v">${last.w.toFixed(1)}</div><div class="l">آخر وزن (كجم)</div></div>

@@ -16,6 +16,17 @@ function calcTargets(p){
 }
 /* شباك قبول معدل النزول: 0.5–1.0% من الوزن/أسبوع، حاضن هدف الـ0.75% اللي العجز مبني عليه */
 function rateBand(w){ return {lo:(0.005*w).toFixed(1),hi:(0.01*w).toFixed(1)}; }
+/* وزن الأساس: متوسط أوزان آخر 14 يوم — الوزن اليومي فيه مياه بتلعب،
+   والمتوسط بيمنع المقترح إنه يروح ويجي حوالين حدود التقريب */
+function basisWeight(ws,asOf,days=14){
+  if(!ws.length) return null;
+  const cut=new Date(asOf+"T12:00:00").getTime()-days*864e5;
+  const win=ws.filter(p=>new Date(p.date+"T12:00:00").getTime()>=cut);
+  const use=win.length?win:[ws[ws.length-1]];
+  return use.reduce((a,p)=>a+p.w,0)/use.length;
+}
+/* الأهداف بتتقرب لأقرب 50 سعر، فأي فرق أصغر من خطوة كاملة مش تغيير حقيقي */
+function targetsMoved(a,b){ return Math.abs(a.klo-b.klo)>=50; }
 function validProfile(p){
   const goalBmi=p.gw/(p.ht/100)**2;
   return p.age>=18&&p.age<=100 && p.ht>=120&&p.ht<=230 && p.w>=30&&p.w<=300
@@ -43,6 +54,11 @@ function validTargets(t){
   console.assert(validTargets(heavy),"calcTargets clamps protein instead of emitting an unsaveable target",heavy);
   const huge=calcTargets({sex:"m",age:18,ht:230,w:300,act:1.9,gw:98});
   console.assert(!validTargets(huge)&&huge.khi>6000,"calcTargets rejects rather than clamps energy needs above the supported band",huge);
+  const series=[{date:"2026-07-01",w:105},{date:"2026-07-25",w:100},{date:"2026-07-29",w:99.2}];
+  console.assert(basisWeight(series,"2026-07-30")===99.6,"basisWeight averages the last 14 days only",basisWeight(series,"2026-07-30"));
+  console.assert(basisWeight([{date:"2026-01-05",w:101}],"2026-07-30")===101,"basisWeight falls back to a single stale weigh-in");
+  console.assert(basisWeight([],"2026-07-30")===null,"basisWeight has nothing to average without weigh-ins");
+  console.assert(!targetsMoved({klo:2250},{klo:2201})&&targetsMoved({klo:2250},{klo:2200}),"targetsMoved needs a full rounding step");
 })();
 function macroHints(g){
   const kmid=(g.klo+g.khi)/2, pmid=(g.plo+g.phi)/2;

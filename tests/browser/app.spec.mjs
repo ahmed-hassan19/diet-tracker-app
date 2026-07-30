@@ -74,6 +74,48 @@ test("shows custom macro warnings and supports export/import", async ({
   await expect(page.locator("#water-val")).toContainText("0");
 });
 
+test("progress tab offers a stale-target note that dismisses without changing targets", async ({
+  page,
+}) => {
+  // setup weighed in at 105.5 kg, so tw is 105.5 and a 95 kg average moves the
+  // suggestion a full rounding step down: 2300-2400 -> 2200-2300
+  await page.evaluate(() => {
+    const iso = (back) => {
+      const d = new Date();
+      d.setDate(d.getDate() - back);
+      return (
+        d.getFullYear() +
+        "-" +
+        String(d.getMonth() + 1).padStart(2, "0") +
+        "-" +
+        String(d.getDate()).padStart(2, "0")
+      );
+    };
+    const state = window.__dietTest.getState();
+    const days = { ...state.days };
+    [
+      [0, "94.8"],
+      [2, "95.0"],
+      [4, "95.2"],
+    ].forEach(([back, weight]) => {
+      days[iso(back)] = { ...days[iso(back)], weight };
+    });
+    window.__dietTest.setState({ ...state, days });
+  });
+  await page.locator("#tab-prog").click();
+  const note = page.locator("#stale-note");
+  await expect(note).toBeVisible();
+  await expect(note).toContainText("2200–2300");
+  await note.getByRole("button", { name: "الاحتفاظ بالهدف الحالي" }).click();
+  await expect(note).toBeHidden();
+  const settings = await page.evaluate(
+    () => window.__dietTest.getState().settings,
+  );
+  expect(settings.klo).toBe(2300);
+  expect(settings.khi).toBe(2400);
+  expect(settings.tw).toBeCloseTo(95, 5);
+});
+
 test("delete-all requires typed confirmation and clears cloud/local data", async ({
   page,
 }) => {

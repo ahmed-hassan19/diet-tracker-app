@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- لما وزنك ينزل كفاية عشان المقترح يتغيّر فعلًا، صفحة التقدم بتوريك ملاحظة
+  بتقارن هدفك الحالي بالمقترح الجديد ومستنية قرارك — تطبّق أو تحتفظ بهدفك، ومش
+  بيتغير أي رقم من نفسه. الملاحظة محسوبة على متوسط وزنك آخر ١٤ يوم عشان مياه
+  يوم واحد متطلّعهاش، ولو هدفك مكتوب بإيدك مش هيتنبّه عليه غير لما الاقتراح نفسه
+  يتحرك.
+- A new `tw` setting records the weight at which targets were last reviewed, and
+  `renderProg()` prompts when `calcTargets()` at the 14-day mean weight differs
+  from `calcTargets()` at `tw` by a full 50 kcal rounding step. Applying the
+  suggestion or keeping the current target both write `tw`, so dismissal needs
+  no separate flag and the prompt cannot re-fire on noise. `basisWeight()` also
+  now feeds 🔄 احسب تلقائي, which previously read a single weigh-in.
+
 ### Changed
 
 - العجز في السعرات بقى مربوط بوزن جسمك (~0.75% من الوزن كل أسبوع) بدل نسبة من

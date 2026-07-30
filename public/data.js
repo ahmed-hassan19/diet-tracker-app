@@ -100,4 +100,5 @@ console.assert(
   "food calories should reconcile with displayed macros within 10%"
 );
 const WORKOUTS = ["Push","Pull","Legs","كورة (حراسة)","كارديو فقط","راحة"];
-const DEF={name:"",sex:"m",age:30,ht:0,act:1.375,klo:1750,khi:1850,plo:150,phi:170,sw:90,gw:80};
+/* tw = الوزن اللي الأهداف اتراجعت عنده آخر مرة؛ 0 يعني لسه متراجعتش */
+const DEF={name:"",sex:"m",age:30,ht:0,act:1.375,klo:1750,khi:1850,plo:150,phi:170,sw:90,gw:80,tw:0};

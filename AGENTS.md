@@ -17,9 +17,10 @@ This is a dependency-free, build-step-free Firebase application. `public/index.h
 
 ### Nutrition and Target Invariants
 
-- `calcTargets()` uses Mifflin-St Jeor BMR times activity. Cutting subtracts `min(900, max(300, 20% of TDEE))`; bulking adds 300 kcal.
+- `calcTargets()` uses Mifflin-St Jeor BMR times activity. Cutting subtracts `min(1100, max(300, 8.25 * kg))` — a bodyweight-anchored ~0.75%/week rate, not a fraction of TDEE, because activity raises TDEE without raising fat reserves; bulking adds 300 kcal.
+- The result is floored at `max(1250, ceil(BMR/50)*50)`, so the app can never prescribe intake below resting metabolism. `ceil` is deliberate: rounding to nearest could land below BMR. The floor binds on sedentary cuts, where 0.75%/week is unreachable above BMR — those users correctly get a smaller deficit. `rateBand()` derives the 0.5–1.0%/week acceptance window the UI copy shows from the same rule; it must stay consistent with the deficit.
 - Protein is capped at the 300 g ceiling enforced by `validTargets()`. Calories are deliberately not clamped: out-of-band results must be rejected instead of distorted.
-- The reviewed-profile expected values (`tdee 3220`, `klo 2550`, `khi 2650`, `plo 172`, `phi 189`) live in both the `calc.js` assertion IIFE and `tests/unit/profile.test.mjs`. Update both when formulas change, and bump `REVIEWED_PROFILE_VERSION` so `migrateReviewedProfile()` refreshes the fingerprinted stored profile.
+- The reviewed-profile expected values (`tdee 3220`, `klo 2300`, `khi 2400`, `plo 172`, `phi 189`) live in both the `calc.js` assertion IIFE and `tests/unit/profile.test.mjs`. Update both when formulas change, and bump `REVIEWED_PROFILE_VERSION` so `migrateReviewedProfile()` refreshes the fingerprinted stored profile.
 - Every `MEALS`, `EXTRAS`, and `CALREF` entry must satisfy `|k - (p*4 + f*9 + c*4)| / k <= 10%`. Both `data.js` and `scripts/validate.mjs` enforce this, and `macroMismatch()` surfaces it in the UI.
 
 ## Development and Deployment Commands
@@ -58,9 +59,9 @@ Beyond the suites, exercise login/logout, profile setup, daily entry persistence
 
 Treat calorie, macro, projection, and recommendation changes as evidence-sensitive:
 
-- The 7–10 month projection to 86 kg assumes targets are recalculated as weight falls. A fixed target produces roughly 48 weeks because TDEE declines.
+- The projection to 86 kg is roughly 20 weeks from 99.6 kg and assumes targets are recalculated as weight falls. Because the deficit is now proportional to weight, recalculating gives exponential decay at 0.75%/week rather than a fixed rate, so the estimate stretches as weight drops.
 - Protein at 2.0–2.2 g/kg of goal weight is an intentional adaptation, not the 2.2–3.0 g/kg recommendation in PMID 34579132.
-- The 274–308 g carbohydrate range is 42.2–47.4% of 2,600 kcal, slightly below the 45–65% AMDR band as a tradeoff of the protein-forward deficit.
+- The 221–251 g carbohydrate range is 38.4–43.7% of 2,300 kcal, below the 45–65% AMDR band as a tradeoff of the protein-forward deficit. The rate-anchored deficit widened this gap; fat and carbohydrate remain interchangeable within the calorie ceiling.
 - `project()` and the rate copy use the linear 7,700 kcal/kg approximation, which ignores adaptive thermogenesis and must not be presented as a measurement.
 
 Check primary sources such as USDA FoodData Central, ISSN, FDA, NIH ODS, CDC, and IOM DRI before changing nutrition data or recommendation logic.

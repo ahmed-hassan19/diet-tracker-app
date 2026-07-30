@@ -8,7 +8,7 @@ function load(){
   }catch(e){}
   return { days:{} };
 }
-const REVIEWED_PROFILE_VERSION=2;
+const REVIEWED_PROFILE_VERSION=3;
 function migrateReviewedProfile(){
   const s=S&&S.settings;
   if(!s||s.reviewedProfileVersion>=REVIEWED_PROFILE_VERSION) return false;
@@ -17,7 +17,7 @@ function migrateReviewedProfile(){
   const matches=Number(s.age)===29
     && Math.abs(Number(s.ht)-186)<=0.5
     && Math.abs(Number(s.gw)-86)<=0.5
-    && w>=100&&w<=110;
+    && w>=95&&w<=110;
   if(!matches) return false;
   const act=1.55;
   const t=calcTargets({sex:"m",age:29,ht:186,w,act,gw:86});

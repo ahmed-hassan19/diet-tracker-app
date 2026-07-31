@@ -450,7 +450,8 @@ function renderProg(){
   const bmiNow=g.ht?last.w/(g.ht/100)**2:null;
   const bmiGoal=g.ht?gw/(g.ht/100)**2:null;
   const proj = project(last.w, last.date);
-  const lost = ws.length>=2 ? (ws[0].w - last.w) : 0;
+  const base = Number(g.sw) || (ws[0]||{}).w;
+  const lost = ws.length ? base - last.w : 0;
   const goalDate = proj.length? proj[proj.length-1].date : "—";
   const {lo:rateLo,hi:rateHi}=rateBand(last.w);
   // المقترح بيتقارن بالمقترح، مش بالهدف المحفوظ — عشان هدف مكتوب بالإيد ميتنبّهش عليه

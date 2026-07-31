@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- "التغيير من البداية" في صفحة التقدم بقى محسوب من وزن البداية اللي انت كاتبه، مش من
+  أول وزن مسجّل في التطبيق — فلو قِست قبل ما تبدأ التسجيل اليومي، القياس ده مبقاش
+  بيتلغي، وجدول المراحل والكارت بقوا متفقين على نفس نقطة البداية.
+- `renderProg()` now anchors the change-from-start stat on `settings.sw` instead of
+  `weightSeries()[0]`, matching the milestone ladder. A single logged weigh-in now
+  reports a real delta rather than `0`.
+
 ## [3.4.0] - 2026-07-30
 
 ### Added

@@ -116,6 +116,27 @@ test("progress tab offers a stale-target note that dismisses without changing ta
   expect(settings.tw).toBeCloseTo(95, 5);
 });
 
+test("change-from-start measures from the declared start weight, not the first log", async ({
+  page,
+}) => {
+  // setup declared sw = 105.5; a single weigh-in is the case the old >=2 guard zeroed
+  await page.evaluate(() => {
+    const d = new Date();
+    const iso =
+      d.getFullYear() +
+      "-" +
+      String(d.getMonth() + 1).padStart(2, "0") +
+      "-" +
+      String(d.getDate()).padStart(2, "0");
+    const state = window.__dietTest.getState();
+    const days = { ...state.days, [iso]: { ...state.days[iso], weight: "99.6" } };
+    window.__dietTest.setState({ ...state, days });
+  });
+  await page.locator("#tab-prog").click();
+  const stat = page.locator(".stat", { hasText: "التغيير من البداية" });
+  await expect(stat.locator(".v")).toHaveText("−5.9");
+});
+
 test("delete-all requires typed confirmation and clears cloud/local data", async ({
   page,
 }) => {

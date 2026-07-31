@@ -46,13 +46,24 @@ jobs:
       - run: npx firebase deploy --only hosting:main,hosting:nice --project diet-tracker-372ca --non-interactive
       - name: Verify production source
         run: |
+          # the CDN can still serve the previous revision for a few seconds after
+          # deploy returns, so a first-attempt mismatch is not yet a failed release
+          check() {
+            for _ in 1 2 3 4 5; do
+              if curl --fail --silent --show-error "$1" -o live.out && cmp "$2" live.out; then
+                return 0
+              fi
+              sleep 15
+            done
+            echo "::error::$1 still does not match $2 after 5 attempts"
+            return 1
+          }
           # the catch-all rewrite serves index.html (HTTP 200) for a missing .js,
           # so every file has to be compared, not just the entry point
           for host in https://diet-tracker-372ca.web.app https://5asesny.web.app; do
             for file in $(cd public && find . -type f -not -name '.*' | sed 's|^\./||'); do
               path="$file"
               test "$file" = index.html && path=""
-              curl --fail --silent --show-error "$host/$path" -o live.out
-              cmp "public/$file" live.out
+              check "$host/$path" "public/$file"
             done
           done

@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.5.1] - 2026-08-05
+
 ### Fixed
 
 - قسم وجبة التمرين بقى محدد بوضوح: أكل اختياري قبل بداية التمرين بـ٦٠–١٢٠

@@ -44,6 +44,75 @@ test("is RTL, responsive, and persists meal totals after reload", async ({
   }
 });
 
+test("tracks both Nitro-Tech rotations with exact persistent totals", async ({
+  page,
+}) => {
+  const meal = (text) => page.locator("#meals-box .opt", { hasText: text });
+  const summaryValues = page.locator("#sumbar .v");
+  const expectTotals = async ({ k, p, f, c }) => {
+    await expect(summaryValues.nth(0)).toHaveText(String(k));
+    await expect(summaryValues.nth(1)).toHaveText(`${p} جم`);
+    await expect(summaryValues.nth(2)).toHaveText(`${f} جم`);
+    await expect(summaryValues.nth(3)).toHaveText(`${c} جم`);
+  };
+
+  await meal("٧ ملاعق فول + ٣ بيضات مسلوقة").click();
+  await meal("كوب لبن قليل الدسم (٢٥٠ مل) + ٢٥ جم فول سوداني").click();
+  await meal("٢٠٠ جم صدور فراخ مشوية + ٣٠٠ جم رز").click();
+  const waterNitro = meal("Nitro-Tech (٤٤ جم) بالمياه + موزة");
+  await waterNitro.click();
+  await meal("٢٥٠ جم زبادي يوناني عالي البروتين + ٣٠ جم لوز").click();
+  await expectTotals({ k: 2307, p: 184, f: 75.5, c: 224 });
+
+  const beforeWorkout = await page.evaluate(() =>
+    window.__dietTest.totals(day()),
+  );
+  await page.locator("#workout-chips .chip", { hasText: "Push" }).click();
+  expect(await page.evaluate(() => window.__dietTest.totals(day()))).toEqual(
+    beforeWorkout,
+  );
+  await page.locator("#workout-chips .chip", { hasText: "راحة" }).click();
+  expect(await page.evaluate(() => window.__dietTest.totals(day()))).toEqual(
+    beforeWorkout,
+  );
+
+  await page.reload();
+  await expect(page.locator("#app")).toBeVisible();
+  await expect(waterNitro).toHaveClass(/sel/);
+  await expectTotals({ k: 2307, p: 184, f: 75.5, c: 224 });
+
+  await meal("٣ بيضات + ٣ توست أسمر + خيار وطماطم").click();
+  await meal("علبة تونة مصفاة + ٢٥٠ جم بطاطس").click();
+  const milkNitro = meal("Nitro-Tech (٤٤ جم) + ٢٥٠ مل لبن قليل الدسم");
+  await milkNitro.click();
+  await expectTotals({ k: 2301, p: 186, f: 65.5, c: 242 });
+
+  await page.reload();
+  await expect(page.locator("#app")).toBeVisible();
+  await expect(milkNitro).toHaveClass(/sel/);
+  await expectTotals({ k: 2301, p: 186, f: 65.5, c: 242 });
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+
+  await page.locator("#tab-plan").click();
+  const templates = page.locator(".card", {
+    has: page.getByRole("heading", { name: /القوالب اليومية وNitro-Tech/ }),
+  });
+  await expect(templates.getByRole("table")).toHaveCount(3);
+  await expect(templates).toContainText("2307");
+  await expect(templates).toContainText("2301");
+  await expect(templates).toContainText("2286");
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+});
+
 test("shows custom macro warnings and supports export/import", async ({
   page,
 }) => {

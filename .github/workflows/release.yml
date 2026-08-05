@@ -67,3 +67,27 @@ jobs:
               check "$host/$path" "public/$file"
             done
           done
+
+  publish:
+    needs: deploy
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          title="Diet Tracker $TAG"
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest --title "$title"
+            exit 0
+          fi
+
+          previous_args=()
+          if previous_tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null)"; then
+            previous_args=(--notes-start-tag "$previous_tag")
+          fi
+          gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --latest \
+            --title "$title" --generate-notes "${previous_args[@]}"

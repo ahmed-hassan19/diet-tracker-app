@@ -24,10 +24,13 @@ function renderDay(){
   for(const key in MEALS){
     const m=MEALS[key];
     h+='<h3>'+m.name+'</h3>';
+    if(m.dayNote) h+='<p class="muted" style="margin:-4px 0 8px">'+m.dayNote+'</p>';
     m.opts.forEach((o,i)=>{
       const sel = d[key]===i;
+      if(o.legacyOnly&&!sel) return;
+      const title=o.legacyOnly?'⚠️ اختيار محفوظ قديم — '+o.t+' — الغِ الاختيار لو هتستخدم Nitro-Tech':o.t;
       h+='<div class="opt'+(sel?" sel":"")+'" onclick="pick(\''+key+'\','+i+')">'
-        +'<span>'+(sel?"✅ ":"⬜ ")+o.t+'</span>'
+        +'<span>'+(sel?"✅ ":"⬜ ")+title+'</span>'
         +'<span class="kp">'+macros(o)+'</span></div>';
     });
     ((S.foods&&S.foods[key])||[]).forEach((o,i)=>{
@@ -297,9 +300,10 @@ function renderPlan(){
   let mealsRows="";
   for(const key in MEALS){
     const m=MEALS[key];
-    mealsRows+='<h3>'+m.name+(m.opts.length>1?' <span class="muted" style="font-weight:400">(اختر واحدة)</span>':'')+'</h3>'
+    const visibleOpts=m.opts.filter(o=>!o.legacyOnly);
+    mealsRows+='<h3>'+m.name+(visibleOpts.length>1?' <span class="muted" style="font-weight:400">(اختر واحدة)</span>':'')+'</h3>'
       +'<p class="muted" style="margin-bottom:6px">⚖️ '+m.note+'</p>';
-    m.opts.forEach(o=>{
+    visibleOpts.forEach(o=>{
       mealsRows+='<div class="opt" style="cursor:default"><span>'+o.t+'</span>'
         +'<span class="kp">'+macros(o)+'</span></div>';
     });
@@ -327,7 +331,7 @@ function renderPlan(){
   <div class="card"><h2>🥤 القوالب اليومية وNitro-Tech</h2>
     <p class="muted" style="margin-bottom:8px">كل قالب فيه ٣ وجبات وسناكين، وينفع في يوم التمرين أو الراحة من غير تغيير هدف السعرات. القالب الأساسي هو الاختيار اليومي الأول، والتبديلين للتنويع.</p>
     ${templateRows}
-    <div class="note">✅ اختيار <b>Nitro-Tech اليومي</b> بيسجّل السكوب الواحد المخطط لليوم. متختارش معاه سكوب واي تاني من «وجبة قريبة من التمرين» إلا لو هتعيد حساب اليوم كله.</div>
+    <div class="note">✅ <b>Nitro-Tech</b> هو السكوب الكامل الوحيد المخطط كاختيار مستقل لليوم. قسم ما قبل التمرين بقى أكل فقط، من غير سكوب واي ثاني.</div>
     <ul class="plain">
       <li><b>يوم التمرين:</b> اختار المياه + الموزة وخده في حدود ٠–٢ ساعة بعد التمرين؛ ٦٠ دقيقة موعد عملي سهل، مش أفضلية توقيت مثبتة.</li>
       <li><b>يوم الراحة:</b> خده بانتظام مع سناك العصر؛ اختيار اللبن متاح لو مناسب لباقي اليوم.</li>

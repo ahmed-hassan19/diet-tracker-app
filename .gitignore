@@ -15,6 +15,9 @@ test-results/
 playwright-report/
 blob-report/
 
+# Local private records
+/local/
+
 # Local agent compatibility files
 CLAUDE.md
 

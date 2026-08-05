@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- اختيار Nitro-Tech يومي مستقل بسكوب واحد: بالمياه والموزة أو بـ ٢٥٠ مل لبن قليل
+  الدسم، مع الماكروز الدقيقة و٣ جم كرياتين في الاختيارين. الاختيار الجديد يقدر
+  يتسجل جنب السناك العادي من غير ما يلغي اختيارات الواي القديمة.
+- ٣ قوالب يومية جاهزة داخل صفحة الخطة — الأساسي، تبديل باللبن، وتبديل باللحمة
+  الحمراء — وكل قالب داخل مدى السعرات والبروتين والدهون والكارب الحالي.
+- مرجع سعرات لسكوب Nitro-Tech منفردًا، وإرشادات عربية للتوقيت العملي، جرعة
+  الكرياتين، مياه العضلات، وتوحيد ظروف قياسات InBody.
+
+### Changed
+
+- Unit and browser coverage now verifies the exact Nitro-Tech label macros,
+  calorie reconciliation, all three template totals from the real `MEALS`
+  options, preserved legacy meal indexes, both persistent product selections,
+  workout/rest total equivalence, and RTL responsive layout.
+
 ## [3.4.1] - 2026-07-31
 
 ### Fixed

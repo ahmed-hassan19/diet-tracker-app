@@ -113,6 +113,48 @@ test("tracks both Nitro-Tech rotations with exact persistent totals", async ({
   ).toBe(true);
 });
 
+test("states exact workout timing and shows only the planned powder scoop", async ({
+  page,
+}) => {
+  const meals = page.locator("#meals-box");
+  await expect(
+    meals.getByRole("heading", {
+      name: "🍌 وجبة اختيارية قبل التمرين بـ٦٠–١٢٠ دقيقة",
+    }),
+  ).toBeVisible();
+  await expect(meals).toContainText(
+    "كلها قبل بداية التمرين بـ٦٠–١٢٠ دقيقة؛ دي مش وجبة بعد التمرين",
+  );
+  await expect(
+    meals.getByRole("heading", {
+      name: "🥤 سكوب Nitro-Tech اليومي الوحيد",
+    }),
+  ).toBeVisible();
+  await expect(meals).toContainText(
+    "بعد نهاية التمرين بـ٠–١٢٠ دقيقة (٦٠ دقيقة موعد عملي)",
+  );
+
+  const legacyWhey = meals.locator(".opt", {
+    hasText: "سكوب واي بروتين بالمياه + موزة",
+  });
+  await expect(legacyWhey).toHaveCount(0);
+
+  await page.evaluate(() => {
+    day().pw = 0;
+    renderDay();
+  });
+  await expect(legacyWhey).toContainText("اختيار محفوظ قديم");
+  await expect(page.locator("#sumbar .v").nth(0)).toHaveText("222");
+  await legacyWhey.click();
+  await expect(legacyWhey).toHaveCount(0);
+  await expect(page.locator("#sumbar .v").nth(0)).toHaveText("0");
+
+  await page.locator("#tab-plan").click();
+  await expect(page.locator("#pg-plan")).not.toContainText(
+    "سكوب واي بروتين بالمياه + موزة",
+  );
+});
+
 test("shows custom macro warnings and supports export/import", async ({
   page,
 }) => {

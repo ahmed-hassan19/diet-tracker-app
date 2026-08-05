@@ -69,6 +69,13 @@ test("existing meal option indexes retain the same foods", () => {
   }
 });
 
+test("legacy generic whey stays at its saved index but is not a new-day choice", () => {
+  assert.equal(context.MEALS.pw.opts[0].legacyOnly, true);
+  assert.match(context.MEALS.pw.name, /قبل التمرين بـ٦٠–١٢٠ دقيقة/);
+  assert.match(context.MEALS.nt.name, /اليومي الوحيد/);
+  assert.match(context.MEALS.nt.dayNote, /بعد نهاية التمرين بـ٠–١٢٠ دقيقة/);
+});
+
 test("Nitro-Tech options and calorie reference use the exact label macros", () => {
   assert.deepEqual(plain(context.MEALS.nt.opts), [
     {

@@ -41,7 +41,7 @@ Run a focused unit test with `node --test --test-name-pattern="<name>" tests/uni
 
 Run deployment commands only from the repository root and verify the active project with `firebase use`.
 
-The two Hosting targets serve the same `public/` directory. Keep the `no-store` header for both `**/*.html` and `**/*.js`: otherwise returning users can receive fresh HTML with stale JavaScript. Firebase's catch-all rewrite can return missing JavaScript as HTTP 200 HTML, so release verification must byte-compare every live file against the tagged `public/`, not only `index.html`. Releases are driven by annotated `v*` tags and deploy both targets.
+The two Hosting targets serve the same `public/` directory. Keep the `no-store` header for both `**/*.html` and `**/*.js`: otherwise returning users can receive fresh HTML with stale JavaScript. Firebase's catch-all rewrite can return missing JavaScript as HTTP 200 HTML, so release verification must byte-compare every live file against the tagged `public/`, not only `index.html`. Releases are driven by annotated `v*` tags, deploy both targets, and publish a GitHub Release entry only after live verification succeeds.
 
 ## Coding Style & Naming Conventions
 
@@ -80,9 +80,9 @@ All production changes follow this cycle:
 2. **Pull request:** Push the branch and open a PR into `main`. Keep the PR limited to one feature or fix, update `CHANGELOG.md` under `Unreleased`, and include the required explanation, checks, issue links, and UI evidence.
 3. **Review:** Wait for required reviews and for the quality workflow, browser suite, and preview deployment to pass. Address feedback on the same branch and repeat validation before merge.
 4. **Upgrade `main`:** Merge only the approved PR, then update the local `main` with `git pull --ff-only origin main`. Confirm that the merged commit and all intended release changes are present on `main`; never release from a topic branch.
-5. **Release:** Choose the next Semantic Version, finalize the changelog and all visible/package version references through a reviewed PR when needed, and ensure `main` is green. Create an annotated `vX.Y.Z` tag on the release commit (`git tag -a vX.Y.Z -m "vX.Y.Z"`) and push that tag. The tag-triggered release workflow runs the full checks, deploys both Hosting targets, and verifies every deployed file. Do not use a manual Firebase production deploy as a substitute for this workflow.
+5. **Release:** Choose the next Semantic Version, finalize the changelog and all visible/package version references through a reviewed PR when needed, and ensure `main` is green. Create an annotated `vX.Y.Z` tag on the release commit (`git tag -a vX.Y.Z -m "vX.Y.Z"`) and push that tag. The tag-triggered release workflow runs the full checks, deploys both Hosting targets, verifies every deployed file, then creates the `Diet Tracker vX.Y.Z` GitHub Release entry and marks it Latest. Confirm both the production deployment and GitHub Release entry succeeded. Do not use a manual Firebase production deploy as a substitute for this workflow.
 
-If a release fails, fix it through a new `fix/*` branch and reviewed PR, update `main`, and publish a new SemVer tag. Do not move or reuse a published release tag.
+The deploy job keeps read-only repository contents and short-lived OIDC credentials; only the post-verification publish job receives `contents: write` for the Releases API. If deployment or byte verification fails, fix it through a new `fix/*` branch and reviewed PR, update `main`, and publish a new SemVer tag. If only GitHub Release publication fails after production verification passed, rerun the workflow or create the missing Release entry for the existing tag. Do not move or reuse a published release tag.
 
 ## Security & Configuration
 

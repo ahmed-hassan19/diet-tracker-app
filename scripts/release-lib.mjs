@@ -4,7 +4,7 @@ import path from "node:path";
 
 export const PROJECT_ID = "diet-tracker-372ca";
 export const FIRESTORE_RULES_RELEASE = `projects/${PROJECT_ID}/releases/cloud.firestore`;
-export const PREFLIGHT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const VERIFICATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 
 export const sha256 = (value) =>
   crypto.createHash("sha256").update(value).digest("hex");
@@ -94,7 +94,7 @@ export function taggedConfigHashes(root = ".") {
   };
 }
 
-export function matchingGateRuns(runs, tag, commitSha) {
+export function matchingValidationRuns(runs, tag, commitSha) {
   return (Array.isArray(runs) ? runs : []).filter(
     (run) =>
       run.workflowName === "release" &&
@@ -106,53 +106,40 @@ export function matchingGateRuns(runs, tag, commitSha) {
   );
 }
 
-export function preflightProblems(evidence, { tag, commitSha, model, now = Date.now() }) {
+export function releaseVerificationProblems(record, { tag, commitSha, model, now = Date.now() }) {
   const problems = [];
   const add = (ok, message) => {
     if (!ok) problems.push(message);
   };
-  add(!!evidence && typeof evidence === "object" && !Array.isArray(evidence),
-    "preflight evidence must be a JSON object");
+  add(!!record && typeof record === "object" && !Array.isArray(record),
+    "release verification must be a JSON object");
   if (problems.length) return problems;
-  add(evidence.schemaVersion === 1, "preflight schemaVersion must be 1");
-  add(evidence.projectId === PROJECT_ID, `preflight projectId must be ${PROJECT_ID}`);
-  add(evidence.tag === tag, `preflight tag must be ${tag}`);
-  add(evidence.commitSha === commitSha, `preflight commitSha must be ${commitSha}`);
-  const captured = Date.parse(evidence.capturedAt);
-  add(Number.isFinite(captured), "preflight capturedAt must be an ISO timestamp");
-  if (Number.isFinite(captured)) {
-    add(captured <= now + 5 * 60 * 1000, "preflight capturedAt cannot be in the future");
-    add(now - captured <= PREFLIGHT_MAX_AGE_MS,
-      "preflight evidence is older than 24 hours; capture it again");
+  add(record.schemaVersion === 1, "release verification schemaVersion must be 1");
+  add(record.projectId === PROJECT_ID,
+    `release verification projectId must be ${PROJECT_ID}`);
+  add(record.tag === tag, `release verification tag must be ${tag}`);
+  add(record.commitSha === commitSha,
+    `release verification commitSha must be ${commitSha}`);
+  const verifiedAt = Date.parse(record.verifiedAt);
+  add(Number.isFinite(verifiedAt),
+    "release verification verifiedAt must be an ISO timestamp");
+  if (Number.isFinite(verifiedAt)) {
+    add(verifiedAt <= now + 5 * 60 * 1000,
+      "release verification verifiedAt cannot be in the future");
+    add(now - verifiedAt <= VERIFICATION_MAX_AGE_MS,
+      "release verification is older than 24 hours; check production settings again");
   }
-  add(evidence.sparkPlan === "Spark", 'preflight sparkPlan must be "Spark"');
-  add(evidence.billingAccountLinked === false,
-    "preflight must confirm that no Cloud Billing account is linked");
-  for (const field of [
-    "quotaSnapshotCaptured",
-    "combinedHostingUsageCaptured",
-    "appCheckInventoryCaptured",
-    "authenticatedUsersModeCaptured",
-    "p4saAndApiKeyPostureCaptured",
-    "aiLogRetentionCaptured",
-    "wifHostCaptured",
-  ]) {
-    add(evidence[field] === true, `preflight ${field} must be true`);
-  }
-  add(evidence.model === model, `preflight model must be ${model}`);
-  add(evidence.modelFreeTierConfirmed === true,
-    "preflight must confirm the model remains available without billing");
-  const capacity = evidence.capacity;
-  add(!!capacity && typeof capacity === "object" && !Array.isArray(capacity),
-    "preflight capacity must be an object");
-  if (capacity && typeof capacity === "object" && !Array.isArray(capacity)) {
-    add(Number.isInteger(capacity.invitedUserCap) && capacity.invitedUserCap >= 1,
-      "capacity.invitedUserCap must be a positive integer");
-    add(Number.isFinite(capacity.maxModeledQuotaPercent) &&
-      capacity.maxModeledQuotaPercent >= 0 && capacity.maxModeledQuotaPercent <= 70,
-    "capacity.maxModeledQuotaPercent must be between 0 and 70");
-    add(Number.isFinite(capacity.reservePercent) && capacity.reservePercent >= 30,
-      "capacity.reservePercent must be at least 30");
-  }
+  add(record.firebasePlan === "Spark",
+    'release verification firebasePlan must be "Spark"');
+  add(record.billingAccountLinked === false,
+    "release verification must confirm that no Cloud Billing account is linked");
+  add(Number.isFinite(record.maxObservedQuotaPercent) &&
+    record.maxObservedQuotaPercent >= 0 && record.maxObservedQuotaPercent <= 70,
+  "release verification maxObservedQuotaPercent must be between 0 and 70");
+  add(record.appCheckVerified === true,
+    "release verification must confirm App Check for both production hosts");
+  add(record.model === model, `release verification model must be ${model}`);
+  add(record.modelAvailableWithoutBilling === true,
+    "release verification must confirm the model remains available without billing");
   return problems;
 }

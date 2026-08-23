@@ -15,9 +15,6 @@ test-results/
 playwright-report/
 blob-report/
 
-# Release evidence manifests (written at deploy time from the tagged checkout)
-docs/releases/
-
 # Local private records
 /local/
 

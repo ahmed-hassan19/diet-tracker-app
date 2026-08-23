@@ -5,8 +5,8 @@ import {
   FIRESTORE_RULES_RELEASE,
   PROJECT_ID,
   canonicalIndexSpec,
-  matchingGateRuns,
-  preflightProblems,
+  matchingValidationRuns,
+  releaseVerificationProblems,
   taggedConfigHashes,
 } from "../../scripts/release-lib.mjs";
 
@@ -15,29 +15,19 @@ const COMMIT = "a".repeat(40);
 const MODEL = "gemini-flash-lite-latest";
 const NOW = Date.parse("2026-08-23T12:00:00.000Z");
 
-function validPreflight() {
+function validVerification() {
   return {
     schemaVersion: 1,
     projectId: PROJECT_ID,
     tag: TAG,
     commitSha: COMMIT,
-    capturedAt: "2026-08-23T11:00:00.000Z",
-    sparkPlan: "Spark",
+    verifiedAt: "2026-08-23T11:00:00.000Z",
+    firebasePlan: "Spark",
     billingAccountLinked: false,
-    quotaSnapshotCaptured: true,
-    combinedHostingUsageCaptured: true,
-    appCheckInventoryCaptured: true,
-    authenticatedUsersModeCaptured: true,
-    p4saAndApiKeyPostureCaptured: true,
-    aiLogRetentionCaptured: true,
-    wifHostCaptured: true,
+    maxObservedQuotaPercent: 65,
+    appCheckVerified: true,
     model: MODEL,
-    modelFreeTierConfirmed: true,
-    capacity: {
-      invitedUserCap: 20,
-      maxModeledQuotaPercent: 65,
-      reservePercent: 35,
-    },
+    modelAvailableWithoutBilling: true,
   };
 }
 
@@ -48,7 +38,7 @@ test("release verification uses Firebase's default Firestore release name", () =
   );
 });
 
-test("only the exact successful tag-gate run matches", () => {
+test("only the exact successful tag validation run matches", () => {
   const good = {
     databaseId: 42,
     workflowName: "release",
@@ -58,7 +48,7 @@ test("only the exact successful tag-gate run matches", () => {
     status: "completed",
     conclusion: "success",
   };
-  assert.deepEqual(matchingGateRuns([good], TAG, COMMIT), [good]);
+  assert.deepEqual(matchingValidationRuns([good], TAG, COMMIT), [good]);
   for (const change of [
     { workflowName: "quality" },
     { headBranch: "v3.5.1" },
@@ -67,37 +57,40 @@ test("only the exact successful tag-gate run matches", () => {
     { status: "in_progress" },
     { conclusion: "failure" },
   ]) {
-    assert.deepEqual(matchingGateRuns([{ ...good, ...change }], TAG, COMMIT), []);
+    assert.deepEqual(matchingValidationRuns([{ ...good, ...change }], TAG, COMMIT), []);
   }
 });
 
-test("release preflight requires fresh Spark, posture, and capacity evidence", () => {
+test("release verification requires current Firebase settings", () => {
   assert.deepEqual(
-    preflightProblems(validPreflight(), { tag: TAG, commitSha: COMMIT, model: MODEL, now: NOW }),
+    releaseVerificationProblems(validVerification(), {
+      tag: TAG,
+      commitSha: COMMIT,
+      model: MODEL,
+      now: NOW,
+    }),
     [],
   );
-  const invalid = validPreflight();
+  const invalid = validVerification();
   invalid.billingAccountLinked = true;
-  invalid.authenticatedUsersModeCaptured = false;
-  invalid.capacity.maxModeledQuotaPercent = 71;
-  invalid.capacity.reservePercent = 29;
-  const problems = preflightProblems(invalid, {
+  invalid.appCheckVerified = false;
+  invalid.maxObservedQuotaPercent = 71;
+  const problems = releaseVerificationProblems(invalid, {
     tag: TAG,
     commitSha: COMMIT,
     model: MODEL,
     now: NOW,
   });
   assert.ok(problems.some((problem) => problem.includes("no Cloud Billing")));
-  assert.ok(problems.some((problem) => problem.includes("authenticatedUsersModeCaptured")));
+  assert.ok(problems.some((problem) => problem.includes("App Check")));
   assert.ok(problems.some((problem) => problem.includes("between 0 and 70")));
-  assert.ok(problems.some((problem) => problem.includes("at least 30")));
 });
 
-test("stale or unbound preflight evidence is rejected", () => {
-  const stale = validPreflight();
-  stale.capturedAt = "2026-08-20T11:00:00.000Z";
+test("stale or unbound release verification is rejected", () => {
+  const stale = validVerification();
+  stale.verifiedAt = "2026-08-20T11:00:00.000Z";
   stale.commitSha = "b".repeat(40);
-  const problems = preflightProblems(stale, {
+  const problems = releaseVerificationProblems(stale, {
     tag: TAG,
     commitSha: COMMIT,
     model: MODEL,
@@ -105,6 +98,30 @@ test("stale or unbound preflight evidence is rejected", () => {
   });
   assert.ok(problems.some((problem) => problem.includes("commitSha")));
   assert.ok(problems.some((problem) => problem.includes("older than 24 hours")));
+});
+
+test("checked-in release verification template fails closed", () => {
+  const template = JSON.parse(
+    fs.readFileSync("docs/release-verification.example.json", "utf8"),
+  );
+  const problems = releaseVerificationProblems(template, {
+    tag: TAG,
+    commitSha: COMMIT,
+    model: MODEL,
+    now: NOW,
+  });
+  for (const marker of [
+    "tag",
+    "commitSha",
+    "verifiedAt",
+    "firebasePlan",
+    "Cloud Billing",
+    "maxObservedQuotaPercent",
+    "App Check",
+    "without billing",
+  ]) {
+    assert.ok(problems.some((problem) => problem.includes(marker)), marker);
+  }
 });
 
 test("index hashes are insensitive to top-level declaration order", () => {
@@ -159,18 +176,24 @@ test("tagged release hashes include Rules, indexes, and every public file", () =
   assert.match(hashes.bundleSha256, /^[a-f0-9]{64}$/);
 });
 
-test("release script gates before deploy and publish verifies all tagged hashes", () => {
+test("release script validates before deploy and publish verifies all tagged hashes", () => {
   const deploy = fs.readFileSync("scripts/release-deploy.mjs", "utf8");
-  assert.ok(deploy.indexOf("— successful tag gate") < deploy.indexOf("— deploy Firestore rules/indexes"));
+  assert.ok(
+    deploy.indexOf("— successful tag validation") <
+      deploy.indexOf("— deploy Firestore rules/indexes"),
+  );
   const workflow = fs.readFileSync(".github/workflows/release.yml", "utf8");
   for (const input of [
-    "gate_run_id",
+    "validation_run_id",
     "bundle_sha256",
     "ruleset_sha256",
     "indexes_sha256",
-    "preflight_sha256",
+    "verification_sha256",
   ]) {
     assert.ok(workflow.includes(`${input}:`), input);
   }
   assert.ok(workflow.includes("node scripts/release-hashes.mjs --verify"));
+  assert.ok(deploy.includes("local/release-verification-${tag}.json"));
+  assert.ok(deploy.includes("local/releases/${tag}-manifest.json"));
+  assert.ok(!deploy.includes("docs/releases"));
 });

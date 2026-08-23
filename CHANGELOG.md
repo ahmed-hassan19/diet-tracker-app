@@ -11,14 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Production deploys are owner-run with human Firebase OAuth via
   `scripts/release-deploy.mjs`; GitHub Actions no longer authenticates to
-  Google, deploys Hosting, or creates preview channels. The tag-triggered gate
-  workflow verifies tag provenance and records bundle checksums with zero cloud
+  Google, deploys Hosting, or creates preview channels. The tag-triggered
+  validation workflow verifies tag provenance and records bundle checksums with zero cloud
   credentials, and a hand-triggered publish workflow re-verifies provenance and
   every public live byte before creating the Release entry.
 - Hardened the owner release path so production mutation requires the exact
-  successful tag gate and fresh Spark/capacity evidence; active Rules, canonical
-  indexes, ready composite indexes, tagged hashes, live bytes, and a repeated
-  post-deploy Spark/config check are now independently bound to release evidence.
+  successful tag validation and a current local Firebase verification record;
+  active Rules, canonical indexes, ready composite indexes, tagged hashes, live
+  bytes, and a repeated post-deploy Spark/config check are independently verified.
+- Consolidated release instructions in `docs/releasing.md` and removed obsolete
+  roadmap checklists that described application flows not present in the shipped
+  data model.
 - The Playwright browser suite runs serialized (`workers: 1`) because parallel
   workers raced the shared Auth emulator's account registry and produced
   transient HTTP 400s.

@@ -15,11 +15,11 @@ if (process.argv[2] === "--bundle-list") {
   };
   for (const [key, actual] of Object.entries(hashes)) {
     if (!expected[key] || expected[key] !== actual) {
-      console.error(`tagged ${key} ${actual} != evidence ${expected[key] || "<missing>"}`);
+      console.error(`tagged ${key} ${actual} != deployment record ${expected[key] || "<missing>"}`);
       process.exit(1);
     }
   }
-  console.log("Tagged bundle, Rules, and index hashes match the deployment evidence.");
+  console.log("Tagged bundle, Rules, and index hashes match the deployment record.");
 } else {
   console.log(JSON.stringify(hashes, null, 2));
 }

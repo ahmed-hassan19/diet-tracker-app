@@ -4,29 +4,51 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Annotated tag that was deployed (e.g. v3.6.0)"
+        required: true
+      commit:
+        description: "Release commit SHA the tag points to"
+        required: true
+      bundle_sha256:
+        description: "bundle_sha256 from the local deploy evidence manifest"
+        required: true
+      ruleset_sha256:
+        description: "ruleset_sha256 from the local deploy evidence manifest"
+        required: true
+      deployed_at:
+        description: "ISO timestamp of the verified production deployment"
+        required: true
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: production
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    if: github.event.base_ref == null
+  # Runs on the tag push with zero cloud credentials: provenance, checks, and
+  # an immutable checksum record of the tagged public/ bundle.
+  gate:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    environment: production
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
-      - name: Require annotated tag
+      - name: Require annotated tag on the reviewed origin/main commit
         run: |
+          git fetch --force origin main
           git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
-          test "$(git cat-file -t "refs/tags/${GITHUB_REF_NAME}")" = tag
+          test "$(git cat-file -t "refs/tags/${GITHUB_REF_NAME}")" = tag || {
+            echo "::error::${GITHUB_REF_NAME} is not an annotated tag"; exit 1; }
+          peeled="$(git rev-parse "refs/tags/${GITHUB_REF_NAME}^{commit}")"
+          test "$peeled" = "$(git rev-parse origin/main)" || {
+            echo "::error::tag commit $peeled is not origin/main $(git rev-parse origin/main)"; exit 1; }
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 22
@@ -39,15 +61,73 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run check
       - run: npx firebase emulators:exec --project diet-tracker-372ca --only auth,firestore,hosting "npm run test:browser"
-      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
-        with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
-      - run: npx firebase deploy --only hosting:main,hosting:nice --project diet-tracker-372ca --non-interactive
-      - name: Verify production source
+      - name: Record tagged bundle checksums
         run: |
-          # the CDN can still serve the previous revision for a few seconds after
-          # deploy returns, so a first-attempt mismatch is not yet a failed release
+          cd public
+          # identical recipe to the publish job and scripts/release-deploy.mjs:
+          # "<sha256>  ./<path>" lines, LC_ALL=C path order
+          find . -type f -not -name '.*' | LC_ALL=C sort | xargs sha256sum > ../bundle.txt
+          echo "bundle_sha256: $(sha256sum ../bundle.txt | awk '{print $1}')"
+          cp ../bundle.txt "$RUNNER_TEMP/bundle.txt"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: bundle-checksums-${{ github.ref_name }}
+          path: bundle.txt
+          retention-days: 90
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # Triggered by hand after scripts/release-deploy.mjs has deployed and verified
+  # production from the exact tag using human Firebase OAuth. This job holds no
+  # Google/Firebase credential — only the scoped GitHub token — and re-verifies
+  # provenance plus every public live byte before publishing the Release.
+  publish:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+      - name: Verify tag provenance matches the evidence inputs
+        env:
+          TAG: ${{ inputs.tag }}
+          EXPECTED_COMMIT: ${{ inputs.commit }}
+        run: |
+          git fetch --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          test "$(git cat-file -t "refs/tags/${TAG}")" = tag || {
+            echo "::error::${TAG} is not an annotated tag"; exit 1; }
+          peeled="$(git rev-parse "refs/tags/${TAG}^{commit}")"
+          test "$peeled" = "$EXPECTED_COMMIT" || {
+            echo "::error::tag peels to $peeled, evidence says $EXPECTED_COMMIT"; exit 1; }
+          git merge-base --is-ancestor "$peeled" origin/main || {
+            echo "::error::$peeled is not on origin/main"; exit 1; }
+      - name: Require a successful gate run for this tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          count="$(gh run list --workflow release.yml --branch "$TAG" --status success --json databaseId --jq 'length')"
+          test "$count" -ge 1 || {
+            echo "::error::no successful release gate run found for $TAG"; exit 1; }
+      - name: Recompute bundle checksums and compare with the evidence input
+        env:
+          EXPECTED_BUNDLE: ${{ inputs.bundle_sha256 }}
+        run: |
+          cd public
+          find . -type f -not -name '.*' | LC_ALL=C sort | xargs sha256sum > /tmp/bundle.txt
+          actual="$(sha256sum /tmp/bundle.txt | awk '{print $1}')"
+          test "$actual" = "$EXPECTED_BUNDLE" || {
+            echo "::error::bundle hash $actual != evidence $EXPECTED_BUNDLE"; exit 1; }
+      - name: Verify every public live byte on both hosts
+        run: |
           check() {
             for _ in 1 2 3 4 5; do
               if curl --fail --silent --show-error "$1" -o live.out && cmp "$2" live.out; then
@@ -67,27 +147,30 @@ jobs:
               check "$host/$path" "public/$file"
             done
           done
-
-  publish:
-    needs: deploy
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Publish GitHub Release
+      - name: Publish GitHub Release with the evidence summary
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag }}
+          COMMIT: ${{ inputs.commit }}
+          BUNDLE: ${{ inputs.bundle_sha256 }}
+          RULESET: ${{ inputs.ruleset_sha256 }}
+          DEPLOYED_AT: ${{ inputs.deployed_at }}
         run: |
           title="Diet Tracker $TAG"
+          rules_short="${RULESET:0:12}"
+          bundle_short="${BUNDLE:0:12}"
+          notes="Verified production deployment from ${COMMIT} at ${DEPLOYED_AT}.
+          Deployed and byte-verified locally from the exact annotated tag with
+          human Firebase OAuth (\`scripts/release-deploy.mjs\`); Firestore Rules
+          source sha256 \`${rules_short}…\`; tagged bundle sha256 \`${bundle_short}…\`."
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest --title "$title"
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest \
+              --title "$title" --notes "$notes"
             exit 0
           fi
-
           previous_args=()
           if previous_tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null)"; then
             previous_args=(--notes-start-tag "$previous_tag")
           fi
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --latest \
-            --title "$title" --generate-notes "${previous_args[@]}"
+            --title "$title" --notes "$notes" "${previous_args[@]}"

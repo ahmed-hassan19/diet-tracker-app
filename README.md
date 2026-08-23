@@ -73,20 +73,23 @@ The screenshots use synthetic emulator data only.
 
 ## Deployment
 
-Confirm the active project before deploying:
+Production deploys are owner-run with human Firebase OAuth; GitHub holds no
+Google credential. Confirm the active project, then from the exact annotated
+tag:
 
 ```sh
 npx firebase-tools use
-npx firebase-tools deploy --only hosting:main
-npx firebase-tools deploy --only hosting:nice
-npx firebase-tools deploy --only firestore:rules
+node scripts/release-deploy.mjs vX.Y.Z
 ```
 
-Pull requests receive an expiring seven-day preview of `main` after `quality`
-passes. Annotated `v*` tags rerun all checks, deploy both production targets,
-and compare every live file byte-for-byte with the tagged `public/`. GitHub
-Actions uses Workload Identity Federation; do not create or upload
-service-account keys.
+The script verifies tag provenance and pinned tooling, deploys Rules/indexes
+first, verifies the active Rules source against the tagged file, deploys both
+production targets, byte-compares every live file, and writes a token-free
+evidence manifest. Publishing the GitHub Release is then a hand-triggered
+credential-free workflow (`gh workflow run release.yml -f …`) that re-verifies
+provenance and every public live byte on both hosts. Annotated `v*` tags also
+rerun all checks in GitHub Actions and record tagged bundle checksums. Do not
+create or upload service-account keys.
 
 ## Privacy and security
 

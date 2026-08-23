@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- Production deploys are owner-run with human Firebase OAuth via
+  `scripts/release-deploy.mjs`; GitHub Actions no longer authenticates to
+  Google, deploys Hosting, or creates preview channels. The tag-triggered gate
+  workflow verifies tag provenance and records bundle checksums with zero cloud
+  credentials, and a hand-triggered publish workflow re-verifies provenance and
+  every public live byte before creating the Release entry.
+- The Playwright browser suite runs serialized (`workers: 1`) because parallel
+  workers raced the shared Auth emulator's account registry and produced
+  transient HTTP 400s.
+
+### Security
+
+- Added the Spark guard to `scripts/validate.mjs` (via `scripts/spark-guard.mjs`
+  with unit coverage): config, dependency, workflow, and AI-module allowlists
+  keep Functions/App Hosting/Storage configuration, server-side Firebase SDKs,
+  CI deploy/GCP-authentication steps, and non-allowlisted AI backends or models
+  out of the repository.
+
 ## [3.5.1] - 2026-08-05
 
 ### Fixed

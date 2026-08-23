@@ -30,12 +30,11 @@ This is a dependency-free, build-step-free Firebase application. `public/index.h
 The app has no runtime build step. Contributor checks use one development dependency:
 
 - `npm install` installs the development-only formatting tool and configures tracked Git hooks.
-- `npm run check` runs formatting checks, JavaScript/data validation, and reviewed-profile assertions.
+- `npm run check` runs formatting checks, JavaScript/data validation, Spark-guard checks, and reviewed-profile assertions.
 - `npm run format` formats Markdown and JSON files; `public/index.html` and the five `public/*.js` files intentionally retain their compact style.
 - `firebase emulators:start --only hosting,firestore` serves the app and evaluates Firestore behavior locally.
-- `firebase deploy --only hosting:main` deploys `public/` to the primary site.
-- `firebase deploy --only hosting:nice` deploys the alternate site.
-- `firebase deploy --only firestore:rules` publishes security-rule changes.
+- `node scripts/release-deploy.mjs vX.Y.Z` is the owner-run production path: it verifies tag provenance and pinned tooling, deploys Rules/indexes then both Hosting targets with human Firebase OAuth, verifies the active Rules source and every live byte, and writes a token-free evidence manifest.
+- `firebase deploy --only firestore:rules` publishes security-rule changes (non-production verification only).
 
 Run a focused unit test with `node --test --test-name-pattern="<name>" tests/unit/<file>.test.mjs`. Run a focused browser test against an already-running emulator with `npx playwright test --project=desktop -g "<name>"`.
 
@@ -51,7 +50,7 @@ Prettier formats Markdown and JSON. `scripts/validate.mjs` checks that every ref
 
 ## Testing Guidelines
 
-`npm run check` is the gate the pre-commit hook runs: formatting, `scripts/validate.mjs`, `node --test tests/unit/*.test.mjs`, and emulator-backed Firestore rules tests. `npm run check:static` drops the rules tests when Java 21 is unavailable. Playwright specs run separately inside the emulator: `npx firebase-tools emulators:exec --only auth,firestore,hosting "npm run test:browser"`. Their `afterEach` asserts zero console errors, so any stray `console.error` or failed request fails every spec.
+`npm run check` is the gate the pre-commit hook runs: formatting, `scripts/validate.mjs`, `node --test tests/unit/*.test.mjs`, and emulator-backed Firestore rules tests. `npm run check:static` drops the rules tests when Java 21 is unavailable. Playwright specs run separately inside the emulator: `npx firebase-tools emulators:exec --only auth,firestore,hosting "npm run test:browser"`. Their `afterEach` asserts zero console errors, so any stray `console.error` or failed request fails every spec. The suite is deliberately serialized (`workers: 1` in `playwright.config.mjs`) because parallel workers race the shared Auth emulator's account registry and produced transient HTTP 400s; keep it serialized unless that failure mode is diagnosed and fixed.
 
 Beyond the suites, exercise login/logout, profile setup, daily entry persistence, tab navigation, import/export, and mobile layouts before submitting.
 
@@ -78,11 +77,11 @@ All production changes follow this cycle:
 
 1. **Branch:** Start from an up-to-date `main` (`git pull --ff-only origin main`) and create a focused `feature/<short-name>` or `fix/<short-name>` branch. Do not develop or commit directly on `main`.
 2. **Pull request:** Push the branch and open a PR into `main`. Keep the PR limited to one feature or fix, update `CHANGELOG.md` under `Unreleased`, and include the required explanation, checks, issue links, and UI evidence.
-3. **Review:** Wait for required reviews and for the quality workflow, browser suite, and preview deployment to pass. Address feedback on the same branch and repeat validation before merge.
+3. **Review:** Wait for required reviews and for the quality workflow and browser suite to pass. Address feedback on the same branch and repeat validation before merge.
 4. **Upgrade `main`:** Merge only the approved PR, then update the local `main` with `git pull --ff-only origin main`. Confirm that the merged commit and all intended release changes are present on `main`; never release from a topic branch.
-5. **Release:** Choose the next Semantic Version, finalize the changelog and all visible/package version references through a reviewed PR when needed, and ensure `main` is green. Create an annotated `vX.Y.Z` tag on the release commit (`git tag -a vX.Y.Z -m "vX.Y.Z"`) and push that tag. The tag-triggered release workflow runs the full checks, deploys both Hosting targets, verifies every deployed file, then creates the `Diet Tracker vX.Y.Z` GitHub Release entry and marks it Latest. Confirm both the production deployment and GitHub Release entry succeeded. Do not use a manual Firebase production deploy as a substitute for this workflow.
+5. **Release:** Choose the next Semantic Version, finalize the changelog and all visible/package version references through a reviewed PR when needed, and ensure `main` is green. Create an annotated `vX.Y.Z` tag on the release commit (`git tag -a vX.Y.Z -m "vX.Y.Z"`) and push that tag. The tag-triggered gate workflow reruns all checks with zero cloud credentials, verifies the tag peels to `origin/main`, and records bundle checksums. Then check out that exact tag and run `node scripts/release-deploy.mjs vX.Y.Z`: it deploys Rules/indexes first, verifies the active Rules source against the tagged file, deploys both Hosting targets with human Firebase OAuth, byte-compares every live file, and writes `docs/releases/vX.Y.Z-evidence.json`. Finally trigger the hand-run `release` publish workflow (`gh workflow run release.yml -f …`) with the manifest values; it re-verifies provenance, prior CI, tagged hashes, and every public live byte on both hosts, then creates the `Diet Tracker vX.Y.Z` GitHub Release entry and marks it Latest. GitHub holds no Google/Firebase credential at any point.
 
-The deploy job keeps read-only repository contents and short-lived OIDC credentials; only the post-verification publish job receives `contents: write` for the Releases API. If deployment or byte verification fails, fix it through a new `fix/*` branch and reviewed PR, update `main`, and publish a new SemVer tag. If only GitHub Release publication fails after production verification passed, rerun the workflow or create the missing Release entry for the existing tag. Do not move or reuse a published release tag.
+The publish job keeps read-only repository contents except its own scoped token for Releases; no WIF provider, service account key, or long-lived Firebase token exists anywhere. If deployment or byte verification fails in `scripts/release-deploy.mjs`, fix it through a new `fix/*` branch and reviewed PR, update `main`, and publish a new SemVer tag. If code/config must change after a partial deploy of unchanged tagged artifacts, never reuse the tag: fix forward with a new SemVer tag. Never move or reuse a published release tag, and do not run raw `firebase deploy` against production outside the reviewed script (non-production rules experiments aside).
 
 ## Security & Configuration
 

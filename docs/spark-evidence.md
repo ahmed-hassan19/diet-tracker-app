@@ -6,6 +6,12 @@ record the date. Store captures (screenshots, exports) outside the repository;
 this file only records what was captured and when. Never paste tokens,
 account lists, or health data here.
 
+For each release, copy `docs/release-preflight.example.json` to the ignored
+`local/release-preflight-vX.Y.Z.json`, bind it to the exact tag and commit, and
+replace every placeholder only after capturing the corresponding evidence. The
+release script rejects missing, stale, incomplete, Blaze, linked-billing, or
+under-reserved evidence before it obtains deployment credentials.
+
 ## 1. Spark plan and no linked billing (blocks everything)
 
 - [ ] Firebase console → project `diet-tracker-372ca` → Usage and billing:
@@ -36,6 +42,12 @@ account lists, or health data here.
       obsolete Firebase-created Gemini key has zero recent consumers (then removed).
 - [ ] Existing Firebase AI Logic Model logs inspected; bucket retention/expiry
       recorded. The `_Default` exclusion added later is not retroactive.
+- [ ] Current Firebase AI Logic authenticated-users mode captured, including
+      whether production AI must remain disabled until Release A1.
+- [ ] Exact shipped model and its current no-billing/free-tier eligibility
+      captured; no fallback model configured.
+- [ ] Project hosting the existing Workload Identity provider recorded before
+      teardown, with its consumers inventoried.
 - Captured: ____________
 
 ## 4. Deploy credential teardown (after this branch merges)
@@ -56,4 +68,7 @@ and `preview.yml` is deleted. Finish removing the now-unused access:
 
 Repeat before every tag: Spark/no-billing still true, capacity reserve intact,
 exact pinned model unchanged, Rules compatibility verified via
-`scripts/release-deploy.mjs`, bundle hash matches the gate artifact.
+`scripts/release-deploy.mjs`, and bundle/Rules/index hashes match the gate
+artifact. After deployment, repeat the Spark/no-billing and forbidden-config
+checks; the script requires the exact interactive `SPARK-VERIFIED`
+acknowledgment before it writes publishable evidence.

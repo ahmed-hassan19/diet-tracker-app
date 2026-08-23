@@ -5,6 +5,7 @@ import {
   guardDependencies,
   guardFirebaseConfig,
   guardFirebaseRc,
+  guardFirestoreIndexes,
   guardWorkflowText,
 } from "./spark-guard.mjs";
 
@@ -67,6 +68,7 @@ for (const file of ["firebase.json", ".firebaserc"]) {
 sparkProblems.push(
   ...guardFirebaseConfig(JSON.parse(fs.readFileSync("firebase.json", "utf8"))),
   ...guardFirebaseRc(JSON.parse(fs.readFileSync(".firebaserc", "utf8"))),
+  ...guardFirestoreIndexes(JSON.parse(fs.readFileSync("firestore.indexes.json", "utf8"))),
   ...guardDependencies(JSON.parse(fs.readFileSync("package.json", "utf8"))),
 );
 for (const name of fs.readdirSync(".github/workflows")) {

@@ -1,0 +1,23 @@
+{
+  "schemaVersion": 1,
+  "projectId": "diet-tracker-372ca",
+  "tag": "vX.Y.Z",
+  "commitSha": "REPLACE_WITH_40_CHARACTER_RELEASE_COMMIT_SHA",
+  "capturedAt": "REPLACE_WITH_CURRENT_ISO_TIMESTAMP",
+  "sparkPlan": "Spark",
+  "billingAccountLinked": false,
+  "quotaSnapshotCaptured": false,
+  "combinedHostingUsageCaptured": false,
+  "appCheckInventoryCaptured": false,
+  "authenticatedUsersModeCaptured": false,
+  "p4saAndApiKeyPostureCaptured": false,
+  "aiLogRetentionCaptured": false,
+  "wifHostCaptured": false,
+  "model": "gemini-flash-lite-latest",
+  "modelFreeTierConfirmed": false,
+  "capacity": {
+    "invitedUserCap": 0,
+    "maxModeledQuotaPercent": 100,
+    "reservePercent": 0
+  }
+}

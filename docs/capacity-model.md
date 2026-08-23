@@ -8,14 +8,21 @@ reserve. Spark prevents charges, not denial of service; public Hosting/Auth/App
 Check endpoints, multiple accounts, and AI traffic can still exhaust
 availability. That residual risk is availability-only, never cost.
 
+**Release status: blocked until every blank below is filled from current
+console evidence and the invited-user model proves at least 30% reserve.** Copy
+`docs/release-preflight.example.json` to
+`local/release-preflight-vX.Y.Z.json` only after completing this sheet. The
+release script binds that record to the tag/commit, rejects it after 24 hours,
+and stops before production mutation if any required evidence is missing.
+
 ## Quota rows (replace with current console values each release)
 
 | Resource | Documented free allowance | 70% ceiling | Modeled use | Measured delta |
 |---|---|---|---|---|
-| Firestore storage | 1 GiB | | | |
-| Firestore reads/day | 50,000 | | | |
-| Firestore writes/day | 20,000 | | | |
-| Firestore deletes/day | 20,000 | | | |
+| Firestore storage | 1 GiB | 0.7 GiB | | |
+| Firestore reads/day | 50,000 | 35,000 | | |
+| Firestore writes/day | 20,000 | 14,000 | | |
+| Firestore deletes/day | 20,000 | 14,000 | | |
 | Hosting storage (both sites) | | | | |
 | Hosting transfer/month | | | | |
 | Auth active users | | | | |

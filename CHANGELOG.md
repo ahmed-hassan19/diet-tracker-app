@@ -15,6 +15,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   workflow verifies tag provenance and records bundle checksums with zero cloud
   credentials, and a hand-triggered publish workflow re-verifies provenance and
   every public live byte before creating the Release entry.
+- Hardened the owner release path so production mutation requires the exact
+  successful tag gate and fresh Spark/capacity evidence; active Rules, canonical
+  indexes, ready composite indexes, tagged hashes, live bytes, and a repeated
+  post-deploy Spark/config check are now independently bound to release evidence.
 - The Playwright browser suite runs serialized (`workers: 1`) because parallel
   workers raced the shared Auth emulator's account registry and produced
   transient HTTP 400s.
@@ -26,6 +30,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   keep Functions/App Hosting/Storage configuration, server-side Firebase SDKs,
   CI deploy/GCP-authentication steps, and non-allowlisted AI backends or models
   out of the repository.
+- Closed common Spark-guard bypasses involving alternate Firebase CLI commands,
+  direct Google Cloud commands, optional/package-alias server dependencies,
+  dynamic Hosting rewrites or extra sites, runtime-selected AI models, TTL, and
+  vector/search index configuration.
 
 ## [3.5.1] - 2026-08-05
 

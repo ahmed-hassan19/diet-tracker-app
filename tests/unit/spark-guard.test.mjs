@@ -7,6 +7,7 @@ import {
   guardDependencies,
   guardFirebaseConfig,
   guardFirebaseRc,
+  guardFirestoreIndexes,
   guardWorkflowText,
 } from "../../scripts/spark-guard.mjs";
 
@@ -23,6 +24,11 @@ test("firebase rc accepts the two production targets", () => {
 test("package.json has no server-side Firebase SDKs", () => {
   const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
   assert.deepEqual(guardDependencies(pkg), []);
+});
+
+test("Firestore index configuration contains only Spark-safe index settings", () => {
+  const indexes = JSON.parse(fs.readFileSync("firestore.indexes.json", "utf8"));
+  assert.deepEqual(guardFirestoreIndexes(indexes), []);
 });
 
 const liveWorkflows = fs
@@ -71,28 +77,48 @@ test("foreign hosting targets and public dirs are rejected", () => {
   assert.ok(guardFirebaseConfig(wrongPublic).some((s) => s.includes("dist")));
 });
 
+test("both Hosting targets are required exactly once", () => {
+  const missing = baseConfig();
+  missing.hosting.pop();
+  assert.ok(guardFirebaseConfig(missing).some((s) => s.includes("exactly 2")));
+  const duplicate = baseConfig();
+  duplicate.hosting[1].target = "main";
+  assert.ok(guardFirebaseConfig(duplicate).some((s) => s.includes("exactly once")));
+});
+
+test("dynamic Hosting rewrites are rejected", () => {
+  const config = baseConfig();
+  config.hosting[0].rewrites = [{ source: "/api/**", run: { serviceId: "paid" } }];
+  assert.ok(guardFirebaseConfig(config).some((s) => s.includes('key "run"')));
+});
+
 test("firestore keys outside rules/indexes are rejected", () => {
   const config = baseConfig();
   config.firestore.databases = [];
   assert.ok(
-    guardFirebaseConfig(config).some((s) => s.includes('firestore."databases"')),
+    guardFirebaseConfig(config).some((s) => s.includes('key "databases"')),
   );
 });
 
-test("rc targets outside main/nice or without sites are rejected", () => {
+test("rc targets must be the exact two reviewed site mappings", () => {
   assert.ok(
     guardFirebaseRc({
+      projects: { default: "diet-tracker-372ca" },
       targets: { "diet-tracker-372ca": { hosting: { preview: ["diet-tracker-372ca"] } } },
     }).some((s) => s.includes("preview")),
   );
   assert.ok(
     guardFirebaseRc({
-      targets: { "diet-tracker-372ca": { hosting: { main: [] } } },
-    }).some((s) => s.includes("at least one site")),
+      projects: { default: "diet-tracker-372ca" },
+      targets: {
+        "diet-tracker-372ca": {
+          hosting: { main: ["diet-tracker-372ca", "third-site"], nice: ["5asesny"] },
+        },
+      },
+    }).some((s) => s.includes("map exactly")),
   );
-  assert.deepEqual(
-    guardFirebaseRc({ targets: {} }).length,
-    1,
+  assert.ok(
+    guardFirebaseRc({ projects: {}, targets: {} }).some((s) => s.includes("default")),
   );
 });
 
@@ -102,6 +128,15 @@ test("server SDK dependencies are rejected in either group", () => {
   );
   assert.ok(
     guardDependencies({ dependencies: { "firebase-functions": "^5" } }).length === 1,
+  );
+  assert.ok(
+    guardDependencies({ optionalDependencies: { "firebase-functions": "^6" } }).length === 1,
+  );
+  assert.ok(
+    guardDependencies({ dependencies: { server: "npm:firebase-admin@^13" } }).length === 1,
+  );
+  assert.ok(
+    guardDependencies({ scripts: { release: "npx firebase-tools deploy" } }).length === 1,
   );
   assert.deepEqual(guardDependencies({ devDependencies: { prettier: "3" } }), []);
 });
@@ -114,13 +149,36 @@ for (const [marker, sample] of [
   ["id-token: write", "permissions:\n  id-token: write"],
 ]) {
   test(`workflow marker "${marker}" is rejected`, () => {
-    assert.deepEqual(guardWorkflowText(sample).length, 1);
+    assert.ok(guardWorkflowText(sample).length >= 1);
   });
 }
 
 test("clean check-and-release workflow passes the text guard", () => {
   assert.deepEqual(
     guardWorkflowText("steps:\n  - run: npm run check\n  - run: gh release create v1"),
+    [],
+  );
+});
+
+for (const sample of [
+  "steps:\n  - run: npx firebase-tools deploy --only hosting:main",
+  "steps:\n  - run: npx -y firebase-tools@latest deploy --only hosting:main",
+  "steps:\n  - run: firebase-tools deploy --only hosting:main",
+  "steps:\n  - run: npx firebase --project demo deploy --only firestore:rules",
+  "steps:\n  - run: gcloud auth login && gcloud run deploy paid-service",
+  "steps:\n  - run: node scripts/release-deploy.mjs v1.2.3",
+  "permissions:\n  'id-token': 'write'",
+]) {
+  test(`workflow bypass is rejected: ${sample.split("\n").at(-1).trim()}`, () => {
+    assert.ok(guardWorkflowText(sample).length >= 1);
+  });
+}
+
+test("Firebase emulator commands remain allowed in CI", () => {
+  assert.deepEqual(
+    guardWorkflowText(
+      'steps:\n  - run: npx firebase emulators:exec --only firestore "npm test"',
+    ),
     [],
   );
 });
@@ -145,5 +203,35 @@ test("unreviewed AI models are rejected", () => {
 
 test("missing explicit model pin is rejected", () => {
   const stripped = aiModule.replace(/model:"[^"]+",/, "");
-  assert.ok(guardAiModule(stripped).some((s) => s.includes("explicit model name")));
+  assert.ok(guardAiModule(stripped).some((s) => s.includes("exactly one literal")));
+});
+
+test("dead allowlisted strings cannot hide runtime-selected AI configuration", () => {
+  const deceptive = `
+    // new GoogleAIBackend() model: "${AI_MODEL_ALLOWLIST[0]}"
+    const modelName = "unreviewed-model";
+    getGenerativeModel(getAI(app, { backend: makeBackend() }), { model: modelName });
+  `;
+  const problems = guardAiModule(deceptive);
+  assert.ok(problems.some((s) => s.includes("GoogleAIBackend")));
+  assert.ok(problems.some((s) => s.includes("runtime expression")));
+});
+
+test("TTL, vector, and search index configuration is rejected", () => {
+  assert.ok(
+    guardFirestoreIndexes({
+      indexes: [],
+      fieldOverrides: [{ collectionGroup: "trackers", fieldPath: "days", ttl: true, indexes: [] }],
+    }).some((s) => s.includes('key "ttl"')),
+  );
+  assert.ok(
+    guardFirestoreIndexes({
+      indexes: [{
+        collectionGroup: "trackers",
+        queryScope: "COLLECTION",
+        fields: [{ fieldPath: "days", vectorConfig: { dimension: 3 } }],
+      }],
+      fieldOverrides: [],
+    }).some((s) => s.includes('key "vectorConfig"')),
+  );
 });

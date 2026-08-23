@@ -12,14 +12,26 @@ on:
       commit:
         description: "Release commit SHA the tag points to"
         required: true
+      gate_run_id:
+        description: "Successful tag-gate run ID from the deployment manifest"
+        required: true
       bundle_sha256:
         description: "bundle_sha256 from the local deploy evidence manifest"
         required: true
       ruleset_sha256:
         description: "ruleset_sha256 from the local deploy evidence manifest"
         required: true
+      indexes_sha256:
+        description: "indexes_sha256 from the local deploy evidence manifest"
+        required: true
+      preflight_sha256:
+        description: "Hash of the private owner preflight evidence record"
+        required: true
       deployed_at:
         description: "ISO timestamp of the verified production deployment"
+        required: true
+      post_deploy_verified_at:
+        description: "ISO timestamp of the repeated Spark/config check"
         required: true
 
 permissions:
@@ -61,18 +73,17 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run check
       - run: npx firebase emulators:exec --project diet-tracker-372ca --only auth,firestore,hosting "npm run test:browser"
-      - name: Record tagged bundle checksums
+      - name: Record tagged bundle, Rules, and index checksums
         run: |
-          cd public
-          # identical recipe to the publish job and scripts/release-deploy.mjs:
-          # "<sha256>  ./<path>" lines, LC_ALL=C path order
-          find . -type f -not -name '.*' | LC_ALL=C sort | xargs sha256sum > ../bundle.txt
-          echo "bundle_sha256: $(sha256sum ../bundle.txt | awk '{print $1}')"
-          cp ../bundle.txt "$RUNNER_TEMP/bundle.txt"
+          node scripts/release-hashes.mjs > tagged-hashes.json
+          node scripts/release-hashes.mjs --bundle-list > bundle.txt
+          cat tagged-hashes.json
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: bundle-checksums-${{ github.ref_name }}
-          path: bundle.txt
+          path: |
+            bundle.txt
+            tagged-hashes.json
           retention-days: 90
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: failure()
@@ -101,6 +112,9 @@ jobs:
           TAG: ${{ inputs.tag }}
           EXPECTED_COMMIT: ${{ inputs.commit }}
         run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::error::invalid release tag $TAG"; exit 1; }
+          git fetch --force origin main
           git fetch --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
           test "$(git cat-file -t "refs/tags/${TAG}")" = tag || {
             echo "::error::${TAG} is not an annotated tag"; exit 1; }
@@ -113,19 +127,24 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
+          EXPECTED_COMMIT: ${{ inputs.commit }}
+          GATE_RUN_ID: ${{ inputs.gate_run_id }}
         run: |
-          count="$(gh run list --workflow release.yml --branch "$TAG" --status success --json databaseId --jq 'length')"
-          test "$count" -ge 1 || {
-            echo "::error::no successful release gate run found for $TAG"; exit 1; }
-      - name: Recompute bundle checksums and compare with the evidence input
+          gate="$(gh run view "$GATE_RUN_ID" --json workflowName,headBranch,headSha,event,status,conclusion)"
+          test "$(jq -r .workflowName <<<"$gate")" = release &&
+          test "$(jq -r .headBranch <<<"$gate")" = "$TAG" &&
+          test "$(jq -r .headSha <<<"$gate")" = "$EXPECTED_COMMIT" &&
+          test "$(jq -r .event <<<"$gate")" = push &&
+          test "$(jq -r .status <<<"$gate")" = completed &&
+          test "$(jq -r .conclusion <<<"$gate")" = success || {
+            echo "::error::run $GATE_RUN_ID is not the successful tag gate for $TAG/$EXPECTED_COMMIT"; exit 1; }
+      - name: Compare tagged bundle, Rules, and indexes with deployment evidence
         env:
           EXPECTED_BUNDLE: ${{ inputs.bundle_sha256 }}
+          EXPECTED_RULESET: ${{ inputs.ruleset_sha256 }}
+          EXPECTED_INDEXES: ${{ inputs.indexes_sha256 }}
         run: |
-          cd public
-          find . -type f -not -name '.*' | LC_ALL=C sort | xargs sha256sum > /tmp/bundle.txt
-          actual="$(sha256sum /tmp/bundle.txt | awk '{print $1}')"
-          test "$actual" = "$EXPECTED_BUNDLE" || {
-            echo "::error::bundle hash $actual != evidence $EXPECTED_BUNDLE"; exit 1; }
+          node scripts/release-hashes.mjs --verify
       - name: Verify every public live byte on both hosts
         run: |
           check() {
@@ -141,11 +160,12 @@ jobs:
           # the catch-all rewrite serves index.html (HTTP 200) for a missing .js,
           # so every file has to be compared, not just the entry point
           for host in https://diet-tracker-372ca.web.app https://5asesny.web.app; do
-            for file in $(cd public && find . -type f -not -name '.*' | sed 's|^\./||'); do
+            while IFS= read -r -d '' file; do
+              file="${file#public/}"
               path="$file"
               test "$file" = index.html && path=""
               check "$host/$path" "public/$file"
-            done
+            done < <(node scripts/release-hashes.mjs --file-list0)
           done
       - name: Publish GitHub Release with the evidence summary
         env:
@@ -154,15 +174,29 @@ jobs:
           COMMIT: ${{ inputs.commit }}
           BUNDLE: ${{ inputs.bundle_sha256 }}
           RULESET: ${{ inputs.ruleset_sha256 }}
+          INDEXES: ${{ inputs.indexes_sha256 }}
+          PREFLIGHT: ${{ inputs.preflight_sha256 }}
           DEPLOYED_AT: ${{ inputs.deployed_at }}
+          POST_DEPLOY_VERIFIED_AT: ${{ inputs.post_deploy_verified_at }}
         run: |
+          [[ "$DEPLOYED_AT" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]] || {
+            echo "::error::invalid deployed_at"; exit 1; }
+          [[ "$POST_DEPLOY_VERIFIED_AT" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]] || {
+            echo "::error::invalid post_deploy_verified_at"; exit 1; }
+          [[ "$PREFLIGHT" =~ ^[a-f0-9]{64}$ ]] || {
+            echo "::error::invalid preflight_sha256"; exit 1; }
           title="Diet Tracker $TAG"
           rules_short="${RULESET:0:12}"
+          indexes_short="${INDEXES:0:12}"
           bundle_short="${BUNDLE:0:12}"
+          preflight_short="${PREFLIGHT:0:12}"
           notes="Verified production deployment from ${COMMIT} at ${DEPLOYED_AT}.
           Deployed and byte-verified locally from the exact annotated tag with
           human Firebase OAuth (\`scripts/release-deploy.mjs\`); Firestore Rules
-          source sha256 \`${rules_short}…\`; tagged bundle sha256 \`${bundle_short}…\`."
+          source sha256 \`${rules_short}…\`; index specification sha256
+          \`${indexes_short}…\`; tagged bundle sha256 \`${bundle_short}…\`.
+          Private preflight evidence sha256 \`${preflight_short}…\`; Spark/no-billing
+          and configuration were rechecked at ${POST_DEPLOY_VERIFIED_AT}."
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
             gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest \
               --title "$title" --notes "$notes"

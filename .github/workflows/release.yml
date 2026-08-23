@@ -4,29 +4,63 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Annotated tag that was deployed (e.g. v3.6.0)"
+        required: true
+      commit:
+        description: "Release commit SHA the tag points to"
+        required: true
+      gate_run_id:
+        description: "Successful tag-gate run ID from the deployment manifest"
+        required: true
+      bundle_sha256:
+        description: "bundle_sha256 from the local deploy evidence manifest"
+        required: true
+      ruleset_sha256:
+        description: "ruleset_sha256 from the local deploy evidence manifest"
+        required: true
+      indexes_sha256:
+        description: "indexes_sha256 from the local deploy evidence manifest"
+        required: true
+      preflight_sha256:
+        description: "Hash of the private owner preflight evidence record"
+        required: true
+      deployed_at:
+        description: "ISO timestamp of the verified production deployment"
+        required: true
+      post_deploy_verified_at:
+        description: "ISO timestamp of the repeated Spark/config check"
+        required: true
 
 permissions:
   contents: read
-  id-token: write
 
 concurrency:
   group: production
   cancel-in-progress: false
 
 jobs:
-  deploy:
-    if: github.event.base_ref == null
+  # Runs on the tag push with zero cloud credentials: provenance, checks, and
+  # an immutable checksum record of the tagged public/ bundle.
+  gate:
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
-    environment: production
     timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
         with:
           fetch-depth: 0
-      - name: Require annotated tag
+      - name: Require annotated tag on the reviewed origin/main commit
         run: |
+          git fetch --force origin main
           git fetch --force origin "refs/tags/${GITHUB_REF_NAME}:refs/tags/${GITHUB_REF_NAME}"
-          test "$(git cat-file -t "refs/tags/${GITHUB_REF_NAME}")" = tag
+          test "$(git cat-file -t "refs/tags/${GITHUB_REF_NAME}")" = tag || {
+            echo "::error::${GITHUB_REF_NAME} is not an annotated tag"; exit 1; }
+          peeled="$(git rev-parse "refs/tags/${GITHUB_REF_NAME}^{commit}")"
+          test "$peeled" = "$(git rev-parse origin/main)" || {
+            echo "::error::tag commit $peeled is not origin/main $(git rev-parse origin/main)"; exit 1; }
       - uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020
         with:
           node-version: 22
@@ -39,15 +73,80 @@ jobs:
       - run: npx playwright install --with-deps chromium
       - run: npm run check
       - run: npx firebase emulators:exec --project diet-tracker-372ca --only auth,firestore,hosting "npm run test:browser"
-      - uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093
-        with:
-          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
-          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
-      - run: npx firebase deploy --only hosting:main,hosting:nice --project diet-tracker-372ca --non-interactive
-      - name: Verify production source
+      - name: Record tagged bundle, Rules, and index checksums
         run: |
-          # the CDN can still serve the previous revision for a few seconds after
-          # deploy returns, so a first-attempt mismatch is not yet a failed release
+          node scripts/release-hashes.mjs > tagged-hashes.json
+          node scripts/release-hashes.mjs --bundle-list > bundle.txt
+          cat tagged-hashes.json
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        with:
+          name: bundle-checksums-${{ github.ref_name }}
+          path: |
+            bundle.txt
+            tagged-hashes.json
+          retention-days: 90
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+        if: failure()
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7
+
+  # Triggered by hand after scripts/release-deploy.mjs has deployed and verified
+  # production from the exact tag using human Firebase OAuth. This job holds no
+  # Google/Firebase credential — only the scoped GitHub token — and re-verifies
+  # provenance plus every public live byte before publishing the Release.
+  publish:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          ref: ${{ inputs.tag }}
+          fetch-depth: 0
+      - name: Verify tag provenance matches the evidence inputs
+        env:
+          TAG: ${{ inputs.tag }}
+          EXPECTED_COMMIT: ${{ inputs.commit }}
+        run: |
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
+            echo "::error::invalid release tag $TAG"; exit 1; }
+          git fetch --force origin main
+          git fetch --force origin "refs/tags/${TAG}:refs/tags/${TAG}"
+          test "$(git cat-file -t "refs/tags/${TAG}")" = tag || {
+            echo "::error::${TAG} is not an annotated tag"; exit 1; }
+          peeled="$(git rev-parse "refs/tags/${TAG}^{commit}")"
+          test "$peeled" = "$EXPECTED_COMMIT" || {
+            echo "::error::tag peels to $peeled, evidence says $EXPECTED_COMMIT"; exit 1; }
+          git merge-base --is-ancestor "$peeled" origin/main || {
+            echo "::error::$peeled is not on origin/main"; exit 1; }
+      - name: Require a successful gate run for this tag
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          EXPECTED_COMMIT: ${{ inputs.commit }}
+          GATE_RUN_ID: ${{ inputs.gate_run_id }}
+        run: |
+          gate="$(gh run view "$GATE_RUN_ID" --json workflowName,headBranch,headSha,event,status,conclusion)"
+          test "$(jq -r .workflowName <<<"$gate")" = release &&
+          test "$(jq -r .headBranch <<<"$gate")" = "$TAG" &&
+          test "$(jq -r .headSha <<<"$gate")" = "$EXPECTED_COMMIT" &&
+          test "$(jq -r .event <<<"$gate")" = push &&
+          test "$(jq -r .status <<<"$gate")" = completed &&
+          test "$(jq -r .conclusion <<<"$gate")" = success || {
+            echo "::error::run $GATE_RUN_ID is not the successful tag gate for $TAG/$EXPECTED_COMMIT"; exit 1; }
+      - name: Compare tagged bundle, Rules, and indexes with deployment evidence
+        env:
+          EXPECTED_BUNDLE: ${{ inputs.bundle_sha256 }}
+          EXPECTED_RULESET: ${{ inputs.ruleset_sha256 }}
+          EXPECTED_INDEXES: ${{ inputs.indexes_sha256 }}
+        run: |
+          node scripts/release-hashes.mjs --verify
+      - name: Verify every public live byte on both hosts
+        run: |
           check() {
             for _ in 1 2 3 4 5; do
               if curl --fail --silent --show-error "$1" -o live.out && cmp "$2" live.out; then
@@ -61,33 +160,51 @@ jobs:
           # the catch-all rewrite serves index.html (HTTP 200) for a missing .js,
           # so every file has to be compared, not just the entry point
           for host in https://diet-tracker-372ca.web.app https://5asesny.web.app; do
-            for file in $(cd public && find . -type f -not -name '.*' | sed 's|^\./||'); do
+            while IFS= read -r -d '' file; do
+              file="${file#public/}"
               path="$file"
               test "$file" = index.html && path=""
               check "$host/$path" "public/$file"
-            done
+            done < <(node scripts/release-hashes.mjs --file-list0)
           done
-
-  publish:
-    needs: deploy
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - name: Publish GitHub Release
+      - name: Publish GitHub Release with the evidence summary
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ github.ref_name }}
+          TAG: ${{ inputs.tag }}
+          COMMIT: ${{ inputs.commit }}
+          BUNDLE: ${{ inputs.bundle_sha256 }}
+          RULESET: ${{ inputs.ruleset_sha256 }}
+          INDEXES: ${{ inputs.indexes_sha256 }}
+          PREFLIGHT: ${{ inputs.preflight_sha256 }}
+          DEPLOYED_AT: ${{ inputs.deployed_at }}
+          POST_DEPLOY_VERIFIED_AT: ${{ inputs.post_deploy_verified_at }}
         run: |
+          [[ "$DEPLOYED_AT" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]] || {
+            echo "::error::invalid deployed_at"; exit 1; }
+          [[ "$POST_DEPLOY_VERIFIED_AT" =~ ^[0-9]{4}-[0-9]{2}-[0-9]{2}T ]] || {
+            echo "::error::invalid post_deploy_verified_at"; exit 1; }
+          [[ "$PREFLIGHT" =~ ^[a-f0-9]{64}$ ]] || {
+            echo "::error::invalid preflight_sha256"; exit 1; }
           title="Diet Tracker $TAG"
+          rules_short="${RULESET:0:12}"
+          indexes_short="${INDEXES:0:12}"
+          bundle_short="${BUNDLE:0:12}"
+          preflight_short="${PREFLIGHT:0:12}"
+          notes="Verified production deployment from ${COMMIT} at ${DEPLOYED_AT}.
+          Deployed and byte-verified locally from the exact annotated tag with
+          human Firebase OAuth (\`scripts/release-deploy.mjs\`); Firestore Rules
+          source sha256 \`${rules_short}…\`; index specification sha256
+          \`${indexes_short}…\`; tagged bundle sha256 \`${bundle_short}…\`.
+          Private preflight evidence sha256 \`${preflight_short}…\`; Spark/no-billing
+          and configuration were rechecked at ${POST_DEPLOY_VERIFIED_AT}."
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest --title "$title"
+            gh release edit "$TAG" --repo "$GITHUB_REPOSITORY" --draft=false --latest \
+              --title "$title" --notes "$notes"
             exit 0
           fi
-
           previous_args=()
           if previous_tag="$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName 2>/dev/null)"; then
             previous_args=(--notes-start-tag "$previous_tag")
           fi
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --latest \
-            --title "$title" --generate-notes "${previous_args[@]}"
+            --title "$title" --notes "$notes" "${previous_args[@]}"

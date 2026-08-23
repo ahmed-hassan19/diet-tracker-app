@@ -1,5 +1,13 @@
 import fs from "node:fs";
 import vm from "node:vm";
+import {
+  guardAiModule,
+  guardDependencies,
+  guardFirebaseConfig,
+  guardFirebaseRc,
+  guardFirestoreIndexes,
+  guardWorkflowText,
+} from "./spark-guard.mjs";
 
 const html = fs.readFileSync("public/index.html", "utf8");
 const scripts = [...html.matchAll(/<script(?:\s[^>]*)?>([\s\S]*?)<\/script>/g)];
@@ -51,8 +59,25 @@ if (mismatches.length) {
   );
 }
 
+const sparkProblems = [
+  ...guardAiModule(inline[0][1]),
+];
 for (const file of ["firebase.json", ".firebaserc"]) {
   JSON.parse(fs.readFileSync(file, "utf8"));
+}
+sparkProblems.push(
+  ...guardFirebaseConfig(JSON.parse(fs.readFileSync("firebase.json", "utf8"))),
+  ...guardFirebaseRc(JSON.parse(fs.readFileSync(".firebaserc", "utf8"))),
+  ...guardFirestoreIndexes(JSON.parse(fs.readFileSync("firestore.indexes.json", "utf8"))),
+  ...guardDependencies(JSON.parse(fs.readFileSync("package.json", "utf8"))),
+);
+for (const name of fs.readdirSync(".github/workflows")) {
+  sparkProblems.push(...guardWorkflowText(fs.readFileSync(`.github/workflows/${name}`, "utf8")));
+}
+if (sparkProblems.length) {
+  throw new Error(
+    `Spark guard failed:\n${sparkProblems.map((s) => `  - ${s}`).join("\n")}`,
+  );
 }
 
 console.log(

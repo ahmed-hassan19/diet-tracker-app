@@ -32,7 +32,7 @@ function clearGateRecheck(){
 }
 function scheduleGateRecheck(){
   clearGateRecheck();
-  if(!FB.ref||!firebase.auth().currentUser) return;
+  if(!FB.ref||!window.firebaseBridge||!window.firebaseBridge.currentUser()) return;
   gateRecheck=setTimeout(()=>{
     gateRecheck=null;
     loadMembership();
@@ -56,17 +56,17 @@ function syncFailKind(code){
     :(code==="resource-exhausted"?"quota":""));
 }
 function syncContextCurrent(generation,uid,ref){
-  const current=firebase.auth().currentUser;
+  const current=window.firebaseBridge&&window.firebaseBridge.currentUser();
   return generation===syncGeneration&&!!current&&current.uid===uid&&FB.ref===ref;
 }
 async function loadMembership(){
-  const u=firebase.auth().currentUser;
+  const u=window.firebaseBridge&&window.firebaseBridge.currentUser();
   if(!u||!FB.ref) return;
   const trackerRef=FB.ref, sync=syncGeneration, membership=++membershipGeneration;
   try{
-    const snap=await firebase.firestore().collection("betaMembers").doc(u.uid).get();
+    const snap=await window.firebaseBridge.readMembership(u.uid);
     if(!syncContextCurrent(sync,u.uid,trackerRef)||membership!==membershipGeneration) return;
-    const enabled=!!(snap.exists&&snap.data().enabled===true);
+    const enabled=!!(snap.exists&&snap.data&&snap.data.enabled===true);
     setGate(enabled?"ok":"pending");
   }catch(e){
     // can't verify membership → stay quiet; a failed push will classify itself
@@ -75,24 +75,18 @@ async function loadMembership(){
   }
 }
 function setSyncStatus(s){ const el=document.getElementById("sync-status"); if(el) el.textContent=s; }
-function loadScript(src){ return new Promise((ok,bad)=>{ const s=document.createElement("script"); s.src=src; s.onload=ok; s.onerror=bad; document.head.appendChild(s); }); }
+function firebaseReady(){
+  if(window.firebaseBridge) return Promise.resolve(window.firebaseBridge);
+  return new Promise((resolve,reject)=>{
+    const timeout=setTimeout(()=>reject(new Error("Firebase module did not initialize")),15000);
+    window.addEventListener("diet-firebase-ready",()=>{ clearTimeout(timeout); resolve(window.firebaseBridge); },{once:true});
+  });
+}
 async function initSync(){
   try{
-    if(!window.firebase){
-      await loadScript("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js");
-      if(!TEST_MODE) await loadScript("https://www.gstatic.com/firebasejs/10.14.1/firebase-app-check-compat.js");
-      await loadScript("https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js");
-      await loadScript("https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js");
-    }
-    if(!firebase.apps.length) firebase.initializeApp(FB_BUILTIN.config);
-    if(TEST_MODE){
-      firebase.auth().useEmulator("http://127.0.0.1:9099");
-      firebase.firestore().useEmulator("127.0.0.1",8080);
-    }else if(APP_CHECK_SITE_KEY){
-      firebase.appCheck().activate(APP_CHECK_SITE_KEY,true);
-    }
-    firebase.auth().onAuthStateChanged(u=>{ u?start(u):stop(); });
-    if(TEST_MODE&&!firebase.auth().currentUser) await firebase.auth().signInAnonymously();
+    const bridge=await firebaseReady();
+    await bridge.observeAuth(u=>{ u?start(u):stop(); });
+    if(TEST_MODE&&!bridge.currentUser()) await bridge.signInForTest();
   }catch(e){
     document.getElementById("login").style.display="";
     document.getElementById("login-status").textContent="⚠️ مش قادر أوصل بالسيرفر — اتأكد من النت واعمل تحديث للصفحة.";
@@ -114,11 +108,11 @@ function start(u){
   if(migrateReviewedProfile()){
     try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){}
   }
-  FB.ref=firebase.firestore().collection("trackers").doc(u.uid);
+  FB.ref=u.uid;
   const trackerRef=FB.ref, sync=syncGeneration;
-  FB.unsub=trackerRef.onSnapshot(doc=>{
+  window.firebaseBridge.listenTracker(u.uid,doc=>{
     if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
-    if(doc.exists){ const r=doc.data(); if(r && r.days) mergeRemote(r); }
+    if(doc.exists){ const r=doc.data; if(r && r.days) mergeRemote(r); }
     if(!FB.active){ FB.active=true; schedulePush(); }
     setSyncStatus("☁️ متزامن مع السحابة · آخر تحديث "+new Date().toLocaleTimeString());
   }, err=>{
@@ -126,13 +120,16 @@ function start(u){
     const kind=syncFailKind(err&&err.code);
     if(kind==="auth") setGate("auth");
     else if(kind!=="quota") setSyncStatus("⚠️ المزامنة متعطلة: "+err.message);
+  }).then(unsub=>{
+    if(syncContextCurrent(sync,u.uid,trackerRef)) FB.unsub=unsub;
+    else unsub();
   });
   loadMembership();
   if(S.settings&&S.settings.ht) showApp(); else showSetup(u);
 }
-function setWho(){ const u=firebase.auth().currentUser; document.getElementById("who").textContent=(S&&S.settings&&S.settings.name)||(u&&(u.displayName||u.email))||""; }
+function setWho(){ const u=window.firebaseBridge&&window.firebaseBridge.currentUser(); document.getElementById("who").textContent=(S&&S.settings&&S.settings.name)||(u&&(u.displayName||u.email))||""; }
 let suEdit=false;
-function editProfile(){ suEdit=true; showSetup(firebase.auth().currentUser); }
+function editProfile(){ suEdit=true; showSetup(window.firebaseBridge.currentUser()); }
 function showApp(){
   suEdit=false;
   document.getElementById("setup").style.display="none";
@@ -198,20 +195,17 @@ function stop(){
   document.getElementById("login").style.display="";
 }
 function login(){
-  const p=new firebase.auth.GoogleAuthProvider();
-  firebase.auth().signInWithPopup(p).catch(e=>{
-    if(e.code==="auth/popup-blocked"||e.code==="auth/operation-not-supported-in-this-environment")
-      return firebase.auth().signInWithRedirect(p);
+  window.firebaseBridge.signInGoogle().catch(e=>{
     if(e.code!=="auth/popup-closed-by-user"&&e.code!=="auth/cancelled-popup-request")
       document.getElementById("login-status").textContent="⚠️ فشل الدخول: "+(e.code||e.message);
   });
 }
-function logout(){ firebase.auth().signOut(); }
+function logout(){ window.firebaseBridge.signOut(); }
 async function deleteAllData(){
   if(deletingAll||!FB.ref||!KEY) return;
   if(!confirm("هتمسح كل بيانات المتابعة من الجهاز والسحابة. تحب تكمل؟")) return;
   if(prompt('للتأكيد اكتب كلمة "حذف"')!=="حذف"){ alert("الإلغاء تم — بياناتك زي ما هي."); return; }
-  const u=firebase.auth().currentUser, ref=FB.ref, localKey=KEY;
+  const u=window.firebaseBridge.currentUser(), ref=FB.ref, localKey=KEY;
   deletingAll=true;
   const btn=document.getElementById("delete-all");
   btn.disabled=true;
@@ -221,10 +215,10 @@ async function deleteAllData(){
   FB.active=false;
   if(FB.unsub){ FB.unsub(); FB.unsub=null; }
   try{
-    await ref.delete();
+    await window.firebaseBridge.deleteTracker(ref);
     localStorage.removeItem(localKey);
     S=null; KEY=null; FB.ref=null;
-    await firebase.auth().signOut();
+    await window.firebaseBridge.signOut();
     alert("اتحذفت كل بيانات المتابعة من الجهاز والسحابة ✅");
   }catch(e){
     deletingAll=false;
@@ -253,7 +247,7 @@ function mergeRemote(remote){
   if(S.settings&&S.settings.ht&&!suEdit&&document.getElementById("setup").style.display!=="none") showApp();
 }
 function schedulePush(){
-  const u=firebase.auth().currentUser, trackerRef=FB.ref, sync=syncGeneration;
+  const u=window.firebaseBridge&&window.firebaseBridge.currentUser(), trackerRef=FB.ref, sync=syncGeneration;
   if(deletingAll || !FB.active || !trackerRef || !u) return;
   clearTimeout(FB.pushTimer);
   FB.pushTimer=setTimeout(()=>{
@@ -261,7 +255,7 @@ function schedulePush(){
     // known nonmember/revoked: skip the doomed write (each denial still bills
     // Rules reads); loadMembership's bounded recheck resumes the flush
     if(GATE.state==="pending") return;
-    trackerRef.set({days:S.days, settings:S.settings||{}, foods:S.foods||{}, calref:S.calref||{}, updated:Date.now()})
+    window.firebaseBridge.writeTracker(trackerRef,{days:S.days, settings:S.settings||{}, foods:S.foods||{}, calref:S.calref||{}, updated:Date.now()})
       .then(()=>{
         if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
         setGate("ok");

@@ -183,7 +183,7 @@
     <p class="muted" style="text-align:center" id="sync-status"></p>
   </div>
 
-  <footer>Diet Tracker — اتبني بواسطة Claude · أغسطس 2026 · <b>v3.6.3</b> · <a href="#privacy" style="color:var(--teal)">الخصوصية</a></footer>
+  <footer>Diet Tracker — اتبني بواسطة Claude · أغسطس 2026 · <b>v3.7.0</b> · <a href="#privacy" style="color:var(--teal)">الخصوصية</a></footer>
 </div>
 
 <div class="wrap" id="setup" style="display:none">
@@ -255,28 +255,65 @@
 <script src="./render.js"></script>
 <script src="./sync.js"></script>
 <script type="module">
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
-import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-ai.js";
-import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app-check.js";
-// Release A0 ships AI estimation disabled until the A1 acceptance (same-app
-// Auth, App Check enforcement, model review, privacy, quota) passes. The named
-// app and model wiring below stay intact; re-enable by flipping this flag.
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app-check.js";
+import { connectAuthEmulator, getAuth, GoogleAuthProvider, onAuthStateChanged, signInAnonymously, signInWithPopup, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import { connectFirestoreEmulator, deleteDoc, doc, getDoc, getDocFromServer, getFirestore, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-ai.js";
+// v3.7.0 ships the reviewed same-app bridge and model pin with AI still off.
+// A later reviewed release can enable the path by changing this flag only.
 window.AI_ENABLED=false;
-let model=null;
-window.aiEstimate = async text => {
-  if(!window.AI_ENABLED) throw new Error("AI estimation is disabled in this release");
-  if(!model){
-    const app=initializeApp(FB_BUILTIN.config,"ai");
-    if(!TEST_MODE&&APP_CHECK_SITE_KEY) initializeAppCheck(app,{provider:new ReCaptchaV3Provider(APP_CHECK_SITE_KEY),isTokenAutoRefreshEnabled:true});
-    model=getGenerativeModel(getAI(app,{backend:new GoogleAIBackend()}),{
-      model:"gemini-flash-lite-latest",
-      generationConfig:{responseMimeType:"application/json",
-        responseSchema:{type:"object",properties:{k:{type:"number"},p:{type:"number"},f:{type:"number"},c:{type:"number"}},required:["k","p","f","c"]}}
-    });
+const app=initializeApp(FB_BUILTIN.config);
+const auth=getAuth(app);
+const db=getFirestore(app);
+if(TEST_MODE){
+  connectAuthEmulator(auth,"http://127.0.0.1:9099",{disableWarnings:true});
+  connectFirestoreEmulator(db,"127.0.0.1",8080);
+}else{
+  initializeAppCheck(app,{provider:new ReCaptchaV3Provider(APP_CHECK_SITE_KEY),isTokenAutoRefreshEnabled:true});
+}
+const model=getGenerativeModel(getAI(app,{backend:new GoogleAIBackend()}),{
+  model:"gemini-3.5-flash-lite",
+  generationConfig:{responseMimeType:"application/json",responseSchema:Schema.object({properties:{
+    k:Schema.number(),p:Schema.number(),f:Schema.number(),c:Schema.number()
+  }})}
+});
+const publicUser=u=>u?Object.freeze({uid:u.uid,displayName:u.displayName||"",email:u.email||""}):null;
+const fail=(code,message)=>Object.assign(new Error(message),{code});
+const plainSnapshot=s=>Object.freeze({exists:s.exists(),data:s.exists()?s.data():null});
+const bridge=Object.freeze({
+  currentUser:()=>publicUser(auth.currentUser),
+  observeAuth:callback=>Promise.resolve(onAuthStateChanged(auth,u=>callback(publicUser(u)))),
+  signInForTest:()=>signInAnonymously(auth).then(x=>publicUser(x.user)),
+  signInGoogle:async()=>{
+    const provider=new GoogleAuthProvider();
+    try{ return publicUser((await signInWithPopup(auth,provider)).user); }
+    catch(e){
+      if(e&&["auth/popup-blocked","auth/operation-not-supported-in-this-environment"].includes(e.code)){
+        await signInWithRedirect(auth,provider); return null;
+      }
+      throw e;
+    }
+  },
+  signOut:()=>signOut(auth),
+  readMembership:(uid,fresh=false)=>(fresh?getDocFromServer:getDoc)(doc(db,"betaMembers",uid)).then(plainSnapshot),
+  listenTracker:(uid,next,error)=>Promise.resolve(onSnapshot(doc(db,"trackers",uid),s=>next(plainSnapshot(s)),error)),
+  writeTracker:(uid,value)=>setDoc(doc(db,"trackers",uid),value),
+  deleteTracker:uid=>deleteDoc(doc(db,"trackers",uid)),
+  estimateFood:async text=>{
+    if(window.AI_ENABLED!==true) throw fail("ai/disabled","AI estimation is disabled in this release");
+    const user=auth.currentUser;
+    if(!user) throw fail("ai/unauthenticated","Authentication is required");
+    // Fail closed on a new server read immediately before every model request.
+    const membership=await getDocFromServer(doc(db,"betaMembers",user.uid));
+    if(auth.currentUser?.uid!==user.uid) throw fail("ai/unauthenticated","Authentication changed");
+    if(!membership.exists()||membership.data().enabled!==true) throw fail("ai/forbidden","Membership is not enabled");
+    const result=await model.generateContent("قدّر إجمالي السعرات k والبروتين p والدهون f والكارب c بالجرام. استخدم الكمية المكتوبة، ولو مش موجودة استخدم حصة مصرية معتادة. الأكل والكمية فقط: "+String(text).slice(0,200));
+    return JSON.parse(result.response.text());
   }
-  const r=await model.generateContent("قدّر إجمالي السعرات (k) والبروتين (p) والدهون (f) والكارب (c) بالجرام للأكل التالي. لا تعتبر النتيجة قياسًا طبيًا، واذكر أرقامًا تقريبية فقط. استخدم الكمية المكتوبة؛ لو الكمية غير محددة استخدم حصة مصرية معتادة: "+text);
-  return JSON.parse(r.response.text());
-};
+});
+window.firebaseBridge=bridge;
+window.dispatchEvent(new Event("diet-firebase-ready"));
 </script>
 </body>
 </html>

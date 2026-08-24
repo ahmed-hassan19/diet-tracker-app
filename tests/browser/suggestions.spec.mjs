@@ -92,3 +92,24 @@ test("calorie reference inputs offer name and quantity suggestions", async ({
   ).toBeVisible();
   await expect(page.locator('#calref-list input[list="cr-qty"]')).toBeVisible();
 });
+
+test("AI-disabled calorie reference keeps a complete manual macro path", async ({ page }) => {
+  let aiRequests = 0;
+  await page.route(/firebasevertexai|generativelanguage/, async (route) => {
+    aiRequests++;
+    await route.abort();
+  });
+  await page.locator("#tab-cal").click();
+  const form = page.locator("#calref-list .opt").last();
+  await form.locator('input[list="cr-names"]').fill("بسبوسة اختبار");
+  await form.locator('input[list="cr-qty"]').fill("قطعة ١٠٠ جم");
+  const numbers = form.locator('input[type="number"]');
+  await numbers.nth(0).fill("350");
+  await numbers.nth(1).fill("4");
+  await numbers.nth(2).fill("12");
+  await numbers.nth(3).fill("56");
+  await form.getByRole("button", { name: "حفظ يدوي" }).click();
+  await expect(page.locator("#calref-list")).toContainText("بسبوسة اختبار (قطعة ١٠٠ جم)");
+  await expect(page.locator("#calref-list")).not.toContainText("🤖 احسب");
+  expect(aiRequests).toBe(0);
+});

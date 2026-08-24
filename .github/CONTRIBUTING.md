@@ -9,6 +9,11 @@
 3. Open a pull request that explains the behavior change, checks, linked issues, Firebase/security impact, and UI evidence where applicable.
 4. Merge only after review, the quality workflow, and the browser suite pass. There is no preview deployment; review locally with the emulators.
 
+Firebase AI changes must preserve the one modular app and five classic scripts,
+keep manual entry working, and update the fail-closed release-verification
+contract. Never commit App Check debug tokens, console evidence, completed local
+verification records, prompt/response logs, or API credentials.
+
 ## Publishing a release
 
 Follow [the release guide](../docs/releasing.md). Production deploys are

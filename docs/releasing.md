@@ -30,27 +30,78 @@ Copy the template to the ignored `local/` directory:
 cp docs/release-verification.example.json local/release-verification-vX.Y.Z.json
 ```
 
-The checked-in template contains blocking placeholder values and is
-intentionally invalid until every release check is completed.
+The checked-in schema 3 template represents the AI-disabled rollout stage. It
+contains blocking identity, time, usage, and quota-inventory placeholders and
+is intentionally invalid until the current checks are completed. The release
+validator reads `window.AI_ENABLED` from the exact tagged `public/index.html`
+bytes and rejects a record whose stage disagrees; the record cannot choose its
+own validation path.
 
 Check the current Firebase and Google Cloud consoles, then complete the local
 record with the release tag, its 40-character commit SHA, and the current time.
-Confirm all of the following:
+Every stage must confirm all of the following:
 
 - The project is on the Spark plan and has no linked Cloud Billing account.
 - The highest observed usage across Firestore, Hosting, Authentication, App
   Check, and Firebase AI Logic quotas is no more than 70%.
-- App Check is configured correctly for both production hosts.
-- The shipped model is `gemini-flash-lite-latest` and remains available without
-  enabling billing.
+- The record names both exact production hosts and confirms Firestore App Check
+  enforcement.
+- The shipped model is exactly `gemini-3.5-flash-lite` and remains stable and
+  available without enabling billing. Record the current model backend RPM,
+  RPD, input TPM, and input TPD rows and Firebase AI Logic telemetry mode.
+- The Google-managed Firebase AI Logic P4SA and its
+  `roles/firebaseml.serviceAgent` role are present. No Gemini Developer API key
+  is embedded, any service-managed Gemini key stays server-side and obfuscated,
+  the public browser key does not allow the Generative Language API, and any
+  obsolete Gemini key has no recent consumers before removal.
+- The `_Default` bucket retains logs for 30 days, aggregate metrics remain
+  available, and no export sink exists.
+- The enablement-target section keeps the exact model, hosts, App Check and Auth
+  requirements, 6 RPM/user target, log filter, and required spot checks.
 
-Ordering requirement for tracker-write gating and App Check: the tagged release
-ships the compatible client (membership reads, gated-write UX) and the
-membership Firestore Rules together. Deploy that release first; only after it is
-live on both hosts may App Check enforcement be switched on for Firestore in the
-console, followed by member/non-member/revoked spot checks of the 401/403/429
-recovery copy. Enforcement is a console action — never a repository change — so
-a rollback of the client does not strand non-member users mid-release.
+For an AI-disabled tag such as 3.7.0, use `stage: "ai-disabled-rollout"` and
+record the observed preconfiguration baseline without claiming later success:
+
+- Firebase AI Logic App Check and authenticated-users mode are off; the Auth,
+  `401`, `403`, both-host, and model spot-check fields remain false or empty.
+- Under `generateContentRpmPerUserQuota`, use only metric
+  `firebasevertexai.googleapis.com/generate_content_requests_per_minute_per_project_per_user`
+  and quota ID `GenerateContentRequestsPerMinutePerProjectPerUser`. Normalize
+  all 39 current `dimensionsInfos` entries into 38 named-region entries with an
+  empty `applicableLocations` array plus the one grouped entry with
+  `region: null`; every observed limit must be 100. The 38 names and the grouped
+  five-location set must exactly match the canonical arrays in
+  `aiEnablementTargets`; invented, missing, renamed, or newly reported regions
+  fail validation and require a reviewed schema update. Never substitute the
+  Bidi metric or collapse the applicable locations into a pseudo-scope.
+- The Model log exclusion and existing-log expiry remain unset in the observed
+  section. The exact exclusion belongs in the planned-target section only.
+
+This baseline record is sufficient to deploy 3.7.0. Do not configure the
+post-deployment AI controls before its compatible client bytes are live.
+
+Release 3.7.0 keeps `window.AI_ENABLED=false` even after the same-app bridge is
+deployed. Only then configure and verify authenticated-users mode, all 39
+6 RPM/user location buckets, the exact log exclusion, and AI App Check
+enforcement. Run authenticated success, unauthenticated `401`, invalid-App-Check
+`403`, calorie-reference, and latency checks from localhost with a temporary
+registered debug token and from both production hosts. A session-only owner
+override may exercise the exact deployed 3.7.0 bridge while the shipped flag
+remains false; never store the debug token or override in the release record.
+
+For an AI-enabled tag such as 3.7.1, use `stage: "ai-enabled-rollout"`, replace
+the observed baseline with the hardened current posture, record all 39 exact
+location buckets at 6, the exact log exclusion and older-log expiry, and
+current completion times for every spot check. The deploy script rejects an
+enabled tagged client until all of that evidence is present. If any check
+fails, leave AI disabled; another model, a paid tier, and automatic billing are
+never fallbacks.
+
+App Check and authenticated-users mode are console actions, never repository
+claims. Preserve the compatible client-before-enforcement ordering, test
+member/non-member/revoked and 401/403/429/offline recovery, and repeat both-host
+verification after deployment. Automated browser tests stub or disable AI and
+must never call production.
 
 The record must be less than 24 hours old. Keep it under `local/`; do not commit
 console captures, account information, tokens, or the completed JSON file.

@@ -3,8 +3,10 @@ import fs from "node:fs";
 import test from "node:test";
 import {
   AI_MODEL_ALLOWLIST,
+  FIREBASE_WEB_SDK_VERSION,
   guardAiModule,
   guardDependencies,
+  guardFirebaseClient,
   guardFirebaseConfig,
   guardFirebaseRc,
   guardFirestoreIndexes,
@@ -43,9 +45,21 @@ test("no committed workflow authenticates GCP or deploys Firebase", () => {
 
 test("shipped AI module stays on an allowlisted Gemini Lite backend and model", () => {
   const html = fs.readFileSync("public/index.html", "utf8");
+  const { version } = JSON.parse(fs.readFileSync("package.json", "utf8"));
   const inline = [...html.matchAll(/<script type="module">([\s\S]*?)<\/script>/g)];
   assert.equal(inline.length, 1);
-  assert.deepEqual(guardAiModule(inline[0][1]), []);
+  assert.deepEqual(guardAiModule(inline[0][1], { version }), []);
+});
+
+test("the whole public client has one app, no compat SDK, and no copied tokens", () => {
+  const files = ["index.html", "data.js", "calc.js", "state.js", "render.js", "sync.js"];
+  const source = files.map((name) => fs.readFileSync(`public/${name}`, "utf8")).join("\n");
+  assert.deepEqual(guardFirebaseClient(source), []);
+  for (const [addition, marker] of [
+    ['\ninitializeApp(FB_BUILTIN.config,"ai");', "named second"],
+    ['\nloadScript("firebase-auth-compat.js");', "compat"],
+    ["\nconst idToken=await user.getIdToken();", "tokens"],
+  ]) assert.ok(guardFirebaseClient(source+addition).some((problem) => problem.includes(marker)), marker);
 });
 
 function baseConfig() {
@@ -204,6 +218,35 @@ test("unreviewed AI models are rejected", () => {
 test("missing explicit model pin is rejected", () => {
   const stripped = aiModule.replace(/model:"[^"]+",/, "");
   assert.ok(guardAiModule(stripped).some((s) => s.includes("exactly one literal")));
+});
+
+test("second apps, compat SDKs, token copying, and SDK drift are rejected", () => {
+  for (const [source, marker] of [
+    [aiModule.replace("initializeApp(FB_BUILTIN.config)", 'initializeApp(FB_BUILTIN.config,"ai")'), "single default app"],
+    [aiModule.replace("firebase-auth.js", "firebase-auth-compat.js"), "compat SDKs"],
+    [aiModule.replace("const bridge=", "const accessToken=await auth.currentUser.getIdToken();\nconst bridge="), "copy Auth tokens"],
+    [aiModule.replaceAll(FIREBASE_WEB_SDK_VERSION, "12.18.0"), FIREBASE_WEB_SDK_VERSION],
+  ]) {
+    assert.ok(guardAiModule(source).some((problem) => problem.includes(marker)), marker);
+  }
+});
+
+test("AI bridge remains disabled and performs a fresh fail-closed membership read per request", () => {
+  assert.match(aiModule, /window\.AI_ENABLED=false/);
+  assert.match(aiModule, /estimateFood:async text=>\{/);
+  assert.match(aiModule, /window\.AI_ENABLED!==true[\s\S]*getDocFromServer\(doc\(db,"betaMembers",user\.uid\)\)[\s\S]*model\.generateContent\(/);
+  assert.doesNotMatch(aiModule, /getIdToken|accessToken|initializeApp\([^)]*,\s*["']ai["']/);
+});
+
+test("AI flag accepts the disabled rollout and only later eligible enabled versions", () => {
+  const enabled = aiModule.replace("window.AI_ENABLED=false;", "window.AI_ENABLED=true;");
+  assert.deepEqual(guardAiModule(aiModule, { version: "3.7.0" }), []);
+  assert.deepEqual(guardAiModule(enabled, { version: "3.7.1" }), []);
+  assert.ok(guardAiModule(enabled, { version: "3.7.0" })
+    .some((problem) => problem.includes("3.7.1 onward")));
+  assert.ok(guardAiModule(enabled.replace("window.AI_ENABLED=true;", "window.AI_ENABLED=flag;"), {
+    version: "3.7.1",
+  }).some((problem) => problem.includes("exactly one literal")));
 });
 
 test("dead allowlisted strings cannot hide runtime-selected AI configuration", () => {

@@ -1,5 +1,6 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 3,
+  "stage": "ai-disabled-rollout",
   "projectId": "diet-tracker-372ca",
   "tag": "vX.Y.Z",
   "commitSha": "REPLACE_WITH_40_CHARACTER_RELEASE_COMMIT_SHA",
@@ -7,7 +8,128 @@
   "firebasePlan": "REPLACE_WITH_CURRENT_PLAN",
   "billingAccountLinked": true,
   "maxObservedQuotaPercent": 100,
-  "appCheckVerified": false,
-  "model": "gemini-flash-lite-latest",
-  "modelAvailableWithoutBilling": false
+  "productionHosts": [
+    "https://diet-tracker-372ca.web.app",
+    "https://5asesny.web.app"
+  ],
+  "appCheck": {
+    "firestoreEnforced": true,
+    "aiLogicEnforced": false,
+    "bothHostsVerified": false
+  },
+  "model": "gemini-3.5-flash-lite",
+  "modelAvailableWithoutBilling": true,
+  "aiLogic": {
+    "authenticatedUsersRequired": false,
+    "authenticatedSuccessVerified": false,
+    "unauthenticated401Verified": false,
+    "invalidAppCheck403Verified": false,
+    "generateContentRpmPerUserQuota": {
+      "metric": "firebasevertexai.googleapis.com/generate_content_requests_per_minute_per_project_per_user",
+      "quotaId": "GenerateContentRequestsPerMinutePerProjectPerUser",
+      "dimensionsInfos": []
+    },
+    "freeTierBackendQuotas": {
+      "rpmPerProjectModel": 15,
+      "rpdPerProjectModel": 500,
+      "inputTpmPerProjectModel": 250000,
+      "inputTpdPerProjectModel": "unlimited-or-unspecified"
+    },
+    "telemetryMode": "NONE",
+    "telemetrySamplingRate": 1,
+    "p4saEmail": "service-142673055934@gcp-sa-firebasevertexai.iam.gserviceaccount.com",
+    "p4saRole": "roles/firebaseml.serviceAgent",
+    "usesP4saForAuthorization": true,
+    "serverSideGeminiKeyObfuscated": true,
+    "geminiDeveloperApiKeyEmbedded": false,
+    "publicBrowserKeyAllowsGenerativeLanguage": false,
+    "obsoleteGeminiKeyHasRecentConsumers": false,
+    "spotChecks": {
+      "calorieReferencePassed": false,
+      "latencyCompared": false,
+      "localhostDebugTokenPassed": false,
+      "productionHostsPassed": [],
+      "completedAt": null
+    }
+  },
+  "logging": {
+    "exclusionEnabled": false,
+    "exclusionFilter": null,
+    "defaultBucketRetentionDays": 30,
+    "existingModelLogsExpireAt": null,
+    "aggregateMetricsRemainAvailable": true,
+    "exportsConfigured": false
+  },
+  "aiEnablementTargets": {
+    "model": "gemini-3.5-flash-lite",
+    "productionHosts": [
+      "https://diet-tracker-372ca.web.app",
+      "https://5asesny.web.app"
+    ],
+    "appCheckAiLogicEnforced": true,
+    "authenticatedUsersRequired": true,
+    "generateContentRpmPerUserQuota": {
+      "metric": "firebasevertexai.googleapis.com/generate_content_requests_per_minute_per_project_per_user",
+      "quotaId": "GenerateContentRequestsPerMinutePerProjectPerUser",
+      "requiredDimensionsInfoCount": 39,
+      "namedRegions": [
+        "africa-south1",
+        "asia-east1",
+        "asia-east2",
+        "asia-northeast1",
+        "asia-northeast2",
+        "asia-northeast3",
+        "asia-south1",
+        "asia-southeast1",
+        "asia-southeast2",
+        "australia-southeast1",
+        "australia-southeast2",
+        "europe-central2",
+        "europe-north1",
+        "europe-southwest1",
+        "europe-west1",
+        "europe-west12",
+        "europe-west2",
+        "europe-west3",
+        "europe-west4",
+        "europe-west6",
+        "europe-west8",
+        "europe-west9",
+        "me-central1",
+        "me-central2",
+        "me-west1",
+        "northamerica-northeast1",
+        "northamerica-northeast2",
+        "southamerica-east1",
+        "southamerica-west1",
+        "us-central1",
+        "us-east1",
+        "us-east4",
+        "us-east5",
+        "us-south1",
+        "us-west1",
+        "us-west2",
+        "us-west3",
+        "us-west4"
+      ],
+      "groupedApplicableLocations": [
+        "asia-south2",
+        "asia-southeast3",
+        "europe-north2",
+        "europe-west10",
+        "northamerica-south1"
+      ],
+      "limitPerBucket": 6
+    },
+    "logExclusionFilter": "resource.type=\"firebasevertexai.googleapis.com/Model\"",
+    "requiredSpotChecks": [
+      "authenticated-success",
+      "unauthenticated-401",
+      "invalid-app-check-403",
+      "localhost-debug-token",
+      "both-production-hosts",
+      "calorie-reference",
+      "latency-comparison"
+    ]
+  }
 }

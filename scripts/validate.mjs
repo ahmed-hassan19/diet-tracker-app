@@ -3,6 +3,7 @@ import vm from "node:vm";
 import {
   guardAiModule,
   guardDependencies,
+  guardFirebaseClient,
   guardFirebaseConfig,
   guardFirebaseRc,
   guardFirestoreIndexes,
@@ -23,8 +24,9 @@ if (!/<script type="module">/.test(inline[0][0])) {
 const sources = [...html.matchAll(/<script src="\.\/([^"]+\.js)"><\/script>/g)].map(
   (m) => m[1],
 );
-if (!sources.length) {
-  throw new Error("No app scripts referenced from index.html");
+const expectedSources = ["data.js", "calc.js", "state.js", "render.js", "sync.js"];
+if (JSON.stringify(sources) !== JSON.stringify(expectedSources)) {
+  throw new Error(`Classic script order must be ${expectedSources.join(", ")}`);
 }
 
 for (const name of sources) {
@@ -44,6 +46,11 @@ Object.assign(globalThis, { MEALS, EXTRAS, CALREF });`,
   nutrition,
 );
 
+const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+if (!/\ninitSync\(\);\s*$/.test(fs.readFileSync("public/sync.js", "utf8"))) {
+  throw new Error("sync.js must end with initSync() as its final call");
+}
+
 const foods = Object.values(nutrition.MEALS)
   .flatMap((meal) => meal.opts)
   .concat(nutrition.EXTRAS, nutrition.CALREF.flatMap((group) => group.items));
@@ -60,7 +67,8 @@ if (mismatches.length) {
 }
 
 const sparkProblems = [
-  ...guardAiModule(inline[0][1]),
+  ...guardAiModule(inline[0][1], { version: pkg.version }),
+  ...guardFirebaseClient(html + sources.map((name) => fs.readFileSync(`public/${name}`, "utf8")).join("\n")),
 ];
 for (const file of ["firebase.json", ".firebaserc"]) {
   JSON.parse(fs.readFileSync(file, "utf8"));

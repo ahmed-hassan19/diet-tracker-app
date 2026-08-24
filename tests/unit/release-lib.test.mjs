@@ -77,7 +77,7 @@ function validVerification({ enabled = false, hardened = false, tag = TAG } = {}
       authenticatedSuccessVerified: configured,
       unauthenticated401Verified: configured,
       invalidAppCheck403Verified: enabled,
-      invalidAppCheckObservedHttpStatus: hardened ? 401 : null,
+      invalidAppCheckObservedHttpStatus: enabled ? 403 : hardened ? 401 : null,
       generateContentRpmPerUserQuota: quotaInventory(configured ? 6 : 100),
       freeTierBackendQuotas: {
         rpmPerProjectModel: 15,
@@ -269,6 +269,23 @@ test("AI-enabled rollout requires and accepts the full hardened posture", () => 
     "log-body exclusion",
     "canonical ISO existingModelLogsExpireAt",
   ]) assert.ok(problems.some((problem) => problem.includes(marker)), marker);
+});
+
+test("AI-enabled rollout rejects missing or contradictory invalid-App-Check status", () => {
+  const enabledTag = "v3.7.1";
+  for (const status of [null, 401]) {
+    const record = validVerification({ enabled: true, tag: enabledTag });
+    record.aiLogic.invalidAppCheckObservedHttpStatus = status;
+    const problems = releaseVerificationProblems(record, {
+      tag: enabledTag,
+      commitSha: COMMIT,
+      model: MODEL,
+      indexHtml: indexHtml(true),
+      now: NOW,
+    });
+    assert.ok(problems.some((problem) =>
+      problem.includes("returning 403 and confirm 403 verification")), status);
+  }
 });
 
 test("enabled logging evidence requires current canonical activation and exact retention expiry", () => {

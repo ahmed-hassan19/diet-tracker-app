@@ -116,9 +116,11 @@ the observed baseline with the hardened current posture, set
 `configurationState: "enabled"`, record all 39 exact location buckets at 6, the
 exact log exclusion and older-log expiry, and current completion times for every
 spot check. Enabled releases continue to require
-`invalidAppCheck403Verified: true`. The deploy script rejects an enabled tagged
-client until all of that evidence is present. If any check fails, leave AI
-disabled; another model, a paid tier, and automatic billing are never fallbacks.
+`invalidAppCheck403Verified: true` together with
+`invalidAppCheckObservedHttpStatus: 403`; a missing status or an observed `401`
+fails validation. The deploy script rejects an enabled tagged client until all
+of that evidence is present. If any check fails, leave AI disabled; another
+model, a paid tier, and automatic billing are never fallbacks.
 
 Record `exclusionActivatedAt` from the console in the canonical UTC form
 `YYYY-MM-DDTHH:mm:ss.sssZ`; it cannot be after the record's `verifiedAt` and

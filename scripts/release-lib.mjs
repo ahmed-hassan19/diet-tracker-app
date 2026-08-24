@@ -418,8 +418,9 @@ export function releaseVerificationProblems(
       "AI-enabled rollout must confirm an authenticated AI success");
     add(record.aiLogic?.unauthenticated401Verified === true,
       "AI-enabled rollout must confirm unauthenticated AI returns 401");
-    add(record.aiLogic?.invalidAppCheck403Verified === true,
-      "AI-enabled rollout must confirm invalid App Check returns 403");
+    add(record.aiLogic?.invalidAppCheck403Verified === true &&
+      record.aiLogic?.invalidAppCheckObservedHttpStatus === 403,
+    "AI-enabled rollout must record invalid App Check returning 403 and confirm 403 verification");
     add(quotaInventoryAt(record.aiLogic?.generateContentRpmPerUserQuota, 6),
       "AI-enabled rollout must record the exact Generate Content metric/quotaId and all 39 location buckets at exactly 6 RPM/user");
     validateHardenedSpotChecks("AI-enabled rollout");

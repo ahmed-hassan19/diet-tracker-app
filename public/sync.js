@@ -14,6 +14,45 @@ const APP_CHECK_SITE_KEY = "6Lfp2WctAAAAADMCZ8ro60zlxHQqsv4rZXzmE_g2";
 const TEST_MODE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new URLSearchParams(location.search).get("test")==="1";
 let FB={ref:null, active:false, pushTimer:null, unsub:null};
 let deletingAll=false;
+/* ================= بوابة العضوية (betaMembers) =================
+   Tracker cloud writes require an enabled /betaMembers/{uid} doc provisioned by
+   the owner in the console. Local use, export, and delete always keep working. */
+const GATE_COPY={
+  pending:"🔒 تسجيل اليوم على السحابة متوقف مؤقتًا لحين تفعيل حسابك في البرنامج التجريبي. كل حاجة بتسجلها محفوظة على جهازك، والنسخة الاحتياطية والحذف شغالين عادي.",
+  auth:"🔑 جلسة الدخول انتهت — سجّل دخولك تاني عشان المزامنة ترجع. بياناتك المحفوظة على جهازك في أمان.",
+  quota:"⏳ حصة السحابة خلصت دلوقتي — جرّب بعد شوية. التسجيل على جهازك شغال عادي وهيتزامن لاحقًا."
+};
+let GATE={state:"ok", enabled:false};
+let gateRecheck=null;
+function setGate(state){
+  if(state!=="pending"&&gateRecheck){ clearTimeout(gateRecheck); gateRecheck=null; }
+  const wasPending=GATE.state==="pending";
+  GATE={state, enabled:state==="ok"};
+  const el=document.getElementById("gate-note");
+  if(el){
+    el.textContent=GATE_COPY[state]||"";
+    el.style.display=state==="ok"?"none":"";
+  }
+  // membership restored while paused: flush the edits saved locally meanwhile
+  if(wasPending&&state==="ok") schedulePush();
+}
+function syncFailKind(code){
+  return code==="permission-denied"?"pending"
+    :(code==="unauthenticated"?"auth"
+    :(code==="resource-exhausted"?"quota":""));
+}
+async function loadMembership(){
+  const u=firebase.auth().currentUser;
+  if(!u||!FB.ref) return;
+  try{
+    const snap=await firebase.firestore().collection("betaMembers").doc(u.uid).get();
+    const enabled=!!(snap.exists&&snap.data().enabled===true);
+    setGate(enabled?"ok":"pending");
+  }catch(e){
+    // can't verify membership → stay quiet; a failed push will classify itself
+    if(GATE.state!=="pending") setGate("ok");
+  }
+}
 function setSyncStatus(s){ const el=document.getElementById("sync-status"); if(el) el.textContent=s; }
 function loadScript(src){ return new Promise((ok,bad)=>{ const s=document.createElement("script"); s.src=src; s.onload=ok; s.onerror=bad; document.head.appendChild(s); }); }
 async function initSync(){
@@ -50,7 +89,12 @@ function start(u){
     if(doc.exists){ const r=doc.data(); if(r && r.days) mergeRemote(r); }
     if(!FB.active){ FB.active=true; schedulePush(); }
     setSyncStatus("☁️ متزامن مع السحابة · آخر تحديث "+new Date().toLocaleTimeString());
-  }, err=>setSyncStatus("⚠️ المزامنة متعطلة: "+err.message));
+  }, err=>{
+    const kind=syncFailKind(err&&err.code);
+    if(kind==="auth") setGate("auth");
+    else if(kind!=="quota") setSyncStatus("⚠️ المزامنة متعطلة: "+err.message);
+  });
+  loadMembership();
   if(S.settings&&S.settings.ht) showApp(); else showSetup(u);
 }
 function setWho(){ const u=firebase.auth().currentUser; document.getElementById("who").textContent=(S&&S.settings&&S.settings.name)||(u&&(u.displayName||u.email))||""; }
@@ -118,6 +162,7 @@ function stop(){
   clearTimeout(FB.pushTimer);
   FB={ref:null, active:false, pushTimer:null, unsub:null};
   S=null; KEY=null;
+  setGate("ok");
   document.getElementById("app").style.display="none";
   document.getElementById("setup").style.display="none";
   document.getElementById("login").style.display="";
@@ -181,12 +226,26 @@ function schedulePush(){
   if(deletingAll || !FB.active || !FB.ref) return;
   clearTimeout(FB.pushTimer);
   FB.pushTimer=setTimeout(()=>{
+    // known nonmember/revoked: skip the doomed write (each denial still bills
+    // Rules reads); loadMembership's bounded recheck resumes the flush
+    if(GATE.state==="pending") return;
     FB.ref.set({days:S.days, settings:S.settings||{}, foods:S.foods||{}, calref:S.calref||{}, updated:Date.now()})
-      .then(()=>setSyncStatus("☁️ متزامن مع السحابة · آخر تحديث "+new Date().toLocaleTimeString()))
-      .catch(e=>setSyncStatus("⚠️ هيتزامن أول ما النت يرجع"));
+      .then(()=>{ setGate("ok"); setSyncStatus("☁️ متزامن مع السحابة · آخر تحديث "+new Date().toLocaleTimeString()); })
+      .catch(e=>{
+        const kind=syncFailKind(e&&e.code);
+        if(!kind){ setSyncStatus("⚠️ هيتزامن أول ما النت يرجع"); return; }
+        if(kind==="pending"){
+          setSyncStatus("");
+          setGate("pending");
+          gateRecheck=setTimeout(loadMembership,300000);
+          return;
+        }
+        setSyncStatus("");
+        setGate(kind);
+      });
   }, 1200);
 }
 
 /* ================= تشغيل ================= */
-window.__dietTest={calcTargets,validProfile,validTargets,macroMismatch,totals,getState:()=>S,setState:x=>{S=x;}};
+window.__dietTest={calcTargets,validProfile,validTargets,macroMismatch,totals,getState:()=>S,setState:x=>{S=x;},getGate:()=>GATE,setGate};
 initSync();

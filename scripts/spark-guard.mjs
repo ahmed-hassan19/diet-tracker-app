@@ -1,7 +1,5 @@
-/* Spark cost invariant: static allowlist guards for the no-billing boundary.
-   Pure functions so validate.mjs and tests/unit/spark-guard.test.mjs share them.
-   Static checks cannot prove console billing state; the owner's recorded
-   Spark/no-billing evidence stays mandatory before any production mutation. */
+/* Repository checks that keep Firebase configuration compatible with the Spark
+   plan. Pure functions are shared by validate.mjs and the unit tests. */
 
 export const PROJECT_ID = "diet-tracker-372ca";
 export const HOSTING_TARGETS = ["main", "nice"];

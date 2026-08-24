@@ -1,7 +1,6 @@
 #!/usr/bin/env node
-/* Owner-run production release path. Requires a successful credential-free tag
-   gate and fresh owner-recorded Spark evidence before any production mutation,
-   then deploys and verifies Rules/indexes before both Hosting targets. */
+/* Owner-run production release path. Validates the tagged revision and current
+   Firebase settings before deploying and verifying Rules, indexes, and Hosting. */
 
 import fs from "node:fs";
 import path from "node:path";
@@ -12,8 +11,8 @@ import {
   PROJECT_ID,
   bundleDetails,
   canonicalIndexSpec,
-  matchingGateRuns,
-  preflightProblems,
+  matchingValidationRuns,
+  releaseVerificationProblems,
   sha256,
   taggedConfigHashes,
 } from "./release-lib.mjs";
@@ -114,8 +113,8 @@ if (!new RegExp(`^## \\[?${version.replaceAll(".", "\\.")}\\]?`, "m").test(chang
 }
 console.log(`  ok: package/index/changelog agree on ${version}`);
 
-console.log("— successful tag gate");
-const gateOutput = command("GitHub gate lookup", "gh", [
+console.log("— successful tag validation");
+const validationOutput = command("GitHub validation lookup", "gh", [
   "run",
   "list",
   "--workflow",
@@ -133,27 +132,39 @@ const gateOutput = command("GitHub gate lookup", "gh", [
   "--json",
   "databaseId,workflowName,headBranch,headSha,event,status,conclusion,url",
 ]);
-const gateRun = matchingGateRuns(parseJson(gateOutput, "GitHub gate lookup"), tag, peeled)[0];
-if (!gateRun) die(`no successful release gate run exists for ${tag} at ${peeled}`);
-console.log(`  ok: gate run ${gateRun.databaseId} ${gateRun.url}`);
-
-console.log("— owner Spark/capacity preflight");
-const preflightPath =
-  process.env.DIET_RELEASE_PREFLIGHT || `local/release-preflight-${tag}.json`;
-if (!fs.existsSync(preflightPath)) {
-  die(`missing ${preflightPath}; copy docs/release-preflight.example.json and record current evidence`);
+const validationRun = matchingValidationRuns(
+  parseJson(validationOutput, "GitHub validation lookup"),
+  tag,
+  peeled,
+)[0];
+if (!validationRun) {
+  die(`no successful release validation run exists for ${tag} at ${peeled}`);
 }
-const preflightRaw = fs.readFileSync(preflightPath, "utf8");
-const preflight = parseJson(preflightRaw, preflightPath);
-const evidenceProblems = preflightProblems(preflight, {
+console.log(`  ok: validation run ${validationRun.databaseId} ${validationRun.url}`);
+
+console.log("— current Firebase release checks");
+const verificationPath =
+  process.env.DIET_RELEASE_VERIFICATION || `local/release-verification-${tag}.json`;
+if (!fs.existsSync(verificationPath)) {
+  die(`missing ${verificationPath}; follow docs/releasing.md before deploying`);
+}
+const verificationRaw = fs.readFileSync(verificationPath, "utf8");
+const verification = parseJson(verificationRaw, verificationPath);
+const verificationProblems = releaseVerificationProblems(verification, {
   tag,
   commitSha: peeled,
   model: MODEL,
 });
-if (evidenceProblems.length) {
-  die(`preflight evidence failed:\n${evidenceProblems.map((item) => `  - ${item}`).join("\n")}`);
+if (verificationProblems.length) {
+  die(
+    `release verification failed:\n` +
+      verificationProblems.map((item) => `  - ${item}`).join("\n"),
+  );
 }
-console.log(`  ok: fresh Spark evidence and ${preflight.capacity.reservePercent}% reserve recorded`);
+console.log(
+  `  ok: Spark/no billing verified; highest observed quota usage ` +
+    `${verification.maxObservedQuotaPercent}%`,
+);
 
 console.log("— pinned tooling and credentials");
 const pinned = (pkg.devDependencies || {})["firebase-tools"];
@@ -311,16 +322,16 @@ if (confirmation !== "SPARK-VERIFIED") {
 }
 const postDeployVerifiedAt = new Date().toISOString();
 
-fs.mkdirSync("docs/releases", { recursive: true });
+fs.mkdirSync("local/releases", { recursive: true });
 const manifest = {
   schemaVersion: 1,
   tag,
   commitSha: peeled,
   projectId: PROJECT_ID,
-  gateRunId: gateRun.databaseId,
-  gateRunUrl: gateRun.url,
-  preflightCapturedAt: preflight.capturedAt,
-  preflightSha256: sha256(preflightRaw),
+  validationRunId: validationRun.databaseId,
+  validationRunUrl: validationRun.url,
+  settingsVerifiedAt: verification.verifiedAt,
+  verificationSha256: sha256(verificationRaw),
   deployedAt,
   postDeployVerifiedAt,
   rulesetId,
@@ -343,17 +354,18 @@ const manifest = {
     postDeploySparkVerification: "ok",
   },
 };
-const manifestPath = `docs/releases/${tag}-evidence.json`;
+const manifestPath = `local/releases/${tag}-manifest.json`;
 fs.writeFileSync(manifestPath, JSON.stringify(manifest, null, 2) + "\n");
 
 console.log(`\n✅ verified and recorded ${manifestPath}`);
 console.log("\nNext: publish the GitHub Release (no Google credentials involved):\n");
 console.log(
   `  gh workflow run release.yml -f tag=${tag} -f commit=${peeled} ` +
-    `-f gate_run_id=${gateRun.databaseId} -f bundle_sha256=${taggedHashes.bundleSha256} ` +
+    `-f validation_run_id=${validationRun.databaseId} ` +
+    `-f bundle_sha256=${taggedHashes.bundleSha256} ` +
     `-f ruleset_sha256=${taggedHashes.rulesetSha256} ` +
     `-f indexes_sha256=${taggedHashes.indexesSha256} ` +
-    `-f preflight_sha256=${manifest.preflightSha256} ` +
+    `-f verification_sha256=${manifest.verificationSha256} ` +
     `-f deployed_at=${manifest.deployedAt} ` +
     `-f post_deploy_verified_at=${postDeployVerifiedAt}`,
 );

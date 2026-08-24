@@ -74,25 +74,19 @@ The screenshots use synthetic emulator data only.
 ## Deployment
 
 Production deploys are owner-run with human Firebase OAuth; GitHub holds no
-Google credential. Wait for the exact tag's `release` gate to pass, complete
-`docs/capacity-model.md`, and copy `docs/release-preflight.example.json` to the
-ignored `local/release-preflight-vX.Y.Z.json`. Then, from the exact annotated
-tag:
+Google credential. Follow [docs/releasing.md](docs/releasing.md) from an exact
+annotated release tag:
 
 ```sh
 npx firebase-tools use
 node scripts/release-deploy.mjs vX.Y.Z
 ```
 
-The script refuses to mutate production unless the tag gate succeeded and the
-fresh preflight record confirms Spark/no billing, current quota evidence, and
-at least 30% modeled reserve. It deploys Rules/indexes first, verifies the
-active Rules source and canonical index specification against the tag, requires
-all composite indexes to be ready, deploys both production targets, compares
-every live byte, and requires a repeated post-deploy Spark/config check. The
-credential-free publish workflow then binds the exact gate run and tagged
-bundle/Rules/index hashes before creating the GitHub Release. Do not create or
-upload service-account keys.
+The script requires successful validation for the exact tag and a current local
+record of the Firebase plan, billing status, quota usage, App Check setup, and AI
+model availability. It verifies tagged Rules, indexes, and every deployed file
+before printing the GitHub Release publication command. Do not create or upload
+service-account keys.
 
 ## Privacy and security
 

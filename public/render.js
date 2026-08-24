@@ -99,6 +99,7 @@ function fillFood(t){
   ["k","p","f","c"].forEach(x=>{ document.getElementById("af-"+x).value=draft[x]; });
 }
 function addForm(saveCall, ph){
+  const stTxt=aiOn()?"⚠️ تقدير AI تقريبي؛ اكتب الكمية وأكده من الملصق أو وصفة موزونة.":"اكتب السعرات والماكروز من الملصق أو وصفة موزونة.";
   return '<div class="opt" style="display:block;cursor:default">'
     +dataList("fd-names",foodNames().map(o=>o.t))
     +'<input style="width:100%" maxlength="160" list="fd-names" placeholder="'+ph+'" value="'+esc(draft.t||"")+'" oninput="draft.t=this.value;fillFood(this.value)">'
@@ -109,13 +110,17 @@ function addForm(saveCall, ph){
     +'<label class="muted">كارب</label><input type="number" id="af-c" style="width:62px" value="'+(draft.c??"")+'" oninput="draft.c=this.value">'
     +'</div>'
     +'<div class="row" style="margin-top:8px">'
-    +'<button class="btn ghost" style="padding:7px 12px" onclick="aiFill(this)">🤖 احسب السعرات</button>'
+    +(aiOn()?'<button class="btn ghost" style="padding:7px 12px" onclick="aiFill(this)">🤖 احسب السعرات</button>':'')
     +'<button class="btn" onclick="'+saveCall+'">حفظ</button>'
     +'<button class="chip" onclick="closeAdd()">إلغاء</button>'
     +'</div>'
-    +'<p class="muted" id="af-status" style="margin-top:6px">'+esc(draft.st||"⚠️ تقدير AI تقريبي؛ اكتب الكمية وأكده من الملصق أو وصفة موزونة.")+'</p></div>';
+    +'<p class="muted" id="af-status" style="margin-top:6px">'+esc(draft.st||stTxt)+'</p></div>';
 }
+// Release A0 keeps the AI path disabled; call sites fall back to manual entry
+// silently. A1 flips window.AI_ENABLED in the inline module to restore it.
+function aiOn(){ return window.AI_ENABLED===true; }
 async function aiFill(btn){
+  if(!aiOn()){ draft.st="اكتب السعرات والماكروز من الملصق أو وصفة موزونة"; renderDay(); return; }
   const t=(draft.t||"").trim();
   if(!t){ draft.st="اكتب الأكل الأول"; renderDay(); return; }
   btn.disabled=true;
@@ -226,6 +231,7 @@ function renderSummary(){
 /* ================= مرجع السعرات ================= */
 let crDraft={};
 function renderCalRef(){
+  const stTxt=aiOn()?"⚠️ تقدير AI تقريبي؛ أكده من ملصق العبوة أو وصفة موزونة قبل الاعتماد عليه.":"اكتب القيم من ملصق العبوة أو وصفة موزونة.";
   let h="";
   CALREF.forEach(g=>{
     h+='<h3>'+g.cat+'</h3>';
@@ -244,12 +250,13 @@ function renderCalRef(){
     +'<div class="row">'
     +'<input style="flex:1;min-width:130px" maxlength="60" list="cr-names" placeholder="النوع... مثال: بسبوسة" value="'+esc(crDraft.t||"")+'" oninput="crDraft.t=this.value">'
     +'<input style="width:150px" maxlength="40" list="cr-qty" placeholder="الكمية... قطعة ١٠٠ جم" value="'+esc(crDraft.q||"")+'" oninput="crDraft.q=this.value">'
-    +'<button class="btn ghost" style="width:auto;padding:7px 12px" onclick="aiCalRef(this)">🤖 احسب</button>'
+    +(aiOn()?'<button class="btn ghost" style="width:auto;padding:7px 12px" onclick="aiCalRef(this)">🤖 احسب</button>':'')
     +'</div>'
-    +'<p class="muted" id="cr-status" style="margin-top:6px">'+esc(crDraft.st||"⚠️ تقدير AI تقريبي؛ أكده من ملصق العبوة أو وصفة موزونة قبل الاعتماد عليه.")+'</p></div>';
+    +'<p class="muted" id="cr-status" style="margin-top:6px">'+esc(crDraft.st||stTxt)+'</p></div>';
   document.getElementById("calref-list").innerHTML=h;
 }
 async function aiCalRef(btn){
+  if(!aiOn()){ crDraft.st="اكتب القيم من ملصق العبوة أو وصفة موزونة"; renderCalRef(); return; }
   const t=(crDraft.t||"").trim(), q=(crDraft.q||"").trim();
   if(!t){ crDraft.st="اكتب النوع الأول"; renderCalRef(); return; }
   btn.disabled=true;

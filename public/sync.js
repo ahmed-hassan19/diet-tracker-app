@@ -23,12 +23,18 @@ const GATE_COPY={
   quota:"⏳ حصة السحابة خلصت دلوقتي — جرّب بعد شوية. التسجيل على جهازك شغال عادي وهيتزامن لاحقًا."
 };
 let GATE={state:"ok", enabled:false};
+let gateRecheck=null;
 function setGate(state){
+  if(state!=="pending"&&gateRecheck){ clearTimeout(gateRecheck); gateRecheck=null; }
+  const wasPending=GATE.state==="pending";
   GATE={state, enabled:state==="ok"};
   const el=document.getElementById("gate-note");
-  if(!el) return;
-  el.textContent=GATE_COPY[state]||"";
-  el.style.display=state==="ok"?"none":"";
+  if(el){
+    el.textContent=GATE_COPY[state]||"";
+    el.style.display=state==="ok"?"none":"";
+  }
+  // membership restored while paused: flush the edits saved locally meanwhile
+  if(wasPending&&state==="ok") schedulePush();
 }
 function syncFailKind(code){
   return code==="permission-denied"?"pending"
@@ -44,7 +50,7 @@ async function loadMembership(){
     setGate(enabled?"ok":"pending");
   }catch(e){
     // can't verify membership → stay quiet; a failed push will classify itself
-    setGate("ok");
+    if(GATE.state!=="pending") setGate("ok");
   }
 }
 function setSyncStatus(s){ const el=document.getElementById("sync-status"); if(el) el.textContent=s; }
@@ -220,12 +226,20 @@ function schedulePush(){
   if(deletingAll || !FB.active || !FB.ref) return;
   clearTimeout(FB.pushTimer);
   FB.pushTimer=setTimeout(()=>{
+    // known nonmember/revoked: skip the doomed write (each denial still bills
+    // Rules reads); loadMembership's bounded recheck resumes the flush
+    if(GATE.state==="pending") return;
     FB.ref.set({days:S.days, settings:S.settings||{}, foods:S.foods||{}, calref:S.calref||{}, updated:Date.now()})
       .then(()=>{ setGate("ok"); setSyncStatus("☁️ متزامن مع السحابة · آخر تحديث "+new Date().toLocaleTimeString()); })
       .catch(e=>{
         const kind=syncFailKind(e&&e.code);
         if(!kind){ setSyncStatus("⚠️ هيتزامن أول ما النت يرجع"); return; }
-        if(kind==="pending") loadMembership();
+        if(kind==="pending"){
+          setSyncStatus("");
+          setGate("pending");
+          gateRecheck=setTimeout(loadMembership,300000);
+          return;
+        }
         setSyncStatus("");
         setGate(kind);
       });

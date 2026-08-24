@@ -23,6 +23,17 @@ test.afterEach(async ({ page }) => {
   expect(page.__consoleErrors).toEqual([]);
 });
 
+test("shows the quota fallback copy while local tracking stays available", async ({
+  page,
+}) => {
+  await page.evaluate(() => window.__dietTest.setGate("quota"));
+  const note = page.locator("#gate-note");
+  await expect(note).toBeVisible();
+  await expect(note).toContainText("حصة السحابة خلصت دلوقتي");
+  await expect(note).toContainText("التسجيل على جهازك شغال عادي");
+  await expect(page.locator("#app")).toBeVisible();
+});
+
 test("is RTL, responsive, and persists meal totals after reload", async ({
   page,
 }, testInfo) => {

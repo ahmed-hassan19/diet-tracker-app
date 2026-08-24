@@ -32,6 +32,17 @@ test("current files contain no profile-specific migration or visible build credi
 });
 
 test("stale tracked screenshots are absent", () => {
-  assert.equal(fs.existsSync("docs/screenshots"), false);
+  [
+    "docs/screenshots/authenticated-ai-calorie-reference-desktop.png",
+    "docs/screenshots/authenticated-ai-calorie-reference-mobile.png",
+    "docs/screenshots/desktop.png",
+    "docs/screenshots/mobile.png",
+  ].forEach((path) => assert.equal(fs.existsSync(path), false, path));
+  [
+    "docs/screenshots/content-cleanup-before-desktop.png",
+    "docs/screenshots/content-cleanup-before-mobile.png",
+    "docs/screenshots/content-cleanup-after-desktop.png",
+    "docs/screenshots/content-cleanup-after-mobile.png",
+  ].forEach((path) => assert.equal(fs.existsSync(path), true, path));
   assert.doesNotMatch(read("README.md"), /docs\/screenshots|## Screenshots/);
 });

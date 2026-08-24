@@ -10,13 +10,13 @@ document per authenticated user with Firebase.
 
 ## Architecture
 
-- `public/index.html`: markup, styles, and the Firebase AI module block.
+- `public/index.html`: markup, styles, and the single modular Firebase bridge.
 - `public/data.js`: meal, extra, and calorie-reference nutrition tables.
 - `public/calc.js`: pure calorie/protein/macro functions — no state access.
 - `public/state.js`: the `S` state object, localStorage, import/export, and the
   accessors that read state (`T`, `totals`, `project`).
 - `public/render.js`: all four tab renderers and the UI handlers.
-- `public/sync.js`: Firebase Auth/Firestore integration, App Check bootstrap,
+- `public/sync.js`: classic-script Auth/Firestore sync through the narrow bridge
   and the `initSync()` entry point. Loads last.
 - `firestore.rules`: owner-only access to `/trackers/{uid}`.
 - `firebase.json`: fixed Auth, Firestore, and Hosting emulator ports plus the
@@ -83,14 +83,17 @@ node scripts/release-deploy.mjs vX.Y.Z
 ```
 
 The script requires successful validation for the exact tag and a current local
-record of the Firebase plan, billing status, quota usage, App Check setup, and AI
-model availability. It verifies tagged Rules, indexes, and every deployed file
-before printing the GitHub Release publication command. Do not create or upload
-service-account keys.
+record of Spark/no-billing status, quota usage, exact AI model, and
+P4SA/API-key posture. It derives the AI rollout stage from the tagged client:
+disabled releases record the current preconfiguration baseline and exact
+targets, while enabled releases additionally require the completed Auth, App
+Check, all-location quota, logging, and model spot-check evidence. It verifies
+tagged Rules, indexes, and every deployed file before printing the GitHub
+Release publication command. Do not create or upload service-account keys.
 
 ## Privacy and security
 
 See [public/privacy.html](public/privacy.html) for data handling and deletion.
-Never commit service-account keys. App Check uses
-invisible reCAPTCHA v3 in monitoring mode. Do not enforce it until legitimate
-production and preview traffic has been measured.
+Never commit service-account keys, debug tokens, completed release records, or
+console captures. The one modular Firebase app uses invisible reCAPTCHA v3 for
+App Check. AI is disabled in v3.7.0; manual macro entry remains available.

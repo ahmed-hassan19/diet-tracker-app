@@ -5,6 +5,78 @@ import path from "node:path";
 export const PROJECT_ID = "diet-tracker-372ca";
 export const FIRESTORE_RULES_RELEASE = `projects/${PROJECT_ID}/releases/cloud.firestore`;
 export const VERIFICATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const AI_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
+export const PRODUCTION_HOSTS = [
+  "https://diet-tracker-372ca.web.app",
+  "https://5asesny.web.app",
+];
+export const AI_LOG_EXCLUSION = 'resource.type="firebasevertexai.googleapis.com/Model"';
+export const AI_P4SA = "service-142673055934@gcp-sa-firebasevertexai.iam.gserviceaccount.com";
+export const AI_ROLLOUT_STAGES = {
+  disabled: "ai-disabled-rollout",
+  enabled: "ai-enabled-rollout",
+};
+export const AI_GENERATE_CONTENT_QUOTA_METRIC =
+  "firebasevertexai.googleapis.com/generate_content_requests_per_minute_per_project_per_user";
+export const AI_GENERATE_CONTENT_QUOTA_ID =
+  "GenerateContentRequestsPerMinutePerProjectPerUser";
+export const AI_QUOTA_NAMED_REGIONS = Object.freeze([
+  "africa-south1",
+  "asia-east1",
+  "asia-east2",
+  "asia-northeast1",
+  "asia-northeast2",
+  "asia-northeast3",
+  "asia-south1",
+  "asia-southeast1",
+  "asia-southeast2",
+  "australia-southeast1",
+  "australia-southeast2",
+  "europe-central2",
+  "europe-north1",
+  "europe-southwest1",
+  "europe-west1",
+  "europe-west12",
+  "europe-west2",
+  "europe-west3",
+  "europe-west4",
+  "europe-west6",
+  "europe-west8",
+  "europe-west9",
+  "me-central1",
+  "me-central2",
+  "me-west1",
+  "northamerica-northeast1",
+  "northamerica-northeast2",
+  "southamerica-east1",
+  "southamerica-west1",
+  "us-central1",
+  "us-east1",
+  "us-east4",
+  "us-east5",
+  "us-south1",
+  "us-west1",
+  "us-west2",
+  "us-west3",
+  "us-west4",
+]);
+export const AI_QUOTA_GROUPED_APPLICABLE_LOCATIONS = Object.freeze([
+  "asia-south2",
+  "asia-southeast3",
+  "europe-north2",
+  "europe-west10",
+  "northamerica-south1",
+]);
+export const AI_QUOTA_DIMENSIONS_INFO_COUNT = AI_QUOTA_NAMED_REGIONS.length + 1;
+export const AI_REQUIRED_SPOT_CHECKS = [
+  "authenticated-success",
+  "unauthenticated-401",
+  "invalid-app-check-403",
+  "localhost-debug-token",
+  "both-production-hosts",
+  "calorie-reference",
+  "latency-comparison",
+];
 
 export const sha256 = (value) =>
   crypto.createHash("sha256").update(value).digest("hex");
@@ -106,7 +178,73 @@ export function matchingValidationRuns(runs, tag, commitSha) {
   );
 }
 
-export function releaseVerificationProblems(record, { tag, commitSha, model, now = Date.now() }) {
+export function clientAiEnabledFromIndexHtml(indexHtml) {
+  if (typeof indexHtml !== "string") return null;
+  const matches = [...indexHtml.matchAll(/\bwindow\.AI_ENABLED\s*=\s*(true|false)\s*;/g)];
+  return matches.length === 1 ? matches[0][1] === "true" : null;
+}
+
+function quotaInventoryAt(quota, limit) {
+  if (quota?.metric !== AI_GENERATE_CONTENT_QUOTA_METRIC ||
+      quota?.quotaId !== AI_GENERATE_CONTENT_QUOTA_ID ||
+      !Array.isArray(quota?.dimensionsInfos) ||
+      quota.dimensionsInfos.length !== AI_QUOTA_DIMENSIONS_INFO_COUNT) return false;
+  const exactKeys = (value) => value && typeof value === "object" &&
+    !Array.isArray(value) &&
+    Object.keys(value).sort().join(",") === "applicableLocations,limit,region";
+  const named = quota.dimensionsInfos.filter((info) =>
+    exactKeys(info) && typeof info.region === "string" && info.region.length > 0 &&
+      Array.isArray(info.applicableLocations) && info.applicableLocations.length === 0 &&
+      info.limit === limit,
+  );
+  const grouped = quota.dimensionsInfos.filter((info) =>
+    exactKeys(info) && info.region === null && info.limit === limit &&
+      Array.isArray(info.applicableLocations) && info.applicableLocations.length > 0 &&
+      info.applicableLocations.every((location) =>
+        typeof location === "string" && location.length > 0,
+      ) && new Set(info.applicableLocations).size === info.applicableLocations.length,
+  );
+  const namedRegions = named.map((info) => info.region).sort();
+  const groupedLocations = grouped[0]?.applicableLocations.slice().sort();
+  return named.length === AI_QUOTA_NAMED_REGIONS.length && grouped.length === 1 &&
+    JSON.stringify(namedRegions) === JSON.stringify([...AI_QUOTA_NAMED_REGIONS].sort()) &&
+    JSON.stringify(groupedLocations) ===
+      JSON.stringify([...AI_QUOTA_GROUPED_APPLICABLE_LOCATIONS].sort());
+}
+
+function exactEnablementTargets(model) {
+  return {
+    model,
+    productionHosts: PRODUCTION_HOSTS,
+    appCheckAiLogicEnforced: true,
+    authenticatedUsersRequired: true,
+    generateContentRpmPerUserQuota: {
+      metric: AI_GENERATE_CONTENT_QUOTA_METRIC,
+      quotaId: AI_GENERATE_CONTENT_QUOTA_ID,
+      requiredDimensionsInfoCount: AI_QUOTA_DIMENSIONS_INFO_COUNT,
+      namedRegions: AI_QUOTA_NAMED_REGIONS,
+      groupedApplicableLocations: AI_QUOTA_GROUPED_APPLICABLE_LOCATIONS,
+      limitPerBucket: 6,
+    },
+    logExclusionFilter: AI_LOG_EXCLUSION,
+    requiredSpotChecks: AI_REQUIRED_SPOT_CHECKS,
+  };
+}
+
+function sameObject(actual, expected) {
+  return JSON.stringify(sortedObject(actual)) === JSON.stringify(sortedObject(expected));
+}
+
+function canonicalIsoTimestamp(value) {
+  return typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) &&
+    Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+}
+
+export function releaseVerificationProblems(
+  record,
+  { tag, commitSha, model, indexHtml, now = Date.now() },
+) {
   const problems = [];
   const add = (ok, message) => {
     if (!ok) problems.push(message);
@@ -114,7 +252,7 @@ export function releaseVerificationProblems(record, { tag, commitSha, model, now
   add(!!record && typeof record === "object" && !Array.isArray(record),
     "release verification must be a JSON object");
   if (problems.length) return problems;
-  add(record.schemaVersion === 1, "release verification schemaVersion must be 1");
+  add(record.schemaVersion === 3, "release verification schemaVersion must be 3");
   add(record.projectId === PROJECT_ID,
     `release verification projectId must be ${PROJECT_ID}`);
   add(record.tag === tag, `release verification tag must be ${tag}`);
@@ -136,11 +274,119 @@ export function releaseVerificationProblems(record, { tag, commitSha, model, now
   add(Number.isFinite(record.maxObservedQuotaPercent) &&
     record.maxObservedQuotaPercent >= 0 && record.maxObservedQuotaPercent <= 70,
   "release verification maxObservedQuotaPercent must be between 0 and 70");
-  add(record.appCheckVerified === true,
-    "release verification must confirm App Check for both production hosts");
+  add(JSON.stringify(record.productionHosts) === JSON.stringify(PRODUCTION_HOSTS),
+    "release verification must name both exact production hosts");
+  const clientAiEnabled = clientAiEnabledFromIndexHtml(indexHtml);
+  add(clientAiEnabled !== null,
+    "release verification must derive one literal window.AI_ENABLED value from the exact tagged index.html bytes");
+  const expectedStage = clientAiEnabled === true ? AI_ROLLOUT_STAGES.enabled :
+    clientAiEnabled === false ? AI_ROLLOUT_STAGES.disabled : null;
+  add(clientAiEnabled !== null && record.stage === expectedStage,
+    `release verification stage must match the tagged client (${expectedStage || "unresolved"})`);
+  add(record.appCheck?.firestoreEnforced === true,
+    "release verification must confirm Firestore App Check enforcement");
   add(record.model === model, `release verification model must be ${model}`);
   add(record.modelAvailableWithoutBilling === true,
     "release verification must confirm the model remains available without billing");
+  add(sameObject(record.aiEnablementTargets, exactEnablementTargets(model)),
+    "release verification must record the exact planned AI enablement targets");
+  const freeTier = record.aiLogic?.freeTierBackendQuotas;
+  add(freeTier?.rpmPerProjectModel === 15 && freeTier?.rpdPerProjectModel === 500 &&
+    freeTier?.inputTpmPerProjectModel === 250000 &&
+    freeTier?.inputTpdPerProjectModel === "unlimited-or-unspecified",
+  "release verification must record the reviewed Gemini 3.5 Flash-Lite free-tier quota rows");
+  add(record.aiLogic?.p4saEmail === AI_P4SA &&
+    record.aiLogic?.p4saRole === "roles/firebaseml.serviceAgent",
+  "release verification must confirm the Firebase AI Logic P4SA and service-agent role");
+  add(record.aiLogic?.usesP4saForAuthorization === true,
+    "release verification must confirm Firebase AI Logic uses P4SA authorization");
+  add(record.aiLogic?.serverSideGeminiKeyObfuscated === true,
+    "release verification must confirm any service-managed Gemini key remains server-side and obfuscated");
+  add(record.aiLogic?.geminiDeveloperApiKeyEmbedded === false,
+    "release verification must confirm no Gemini Developer API key is embedded");
+  add(record.aiLogic?.publicBrowserKeyAllowsGenerativeLanguage === false,
+    "release verification must confirm the public browser key does not allow Generative Language API");
+  add(record.aiLogic?.obsoleteGeminiKeyHasRecentConsumers === false,
+    "release verification must confirm any obsolete Gemini key has no recent consumers");
+  add(record.aiLogic?.telemetryMode === "NONE" &&
+    record.aiLogic?.telemetrySamplingRate === 1,
+  "release verification must record Firebase AI Logic telemetry mode NONE with sampling rate 1");
+  const spot = record.aiLogic?.spotChecks;
+  const spotAt = Date.parse(spot?.completedAt);
+  add(record.logging?.defaultBucketRetentionDays === 30,
+    "release verification must record the _Default log bucket retention");
+  add(record.logging?.aggregateMetricsRemainAvailable === true,
+    "release verification must confirm aggregate AI metrics remain available");
+  add(record.logging?.exportsConfigured === false,
+    "release verification must confirm no log export sink is configured");
+  if (clientAiEnabled === false) {
+    add(record.appCheck?.aiLogicEnforced === false &&
+      record.appCheck?.bothHostsVerified === false,
+    "AI-disabled rollout must record the preconfiguration AI App Check baseline without live-host success claims");
+    add(record.aiLogic?.authenticatedUsersRequired === false &&
+      record.aiLogic?.authenticatedSuccessVerified === false &&
+      record.aiLogic?.unauthenticated401Verified === false &&
+      record.aiLogic?.invalidAppCheck403Verified === false,
+    "AI-disabled rollout must record the preconfiguration authenticated-users baseline without request success claims");
+    add(quotaInventoryAt(record.aiLogic?.generateContentRpmPerUserQuota, 100),
+      "AI-disabled rollout must record the exact Generate Content metric/quotaId and all 39 preconfiguration location buckets at 100 RPM/user");
+    add(spot?.calorieReferencePassed === false && spot?.latencyCompared === false &&
+      spot?.localhostDebugTokenPassed === false &&
+      Array.isArray(spot?.productionHostsPassed) && spot.productionHostsPassed.length === 0 &&
+      spot?.completedAt === null,
+    "AI-disabled rollout must not claim post-deployment AI spot-check evidence");
+    add(record.logging?.exclusionEnabled === false &&
+      record.logging?.exclusionFilter === null &&
+      record.logging?.exclusionActivatedAt === null &&
+      record.logging?.existingModelLogsExpireAt === null,
+    "AI-disabled rollout must record the preconfiguration logging baseline without activation or expiry claims");
+  }
+  if (clientAiEnabled === true) {
+    add(record.appCheck?.aiLogicEnforced === true &&
+      record.appCheck?.bothHostsVerified === true,
+    "AI-enabled rollout must confirm Firebase AI Logic App Check enforcement on both production hosts");
+    add(record.aiLogic?.authenticatedUsersRequired === true,
+      "AI-enabled rollout must confirm Firebase AI Logic authenticated-users mode");
+    add(record.aiLogic?.authenticatedSuccessVerified === true,
+      "AI-enabled rollout must confirm an authenticated AI success");
+    add(record.aiLogic?.unauthenticated401Verified === true,
+      "AI-enabled rollout must confirm unauthenticated AI returns 401");
+    add(record.aiLogic?.invalidAppCheck403Verified === true,
+      "AI-enabled rollout must confirm invalid App Check returns 403");
+    add(quotaInventoryAt(record.aiLogic?.generateContentRpmPerUserQuota, 6),
+      "AI-enabled rollout must record the exact Generate Content metric/quotaId and all 39 location buckets at exactly 6 RPM/user");
+    add(spot?.calorieReferencePassed === true && spot?.latencyCompared === true &&
+      spot?.localhostDebugTokenPassed === true &&
+      JSON.stringify(spot?.productionHostsPassed) === JSON.stringify(PRODUCTION_HOSTS) &&
+      Number.isFinite(spotAt) && spotAt <= now + 5 * 60 * 1000 && now - spotAt <= VERIFICATION_MAX_AGE_MS,
+    "AI-enabled rollout must include current localhost, both-host, calorie-reference, and latency spot-check evidence");
+    add(record.logging?.exclusionEnabled === true &&
+      record.logging?.exclusionFilter === AI_LOG_EXCLUSION,
+    "AI-enabled rollout must confirm the exact AI Model log-body exclusion");
+    const activatedValue = record.logging?.exclusionActivatedAt;
+    const expiryValue = record.logging?.existingModelLogsExpireAt;
+    const activationCanonical = canonicalIsoTimestamp(activatedValue);
+    const expiryCanonical = canonicalIsoTimestamp(expiryValue);
+    const activatedAt = activationCanonical ? Date.parse(activatedValue) : Number.NaN;
+    const expiryAt = expiryCanonical ? Date.parse(expiryValue) : Number.NaN;
+    add(activationCanonical,
+      "AI-enabled rollout must record canonical ISO exclusionActivatedAt evidence");
+    if (activationCanonical && Number.isFinite(verifiedAt)) {
+      add(activatedAt <= verifiedAt,
+        "AI log exclusionActivatedAt cannot be after release verifiedAt");
+      add(verifiedAt - activatedAt >= 0 &&
+        verifiedAt - activatedAt <= VERIFICATION_MAX_AGE_MS,
+      "AI log exclusionActivatedAt must be within 24 hours of verifiedAt for this rollout");
+    }
+    add(expiryCanonical,
+      "AI-enabled rollout must record canonical ISO existingModelLogsExpireAt evidence");
+    if (activationCanonical && expiryCanonical) {
+      add(expiryAt === activatedAt + AI_LOG_RETENTION_MS,
+        "existingModelLogsExpireAt must equal exclusionActivatedAt plus the 30-day _Default retention");
+      add(expiryAt > now && (!Number.isFinite(verifiedAt) || expiryAt > verifiedAt),
+        "existingModelLogsExpireAt must still be in the future");
+    }
+  }
   return problems;
 }
 

@@ -116,8 +116,65 @@ function addForm(saveCall, ph){
     +'</div>'
     +'<p class="muted" id="af-status" style="margin-top:6px">'+esc(draft.st||stTxt)+'</p></div>';
 }
-// Release A0 keeps the AI path disabled; call sites fall back to manual entry
-// silently. A1 flips window.AI_ENABLED in the inline module to restore it.
+const AI_DISCLOSURE_VERSION=1;
+const AI_FAIL_COPY={
+  auth:"🔑 جلسة الدخول انتهت — سجّل دخولك تاني، أو اكتب الأرقام بنفسك.",
+  forbidden:"🛡️ التحقق من أمان التطبيق أو صلاحية الحساب منجحش — اكتب الأرقام بنفسك.",
+  quota:"⏳ حصة التقدير خلصت دلوقتي — جرّب بعد شوية، أو اكتب الأرقام بنفسك.",
+  offline:"📴 مفيش اتصال دلوقتي — اكتب الأرقام بنفسك، وجرّب التقدير لما النت يرجع.",
+  invalid:"⚠️ التقدير رجع أرقام غير متناسقة — راجع الملصق واكتب الأرقام بنفسك."
+};
+function normalizeAiEstimate(raw){
+  if(!raw||typeof raw!=="object"||Array.isArray(raw)) return {ok:false,reason:"shape"};
+  const keys=Object.keys(raw).sort();
+  if(keys.join(",")!=="c,f,k,p") return {ok:false,reason:"shape"};
+  const limits={k:[1,5000],p:[0,1250],f:[0,556],c:[0,1250]}, value={};
+  for(const key of ["k","p","f","c"]){
+    const n=raw[key];
+    if(typeof n!=="number"||!Number.isFinite(n)||n<limits[key][0]||n>limits[key][1]) return {ok:false,reason:"bounds"};
+    value[key]=Math.round(n);
+  }
+  const macroEnergy=value.p*4+value.f*9+value.c*4;
+  if(Math.abs(value.k-macroEnergy)/value.k>0.1) return {ok:false,reason:"macros"};
+  return {ok:true,value};
+}
+function aiFailKind(error){
+  const code=String((error&&error.code)||"").toLowerCase();
+  const custom=error&&error.customErrorData&&typeof error.customErrorData==="object"?error.customErrorData:{};
+  const status=Number(custom.status??(error&&(error.status??error.httpStatus)));
+  const message=String((error&&error.message)||"").toLowerCase();
+  if(code==="ai/unauthenticated"||status===401||code.includes("unauthenticated")||message.includes(" 401")) return "auth";
+  if(code==="ai/forbidden"||status===403||code.includes("permission-denied")||code.includes("app-check")||message.includes(" 403")) return "forbidden";
+  if(status===429||code.includes("resource-exhausted")||code.includes("quota")||message.includes(" 429")) return "quota";
+  if((typeof navigator!=="undefined"&&navigator.onLine===false)||code.includes("unavailable")||code.includes("network")||code.includes("fetch")) return "offline";
+  return "invalid";
+}
+function aiDisclosureAccepted(){
+  const s=(S&&S.settings)||{};
+  const at=s.aiDisclosureAcceptedAt;
+  return s.aiDisclosureVersion===AI_DISCLOSURE_VERSION&&typeof at==="string"&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(at)&&Number.isFinite(Date.parse(at))&&new Date(at).toISOString()===at;
+}
+function acceptAiDisclosure(){
+  if(aiDisclosureAccepted()) return true;
+  const accepted=confirm("قبل تقدير AI:\n\n• اللي هيتبعت لـ Google هو وصف الأكل والكمية بس.\n• محتوى الاستخدام في الفئة المجانية ممكن يُستخدم لتحسين منتجات Google.\n• متكتبش اسمك أو أي تفاصيل شخصية أو صحية.\n• الإدخال اليدوي هيفضل متاح.\n\nموافق تستخدم التقدير؟ اختار إلغاء عشان تكمل يدوي.");
+  if(!accepted) return false;
+  S.settings=Object.assign({},S.settings,{aiDisclosureVersion:AI_DISCLOSURE_VERSION,aiDisclosureAcceptedAt:new Date().toISOString(),_ts:Date.now()});
+  save();
+  return true;
+}
+async function requestAiEstimate(text){
+  if(!aiOn()) return {ok:false,manual:true};
+  if(!acceptAiDisclosure()) return {ok:false,manual:true};
+  try{
+    const raw=await window.firebaseBridge.estimateFood(text);
+    const normalized=normalizeAiEstimate(raw);
+    return normalized.ok?normalized:{ok:false,copy:AI_FAIL_COPY.invalid};
+  }catch(error){
+    return {ok:false,copy:AI_FAIL_COPY[aiFailKind(error)]};
+  }
+}
+// v3.7.0 keeps AI disabled; both call sites retain their manual path and make
+// no bridge call until a reviewed release flips the module flag.
 function aiOn(){ return window.AI_ENABLED===true; }
 async function aiFill(btn){
   if(!aiOn()){ draft.st="اكتب السعرات والماكروز من الملصق أو وصفة موزونة"; renderDay(); return; }
@@ -125,14 +182,12 @@ async function aiFill(btn){
   if(!t){ draft.st="اكتب الأكل الأول"; renderDay(); return; }
   btn.disabled=true;
   const st=document.getElementById("af-status"); if(st) st.textContent="⏳ بحسب...";
-  try{
-    const r=await window.aiEstimate(t);
-    draft.k=Math.round(r.k)||0; draft.p=Math.round(r.p)||0; draft.f=Math.round(r.f)||0; draft.c=Math.round(r.c)||0;
+  const result=await requestAiEstimate(t);
+  if(result.ok){
+    const r=result.value;
+    draft.k=r.k; draft.p=r.p; draft.f=r.f; draft.c=r.c;
     draft.st="⚠️ تقدير تقريبي — لازم تراجعه من الملصق أو وصفة موزونة";
-  }catch(e){
-    console.error("aiEstimate failed:",e);
-    draft.st="مش قادر أحسب دلوقتي — اكتب الأرقام بنفسك";
-  }
+  }else draft.st=result.copy||"اكتب السعرات والماكروز من الملصق أو وصفة موزونة";
   renderDay();
 }
 function saveFood(key){
@@ -252,6 +307,12 @@ function renderCalRef(){
     +'<input style="width:150px" maxlength="40" list="cr-qty" placeholder="الكمية... قطعة ١٠٠ جم" value="'+esc(crDraft.q||"")+'" oninput="crDraft.q=this.value">'
     +(aiOn()?'<button class="btn ghost" style="width:auto;padding:7px 12px" onclick="aiCalRef(this)">🤖 احسب</button>':'')
     +'</div>'
+    +'<div class="row" style="margin-top:8px">'
+    +'<label class="muted">سعرات</label><input type="number" id="cr-k" style="width:72px" value="'+(crDraft.k??"")+'" oninput="crDraft.k=this.value">'
+    +'<label class="muted">بروتين</label><input type="number" id="cr-p" style="width:62px" value="'+(crDraft.p??"")+'" oninput="crDraft.p=this.value">'
+    +'<label class="muted">دهون</label><input type="number" id="cr-f" style="width:62px" value="'+(crDraft.f??"")+'" oninput="crDraft.f=this.value">'
+    +'<label class="muted">كارب</label><input type="number" id="cr-c" style="width:62px" value="'+(crDraft.c??"")+'" oninput="crDraft.c=this.value">'
+    +'<button class="btn" onclick="saveCalRef()">حفظ يدوي</button></div>'
     +'<p class="muted" id="cr-status" style="margin-top:6px">'+esc(crDraft.st||stTxt)+'</p></div>';
   document.getElementById("calref-list").innerHTML=h;
 }
@@ -261,19 +322,22 @@ async function aiCalRef(btn){
   if(!t){ crDraft.st="اكتب النوع الأول"; renderCalRef(); return; }
   btn.disabled=true;
   const st=document.getElementById("cr-status"); if(st) st.textContent="⏳ بحسب...";
-  const num=v=>Math.round(Math.min(5000,Math.max(0,parseFloat(v)||0)));
-  try{
-    const r=await window.aiEstimate(t+(q?" — الكمية: "+q:""));
-    S.calref=S.calref||{}; S.calref.items=S.calref.items||[];
-    S.calref.items.push({t:(t+(q?" ("+q+")":"")).slice(0,80), k:num(r.k), p:num(r.p), f:num(r.f), c:num(r.c)});
-    S.calref._ts=Date.now();
-    crDraft={};
-    save();
-  }catch(e){
-    console.error("aiEstimate failed:",e);
-    crDraft.st="⚠️ مش قادر أحسب دلوقتي — جرّب تاني بعدين";
-  }
+  const result=await requestAiEstimate(t+(q?" — الكمية: "+q:""));
+  if(result.ok){
+    crDraft=Object.assign({},crDraft,result.value,{st:"⚠️ تقدير تقريبي — راجعه وبعدها اضغط حفظ يدوي"});
+  }else crDraft.st=result.copy||"اكتب القيم من ملصق العبوة أو وصفة موزونة";
   renderCalRef();
+}
+function saveCalRef(){
+  const t=(crDraft.t||"").trim(), q=(crDraft.q||"").trim();
+  if(!t){ crDraft.st="اكتب النوع الأول"; renderCalRef(); return; }
+  const normalized=normalizeAiEstimate({k:Number(crDraft.k),p:Number(crDraft.p),f:Number(crDraft.f),c:Number(crDraft.c)});
+  if(!normalized.ok){ crDraft.st="راجع الأربع أرقام: السعرات لازم تطابق الماكروز في حدود ١٠٪"; renderCalRef(); return; }
+  S.calref=S.calref||{}; S.calref.items=S.calref.items||[];
+  S.calref.items.push(Object.assign({t:(t+(q?" ("+q+")":"")).slice(0,80)},normalized.value));
+  S.calref._ts=Date.now();
+  crDraft={};
+  save(); renderCalRef();
 }
 function delCalRef(i){
   if(!confirm("تمسح العنصر ده من إضافاتك؟")) return;

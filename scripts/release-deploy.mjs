@@ -9,9 +9,11 @@ import { spawnSync } from "node:child_process";
 import {
   FIRESTORE_RULES_RELEASE,
   PROJECT_ID,
+  PRODUCTION_HOSTS,
   activeFirebaseProject,
   bundleDetails,
   canonicalIndexSpec,
+  clientAiEnabledFromIndexHtml,
   matchingValidationRuns,
   releaseVerificationProblems,
   sha256,
@@ -19,7 +21,7 @@ import {
 } from "./release-lib.mjs";
 import { AI_MODEL_ALLOWLIST } from "./spark-guard.mjs";
 
-const HOSTS = ["https://diet-tracker-372ca.web.app", "https://5asesny.web.app"];
+const HOSTS = PRODUCTION_HOSTS;
 const MODEL = AI_MODEL_ALLOWLIST[0];
 
 const die = (message) => {
@@ -157,6 +159,7 @@ const verificationProblems = releaseVerificationProblems(verification, {
   tag,
   commitSha: peeled,
   model: MODEL,
+  indexHtml: html,
 });
 if (verificationProblems.length) {
   die(
@@ -164,9 +167,12 @@ if (verificationProblems.length) {
       verificationProblems.map((item) => `  - ${item}`).join("\n"),
   );
 }
+const clientAiEnabled = clientAiEnabledFromIndexHtml(html);
 console.log(
   `  ok: Spark/no billing verified; highest observed quota usage ` +
-    `${verification.maxObservedQuotaPercent}%`,
+    `${verification.maxObservedQuotaPercent}%; ` +
+    (clientAiEnabled ? "hardened AI enablement evidence verified" :
+      "AI-disabled baseline and enablement targets verified"),
 );
 
 console.log("— pinned tooling and credentials");

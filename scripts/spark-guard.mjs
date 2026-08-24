@@ -38,7 +38,9 @@ const FORBIDDEN_WORKFLOW_PATTERNS = [
    GoogleAIBackend() on a reviewed Lite-tier model. Update this list only with
    measured calorie-reference spot checks (see AGENTS.md). */
 export const AI_BACKEND_ALLOWLIST = ["GoogleAIBackend()"];
-export const AI_MODEL_ALLOWLIST = ["gemini-flash-lite-latest"];
+export const AI_MODEL_ALLOWLIST = ["gemini-3.5-flash-lite"];
+export const FIREBASE_WEB_SDK_VERSION = "12.17.1";
+const FIRST_AI_ENABLED_VERSION = [3, 7, 1];
 
 function problemsFor(push) {
   const p = [];
@@ -193,14 +195,52 @@ function stripJsComments(source) {
   return output;
 }
 
-export function guardAiModule(inlineScript) {
+function aiEnabledVersionEligible(version) {
+  const match = String(version || "").match(/^(\d+)\.(\d+)\.(\d+)$/);
+  if (!match) return false;
+  const actual = match.slice(1).map(Number);
+  return actual.some((part, index) =>
+    part > FIRST_AI_ENABLED_VERSION[index] &&
+      actual.slice(0, index).every((earlier, earlierIndex) =>
+        earlier === FIRST_AI_ENABLED_VERSION[earlierIndex]),
+  ) || actual.every((part, index) => part === FIRST_AI_ENABLED_VERSION[index]);
+}
+
+export function guardAiModule(inlineScript, { version } = {}) {
   const { p, add } = problemsFor();
   const code = stripJsComments(inlineScript);
+  const sdkImports = [...code.matchAll(/https:\/\/www\.gstatic\.com\/firebasejs\/([^/]+)\/firebase-[^"']+\.js/g)]
+    .map((match) => match[1]);
+  add(sdkImports.length === 5, "Firebase module must import exactly app, App Check, Auth, Firestore, and AI SDK files");
+  add(sdkImports.every((version) => version === FIREBASE_WEB_SDK_VERSION),
+    `every Firebase module import must pin SDK ${FIREBASE_WEB_SDK_VERSION}`);
+  const appInitializers = code.match(/\binitializeApp\s*\(/g) || [];
+  add(appInitializers.length === 1, "Firebase module must initialize exactly one app");
+  add(/\bconst\s+app\s*=\s*initializeApp\s*\(\s*FB_BUILTIN\.config\s*\)/.test(code),
+    "Firebase module must initialize the single default app from FB_BUILTIN.config");
+  for (const service of ["getAuth", "getFirestore", "initializeAppCheck", "getAI"]) {
+    add(new RegExp(`\\b${service}\\s*\\(\\s*app\\b`).test(code),
+      `${service} must use the same Firebase app`);
+  }
+  const aiFlags = [...code.matchAll(/\bwindow\.AI_ENABLED\s*=\s*(true|false)\s*;/g)];
+  add(aiFlags.length === 1,
+    "Firebase module must define exactly one literal window.AI_ENABLED flag");
+  if (aiFlags.length === 1 && aiFlags[0][1] === "true") {
+    add(aiEnabledVersionEligible(version),
+      "AI may be enabled only from package version 3.7.1 onward");
+  }
+  add(!/firebase-[a-z-]+-compat\.js|\bfirebase\.apps\b|\bgetIdToken\b|\baccessToken\b/.test(code),
+    "Firebase module must not use compat SDKs or copy Auth tokens");
   const backendConstructions = code.match(/\bnew\s+GoogleAIBackend\s*\(\s*\)/g) || [];
   add(backendConstructions.length === 1,
     "AI module must construct GoogleAIBackend exactly once");
-  add(/getGenerativeModel\s*\(\s*getAI\s*\(\s*[A-Za-z_$][\w$]*\s*,\s*\{\s*backend\s*:\s*new\s+GoogleAIBackend\s*\(\s*\)\s*\}\s*\)\s*,/.test(code),
+  add(/getGenerativeModel\s*\(\s*getAI\s*\(\s*app\s*,\s*\{\s*backend\s*:\s*new\s+GoogleAIBackend\s*\(\s*\)\s*\}\s*\)\s*,/.test(code),
     "getGenerativeModel must receive getAI(app, {backend:new GoogleAIBackend()}) directly");
+  const disabledAt = code.indexOf("window.AI_ENABLED!==true");
+  const membershipAt = code.indexOf('getDocFromServer(doc(db,"betaMembers",user.uid))');
+  const requestAt = code.indexOf("model.generateContent(");
+  add(disabledAt >= 0 && membershipAt > disabledAt && requestAt > membershipAt,
+    "AI requests must check the disabled flag, then freshly read membership, then call the model");
   for (const marker of [
     "VertexAIBackend",
     "GoogleGenerativeAI",
@@ -220,6 +260,20 @@ export function guardAiModule(inlineScript) {
         `AI model "${literal[1]}" is outside the reviewed allowlist (${AI_MODEL_ALLOWLIST.join(", ")})`);
     }
   }
+  return p;
+}
+
+export function guardFirebaseClient(source) {
+  const { p, add } = problemsFor();
+  const code = stripJsComments(source);
+  add((code.match(/\binitializeApp\s*\(/g) || []).length === 1,
+    "public client must initialize exactly one Firebase app in total");
+  add(!/\binitializeApp\s*\([^)]*,\s*["'][^"']+["']\s*\)/.test(code),
+    "public client must not initialize a named second Firebase app");
+  add(!/firebase-[a-z-]+-compat\.js|\bfirebase\.(?:apps|auth|firestore|appCheck)\b/.test(code),
+    "public client must not load or call the Firebase compat SDK");
+  add(!/\b(?:getIdToken|getTokenResult)\s*\(|\b(?:accessToken|idToken|appCheckToken)\s*=/.test(code),
+    "public client must not read or copy Auth/App Check tokens");
   return p;
 }
 

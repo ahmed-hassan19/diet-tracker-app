@@ -34,6 +34,31 @@ test("shows the quota fallback copy while local tracking stays available", async
   await expect(page.locator("#app")).toBeVisible();
 });
 
+test("modular Firebase bridge is narrow and AI-disabled calls stop before network", async ({ page }) => {
+  let aiOrMembershipRequests = 0;
+  await page.route(/firebasevertexai|generativelanguage|betaMembers/, async (route) => {
+    aiOrMembershipRequests++;
+    await route.abort();
+  });
+  const result = await page.evaluate(async () => {
+    const bridge = window.firebaseBridge;
+    const keys = Object.keys(bridge).sort();
+    let code = "";
+    try { await bridge.estimateFood("تفاحة"); } catch (error) { code = error.code; }
+    return { code, frozen: Object.isFrozen(bridge), keys };
+  });
+  expect(result).toEqual({
+    code: "ai/disabled",
+    frozen: true,
+    keys: [
+      "currentUser", "deleteTracker", "estimateFood", "listenTracker",
+      "observeAuth", "readMembership", "signInForTest", "signInGoogle",
+      "signOut", "writeTracker",
+    ],
+  });
+  expect(aiOrMembershipRequests).toBe(0);
+});
+
 test("is RTL, responsive, and persists meal totals after reload", async ({
   page,
 }, testInfo) => {

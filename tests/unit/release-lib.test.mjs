@@ -2,33 +2,125 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import {
+  AI_GENERATE_CONTENT_QUOTA_ID,
+  AI_GENERATE_CONTENT_QUOTA_METRIC,
   FIRESTORE_RULES_RELEASE,
+  AI_LOG_EXCLUSION,
+  AI_P4SA,
+  AI_QUOTA_DIMENSIONS_INFO_COUNT,
+  AI_QUOTA_GROUPED_APPLICABLE_LOCATIONS,
+  AI_QUOTA_NAMED_REGIONS,
+  AI_REQUIRED_SPOT_CHECKS,
+  AI_ROLLOUT_STAGES,
+  PRODUCTION_HOSTS,
   PROJECT_ID,
   activeFirebaseProject,
   canonicalIndexSpec,
+  clientAiEnabledFromIndexHtml,
   matchingValidationRuns,
   releaseVerificationProblems,
   taggedConfigHashes,
 } from "../../scripts/release-lib.mjs";
 
-const TAG = "v3.6.0";
+const TAG = "v3.7.0";
 const COMMIT = "a".repeat(40);
-const MODEL = "gemini-flash-lite-latest";
+const MODEL = "gemini-3.5-flash-lite";
 const NOW = Date.parse("2026-08-23T12:00:00.000Z");
+const indexHtml = (enabled) =>
+  `<script type="module">window.AI_ENABLED=${enabled};</script>`;
 
-function validVerification() {
+function quotaInventory(limit) {
   return {
-    schemaVersion: 1,
+    metric: AI_GENERATE_CONTENT_QUOTA_METRIC,
+    quotaId: AI_GENERATE_CONTENT_QUOTA_ID,
+    dimensionsInfos: [
+      ...AI_QUOTA_NAMED_REGIONS.map((region) => ({
+        region,
+        applicableLocations: [],
+        limit,
+      })),
+      {
+        region: null,
+        applicableLocations: [...AI_QUOTA_GROUPED_APPLICABLE_LOCATIONS],
+        limit,
+      },
+    ],
+  };
+}
+
+function validVerification({ enabled = false, tag = TAG } = {}) {
+  return {
+    schemaVersion: 3,
+    stage: enabled ? AI_ROLLOUT_STAGES.enabled : AI_ROLLOUT_STAGES.disabled,
     projectId: PROJECT_ID,
-    tag: TAG,
+    tag,
     commitSha: COMMIT,
     verifiedAt: "2026-08-23T11:00:00.000Z",
     firebasePlan: "Spark",
     billingAccountLinked: false,
     maxObservedQuotaPercent: 65,
-    appCheckVerified: true,
+    productionHosts: PRODUCTION_HOSTS,
+    appCheck: {
+      firestoreEnforced: true,
+      aiLogicEnforced: enabled,
+      bothHostsVerified: enabled,
+    },
     model: MODEL,
     modelAvailableWithoutBilling: true,
+    aiLogic: {
+      authenticatedUsersRequired: enabled,
+      authenticatedSuccessVerified: enabled,
+      unauthenticated401Verified: enabled,
+      invalidAppCheck403Verified: enabled,
+      generateContentRpmPerUserQuota: quotaInventory(enabled ? 6 : 100),
+      freeTierBackendQuotas: {
+        rpmPerProjectModel: 15,
+        rpdPerProjectModel: 500,
+        inputTpmPerProjectModel: 250000,
+        inputTpdPerProjectModel: "unlimited-or-unspecified",
+      },
+      telemetryMode: "NONE",
+      telemetrySamplingRate: 1,
+      p4saEmail: AI_P4SA,
+      p4saRole: "roles/firebaseml.serviceAgent",
+      usesP4saForAuthorization: true,
+      serverSideGeminiKeyObfuscated: true,
+      geminiDeveloperApiKeyEmbedded: false,
+      publicBrowserKeyAllowsGenerativeLanguage: false,
+      obsoleteGeminiKeyHasRecentConsumers: false,
+      spotChecks: {
+        calorieReferencePassed: enabled,
+        latencyCompared: enabled,
+        localhostDebugTokenPassed: enabled,
+        productionHostsPassed: enabled ? PRODUCTION_HOSTS : [],
+        completedAt: enabled ? "2026-08-23T10:00:00.000Z" : null,
+      },
+    },
+    logging: {
+      exclusionEnabled: enabled,
+      exclusionFilter: enabled ? AI_LOG_EXCLUSION : null,
+      exclusionActivatedAt: enabled ? "2026-08-23T10:00:00.000Z" : null,
+      defaultBucketRetentionDays: 30,
+      existingModelLogsExpireAt: enabled ? "2026-09-22T10:00:00.000Z" : null,
+      aggregateMetricsRemainAvailable: true,
+      exportsConfigured: false,
+    },
+    aiEnablementTargets: {
+      model: MODEL,
+      productionHosts: PRODUCTION_HOSTS,
+      appCheckAiLogicEnforced: true,
+      authenticatedUsersRequired: true,
+      generateContentRpmPerUserQuota: {
+        metric: AI_GENERATE_CONTENT_QUOTA_METRIC,
+        quotaId: AI_GENERATE_CONTENT_QUOTA_ID,
+        requiredDimensionsInfoCount: AI_QUOTA_DIMENSIONS_INFO_COUNT,
+        namedRegions: AI_QUOTA_NAMED_REGIONS,
+        groupedApplicableLocations: AI_QUOTA_GROUPED_APPLICABLE_LOCATIONS,
+        limitPerBucket: 6,
+      },
+      logExclusionFilter: AI_LOG_EXCLUSION,
+      requiredSpotChecks: AI_REQUIRED_SPOT_CHECKS,
+    },
   };
 }
 
@@ -62,29 +154,150 @@ test("only the exact successful tag validation run matches", () => {
   }
 });
 
-test("release verification requires current Firebase settings", () => {
+test("AI-disabled rollout accepts the observed baseline and exact enablement targets", () => {
   assert.deepEqual(
     releaseVerificationProblems(validVerification(), {
       tag: TAG,
       commitSha: COMMIT,
       model: MODEL,
+      indexHtml: indexHtml(false),
       now: NOW,
     }),
     [],
   );
   const invalid = validVerification();
   invalid.billingAccountLinked = true;
-  invalid.appCheckVerified = false;
+  invalid.appCheck.aiLogicEnforced = true;
   invalid.maxObservedQuotaPercent = 71;
   const problems = releaseVerificationProblems(invalid, {
     tag: TAG,
     commitSha: COMMIT,
     model: MODEL,
+    indexHtml: indexHtml(false),
     now: NOW,
   });
   assert.ok(problems.some((problem) => problem.includes("no Cloud Billing")));
-  assert.ok(problems.some((problem) => problem.includes("App Check")));
+  assert.ok(problems.some((problem) => problem.includes("preconfiguration AI App Check")));
   assert.ok(problems.some((problem) => problem.includes("between 0 and 70")));
+});
+
+test("AI-enabled rollout requires and accepts the full hardened posture", () => {
+  const enabledTag = "v3.7.1";
+  assert.deepEqual(
+    releaseVerificationProblems(validVerification({ enabled: true, tag: enabledTag }), {
+      tag: enabledTag,
+      commitSha: COMMIT,
+      model: MODEL,
+      indexHtml: indexHtml(true),
+      now: NOW,
+    }),
+    [],
+  );
+  const baseline = validVerification({ tag: enabledTag });
+  const problems = releaseVerificationProblems(baseline, {
+    tag: enabledTag,
+    commitSha: COMMIT,
+    model: MODEL,
+    indexHtml: indexHtml(true),
+    now: NOW,
+  });
+  for (const marker of [
+    "stage",
+    "App Check enforcement",
+    "authenticated-users",
+    "39 location buckets",
+    "spot-check evidence",
+    "log-body exclusion",
+    "canonical ISO existingModelLogsExpireAt",
+  ]) assert.ok(problems.some((problem) => problem.includes(marker)), marker);
+});
+
+test("enabled logging evidence requires current canonical activation and exact retention expiry", () => {
+  const enabledTag = "v3.7.1";
+  const problemsFor = (mutate) => {
+    const record = validVerification({ enabled: true, tag: enabledTag });
+    mutate(record.logging);
+    return releaseVerificationProblems(record, {
+      tag: enabledTag,
+      commitSha: COMMIT,
+      model: MODEL,
+      indexHtml: indexHtml(true),
+      now: NOW,
+    });
+  };
+  const old = problemsFor((logging) => {
+    logging.exclusionActivatedAt = "1970-01-01T00:00:00.000Z";
+    logging.existingModelLogsExpireAt = "1970-01-31T00:00:00.000Z";
+  });
+  assert.ok(old.some((problem) => problem.includes("within 24 hours")));
+  assert.ok(old.some((problem) => problem.includes("still be in the future")));
+
+  const noncanonicalActivation = problemsFor((logging) => {
+    logging.exclusionActivatedAt = "2026-08-23 10:00:00Z";
+  });
+  assert.ok(noncanonicalActivation.some((problem) =>
+    problem.includes("canonical ISO exclusionActivatedAt")));
+
+  const noncanonicalExpiry = problemsFor((logging) => {
+    logging.existingModelLogsExpireAt = "2026-09-22T10:00:00Z";
+  });
+  assert.ok(noncanonicalExpiry.some((problem) =>
+    problem.includes("canonical ISO existingModelLogsExpireAt")));
+
+  const future = problemsFor((logging) => {
+    logging.exclusionActivatedAt = "2026-08-23T11:30:00.000Z";
+    logging.existingModelLogsExpireAt = "2026-09-22T11:30:00.000Z";
+  });
+  assert.ok(future.some((problem) => problem.includes("cannot be after")));
+
+  const inconsistent = problemsFor((logging) => {
+    logging.existingModelLogsExpireAt = "2026-09-22T09:59:59.999Z";
+  });
+  assert.ok(inconsistent.some((problem) => problem.includes("plus the 30-day")));
+});
+
+test("release stage is derived from one literal flag in the tagged index bytes", () => {
+  assert.equal(clientAiEnabledFromIndexHtml(indexHtml(false)), false);
+  assert.equal(clientAiEnabledFromIndexHtml(indexHtml(true)), true);
+  assert.equal(clientAiEnabledFromIndexHtml("window.AI_ENABLED=flag;"), null);
+  assert.equal(
+    clientAiEnabledFromIndexHtml(`${indexHtml(false)}${indexHtml(true)}`),
+    null,
+  );
+  const mismatched = validVerification();
+  mismatched.stage = AI_ROLLOUT_STAGES.enabled;
+  const problems = releaseVerificationProblems(mismatched, {
+    tag: TAG,
+    commitSha: COMMIT,
+    model: MODEL,
+    indexHtml: indexHtml(false),
+    now: NOW,
+  });
+  assert.ok(problems.some((problem) => problem.includes("stage must match")));
+});
+
+test("quota evidence pins the non-bidi metric, quotaId, and every location bucket", () => {
+  const variants = [
+    (quota) => { quota.metric = quota.metric.replace("generate_content", "generate_content_bidi"); },
+    (quota) => { quota.quotaId = `Bidi${quota.quotaId}`; },
+    (quota) => { quota.dimensionsInfos.pop(); },
+    (quota) => { quota.dimensionsInfos[0].region = "region-01"; },
+    (quota) => { quota.dimensionsInfos[1].region = quota.dimensionsInfos[0].region; },
+    (quota) => { quota.dimensionsInfos.at(-1).applicableLocations = []; },
+    (quota) => { quota.dimensionsInfos.at(-1).applicableLocations[0] = "future-region1"; },
+  ];
+  for (const mutate of variants) {
+    const record = validVerification();
+    mutate(record.aiLogic.generateContentRpmPerUserQuota);
+    const problems = releaseVerificationProblems(record, {
+      tag: TAG,
+      commitSha: COMMIT,
+      model: MODEL,
+      indexHtml: indexHtml(false),
+      now: NOW,
+    });
+    assert.ok(problems.some((problem) => problem.includes("metric/quotaId")));
+  }
 });
 
 test("stale or unbound release verification is rejected", () => {
@@ -95,10 +308,41 @@ test("stale or unbound release verification is rejected", () => {
     tag: TAG,
     commitSha: COMMIT,
     model: MODEL,
+    indexHtml: indexHtml(false),
     now: NOW,
   });
   assert.ok(problems.some((problem) => problem.includes("commitSha")));
   assert.ok(problems.some((problem) => problem.includes("older than 24 hours")));
+});
+
+test("AI release posture fails closed on auth mode, quota, key, host, and logging drift", () => {
+  const enabledTag = "v3.7.1";
+  const invalid = validVerification({ enabled: true, tag: enabledTag });
+  invalid.productionHosts = [PRODUCTION_HOSTS[0]];
+  invalid.aiLogic.authenticatedUsersRequired = false;
+  invalid.aiLogic.generateContentRpmPerUserQuota.dimensionsInfos[0].limit = 100;
+  invalid.aiLogic.p4saEmail = "wrong@example.invalid";
+  invalid.aiLogic.publicBrowserKeyAllowsGenerativeLanguage = true;
+  invalid.aiLogic.spotChecks.productionHostsPassed = [PRODUCTION_HOSTS[0]];
+  invalid.logging.exclusionFilter = "resource.type=wrong";
+  invalid.logging.existingModelLogsExpireAt = "unknown";
+  const problems = releaseVerificationProblems(invalid, {
+    tag: enabledTag,
+    commitSha: COMMIT,
+    model: MODEL,
+    indexHtml: indexHtml(true),
+    now: NOW,
+  });
+  for (const marker of [
+    "production hosts",
+    "authenticated-users",
+    "39 location buckets",
+    "P4SA",
+    "Generative Language",
+    "spot-check evidence",
+    "log-body exclusion",
+    "canonical ISO existingModelLogsExpireAt",
+  ]) assert.ok(problems.some((problem) => problem.includes(marker)), marker);
 });
 
 test("checked-in release verification template fails closed", () => {
@@ -109,6 +353,7 @@ test("checked-in release verification template fails closed", () => {
     tag: TAG,
     commitSha: COMMIT,
     model: MODEL,
+    indexHtml: indexHtml(false),
     now: NOW,
   });
   for (const marker of [
@@ -118,11 +363,33 @@ test("checked-in release verification template fails closed", () => {
     "firebasePlan",
     "Cloud Billing",
     "maxObservedQuotaPercent",
-    "App Check",
-    "without billing",
+    "39 preconfiguration location buckets",
   ]) {
     assert.ok(problems.some((problem) => problem.includes(marker)), marker);
   }
+});
+
+test("a current record completed from the template can deploy the disabled rollout", () => {
+  const record = JSON.parse(
+    fs.readFileSync("docs/release-verification.example.json", "utf8"),
+  );
+  Object.assign(record, {
+    tag: TAG,
+    commitSha: COMMIT,
+    verifiedAt: "2026-08-23T11:00:00.000Z",
+    firebasePlan: "Spark",
+    billingAccountLinked: false,
+    maxObservedQuotaPercent: 65,
+  });
+  record.aiLogic.generateContentRpmPerUserQuota.dimensionsInfos =
+    quotaInventory(100).dimensionsInfos;
+  assert.deepEqual(releaseVerificationProblems(record, {
+    tag: TAG,
+    commitSha: COMMIT,
+    model: MODEL,
+    indexHtml: indexHtml(false),
+    now: NOW,
+  }), []);
 });
 
 test("index hashes are insensitive to top-level declaration order", () => {
@@ -195,6 +462,7 @@ test("release script validates before deploy and publish verifies all tagged has
   }
   assert.ok(workflow.includes("node scripts/release-hashes.mjs --verify"));
   assert.ok(deploy.includes("local/release-verification-${tag}.json"));
+  assert.ok(deploy.includes("indexHtml: html"));
   assert.ok(deploy.includes("local/releases/${tag}-manifest.json"));
   assert.ok(!deploy.includes("docs/releases"));
 });

@@ -15,7 +15,7 @@ const deferred = () => {
 };
 const membershipSnapshot = (exists, enabled = false) => ({
   exists,
-  data: () => ({ enabled }),
+  data: { enabled },
 });
 
 function createHarness() {
@@ -25,57 +25,34 @@ function createHarness() {
   const trackerRefs = new Map();
   const writes = [];
   let nextTimer = 1;
-  const auth = {
-    currentUser: null,
-    useEmulator() {},
-    onAuthStateChanged() {},
-    signInAnonymously: async () => {},
-  };
-  const trackerRef = (uid) => {
-    if (!trackerRefs.has(uid)) {
-      trackerRefs.set(uid, {
-        onSnapshot() {
-          return () => {};
-        },
-        set(value) {
-          const result = deferred();
-          writes.push({ uid, value, ...result });
-          return result.promise;
-        },
-      });
-    }
-    return trackerRefs.get(uid);
-  };
-  const firestore = {
-    useEmulator() {},
-    collection(name) {
-      return {
-        doc(uid) {
-          if (name === "betaMembers") {
-            return {
-              get() {
-                const result = deferred();
-                membershipReads.push({ uid, ...result });
-                return result.promise;
-              },
-            };
-          }
-          return trackerRef(uid);
-        },
-      };
+  const auth = { currentUser: null };
+  const bridge = {
+    currentUser: () => auth.currentUser,
+    observeAuth: async () => () => {},
+    signInForTest: async () => null,
+    listenTracker(uid) {
+      trackerRefs.set(uid, true);
+      return Promise.resolve(() => {});
     },
+    readMembership(uid) {
+      const result = deferred();
+      membershipReads.push({ uid, ...result });
+      return result.promise;
+    },
+    writeTracker(uid, value) {
+      const result = deferred();
+      writes.push({ uid, value, ...result });
+      return result.promise;
+    },
+    deleteTracker: async () => {},
+    signOut: async () => {},
   };
-  const firebase = {
-    apps: [{}],
-    auth: () => auth,
-    firestore: () => firestore,
-  };
+  const window = { firebaseBridge: bridge, addEventListener() {} };
   const context = {
     URLSearchParams,
     console,
-    firebase,
     location: { hostname: "localhost", search: "?test=1" },
-    window: { firebase },
+    window,
     document: {
       getElementById(id) {
         if (!elements.has(id)) {
@@ -125,7 +102,7 @@ function createHarness() {
   };
   const start = (uid = "member-1") => {
     auth.currentUser = { uid, displayName: "" };
-    evaluate("start(firebase.auth().currentUser); FB.active=true");
+    evaluate("start(window.firebaseBridge.currentUser()); FB.active=true");
   };
 
   return {

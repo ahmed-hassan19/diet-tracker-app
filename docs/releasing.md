@@ -44,6 +44,14 @@ Confirm all of the following:
 - The shipped model is `gemini-flash-lite-latest` and remains available without
   enabling billing.
 
+Ordering requirement for tracker-write gating and App Check: the tagged release
+ships the compatible client (membership reads, gated-write UX) and the
+membership Firestore Rules together. Deploy that release first; only after it is
+live on both hosts may App Check enforcement be switched on for Firestore in the
+console, followed by member/non-member/revoked spot checks of the 401/403/429
+recovery copy. Enforcement is a console action — never a repository change — so
+a rollback of the client does not strand non-member users mid-release.
+
 The record must be less than 24 hours old. Keep it under `local/`; do not commit
 console captures, account information, tokens, or the completed JSON file.
 

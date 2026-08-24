@@ -7,8 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- تسجيل اليوم على السحابة بقى محتاج حساب مفعّل في البرنامج التجريبي. لو الحساب
+  لسه مش مفعّل أو اتلغى تفعيله، التطبيق بيوضّح ده من الأول بملاحظة واضحة، وبيفرّق
+  بين رسالة الحساب غير المفعّل، وانتهاء الجلسة، وخلاص حصة السحابة. في كل الحالات
+  التسجيل على الجهاز والنسخة الاحتياطية والحذف بيفضلوا شغالين عادي.
+
 ### Changed
 
+- تقدير السعرات بالذكاء الاصطناعي متوقف مؤقتًا في الإصدار ده: أزرار 🤖 اختفت،
+  وكتابة السعرات والماكروز بالإيد هي المسار الوحيد في كل الشاشات. التقدير هيرجع
+  بعد اكتمال مراجعة الأمان والخصوصية والحصة في الإصدار الجاي.
 - Production deploys are owner-run with human Firebase OAuth via
   `scripts/release-deploy.mjs`; GitHub Actions no longer authenticates to
   Google, deploys Hosting, or creates preview channels. The tag-triggered
@@ -28,6 +38,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- Firestore Rules now gate tracker create/update on an owner-provisioned
+  `/betaMembers/{uid}` document with `enabled == true`, while tracker reads and
+  deletes stay available to the owner after revocation so health data is never
+  stranded. Clients can only get their own membership doc; listing and every
+  client write on `betaMembers` is denied.
+- The shipped client disables AI estimation behind `window.AI_ENABLED=false`
+  until the next release's Auth, App Check, model, privacy, and quota acceptance
+  passes; the named `"ai"` app wiring stays intact for a clean re-enable.
+- Documented the deployment ordering requirement in `docs/releasing.md`: the
+  compatible client and membership Rules go live before App Check enforcement
+  is switched on for Firestore in the console, followed by member/non-member/
+  revoked spot checks.
 - Added the Spark guard to `scripts/validate.mjs` (via `scripts/spark-guard.mjs`
   with unit coverage): config, dependency, workflow, and AI-module allowlists
   keep Functions/App Hosting/Storage configuration, server-side Firebase SDKs,

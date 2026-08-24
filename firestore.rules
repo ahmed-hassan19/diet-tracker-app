@@ -1,8 +1,25 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isOwner(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+    /* Tracker writes are gated on beta membership provisioned by the owner in
+       the console; reads and deletes stay open to the owner so health data is
+       never stranded after revocation. */
+    function betaEnabled() {
+      return request.auth != null
+        && exists(/databases/$(database)/documents/betaMembers/$(request.auth.uid))
+        && get(/databases/$(database)/documents/betaMembers/$(request.auth.uid)).data.enabled == true;
+    }
     match /trackers/{uid} {
-      allow read, write: if request.auth != null && request.auth.uid == uid;
+      allow read, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && betaEnabled();
+    }
+    match /betaMembers/{uid} {
+      allow get: if isOwner(uid);
+      // list, create, update, and delete are denied for all app clients;
+      // membership docs are owner-provisioned only.
     }
   }
 }

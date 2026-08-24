@@ -1,6 +1,6 @@
 {
   "name": "diet-tracker-app",
-  "version": "3.5.1",
+  "version": "3.6.0",
   "private": true,
   "description": "Arabic RTL diet tracker hosted on Firebase",
   "scripts": {

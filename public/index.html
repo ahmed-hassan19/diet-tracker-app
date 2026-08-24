@@ -97,6 +97,8 @@
     </div>
   </header>
 
+  <div id="gate-note" class="note" style="display:none"></div>
+
   <div class="tabs">
     <button id="tab-day" class="on" onclick="showTab('day')">📋 اليوم</button>
     <button id="tab-plan" onclick="showTab('plan')">🎯 الخطة</button>
@@ -181,7 +183,7 @@
     <p class="muted" style="text-align:center" id="sync-status"></p>
   </div>
 
-  <footer>Diet Tracker — اتبني بواسطة Claude · أغسطس 2026 · <b>v3.5.1</b> · <a href="#privacy" style="color:var(--teal)">الخصوصية</a></footer>
+  <footer>Diet Tracker — اتبني بواسطة Claude · أغسطس 2026 · <b>v3.6.0</b> · <a href="#privacy" style="color:var(--teal)">الخصوصية</a></footer>
 </div>
 
 <div class="wrap" id="setup" style="display:none">
@@ -256,8 +258,13 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app.js";
 import { getAI, getGenerativeModel, GoogleAIBackend } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-ai.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/12.9.0/firebase-app-check.js";
+// Release A0 ships AI estimation disabled until the A1 acceptance (same-app
+// Auth, App Check enforcement, model review, privacy, quota) passes. The named
+// app and model wiring below stay intact; re-enable by flipping this flag.
+window.AI_ENABLED=false;
 let model=null;
 window.aiEstimate = async text => {
+  if(!window.AI_ENABLED) throw new Error("AI estimation is disabled in this release");
   if(!model){
     const app=initializeApp(FB_BUILTIN.config,"ai");
     if(!TEST_MODE&&APP_CHECK_SITE_KEY) initializeAppCheck(app,{provider:new ReCaptchaV3Provider(APP_CHECK_SITE_KEY),isTokenAutoRefreshEnabled:true});

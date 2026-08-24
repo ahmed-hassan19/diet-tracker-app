@@ -49,7 +49,10 @@ function parseJson(text, label) {
 
 async function getJson(url, accessToken, label) {
   const response = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "X-Goog-User-Project": PROJECT_ID,
+    },
     cache: "no-store",
   });
   if (!response.ok) {
@@ -66,7 +69,6 @@ async function listCompositeIndexes(accessToken) {
     const url = new URL(
       `https://firestore.googleapis.com/v1/projects/${PROJECT_ID}/databases/(default)/collectionGroups/-/indexes`,
     );
-    url.searchParams.set("pageSize", "1000");
     if (pageToken) url.searchParams.set("pageToken", pageToken);
     const page = await getJson(url, accessToken, "Firestore index readiness check");
     indexes.push(...(page.indexes || []));

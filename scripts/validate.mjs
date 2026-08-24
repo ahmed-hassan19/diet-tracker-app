@@ -55,6 +55,10 @@ const foods = Object.values(nutrition.MEALS)
   .flatMap((meal) => meal.opts)
   .concat(nutrition.EXTRAS, nutrition.CALREF.flatMap((group) => group.items));
 
+if (foods.length !== 75) {
+  throw new Error(`Expected 75 built-in nutrition entries, found ${foods.length}`);
+}
+
 const mismatches = foods.filter((food) => {
   const macroCalories = food.p * 4 + food.f * 9 + food.c * 4;
   return food.k > 0 && Math.abs(food.k - macroCalories) / food.k > 0.1;

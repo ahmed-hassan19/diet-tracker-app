@@ -101,7 +101,6 @@
 
   <div class="tabs">
     <button id="tab-day" class="on" onclick="showTab('day')">📋 اليوم</button>
-    <button id="tab-plan" onclick="showTab('plan')">🎯 الخطة</button>
     <button id="tab-prog" onclick="showTab('prog')">📈 التقدم</button>
     <button id="tab-cal" onclick="showTab('cal')">📖 دليل السعرات</button>
   </div>
@@ -133,7 +132,7 @@
       <div class="chips" id="workout-chips"></div>
       <div class="row" style="margin-top:12px">
         <label class="muted">خطوات اليوم:</label>
-        <input type="number" id="steps" style="width:110px" placeholder="8000" onchange="saveField('steps',this.value)">
+        <input type="number" id="steps" style="width:110px" placeholder="—" onchange="saveField('steps',this.value)">
         <label class="muted">كارديو (دقايق):</label>
         <input type="number" id="cardio" style="width:90px" placeholder="0" onchange="saveField('cardio',this.value)">
       </div>
@@ -144,7 +143,7 @@
         <label class="muted">وزن الصبح (كجم):</label>
         <input type="number" step="0.1" id="weight" style="width:110px" placeholder="—" onchange="saveField('weight',this.value)">
         <label class="muted">ساعات النوم:</label>
-        <input type="number" step="0.5" id="sleep" style="width:90px" placeholder="7.5" onchange="saveField('sleep',this.value)">
+        <input type="number" step="0.5" id="sleep" style="width:90px" placeholder="—" onchange="saveField('sleep',this.value)">
       </div>
       <p class="muted" style="margin-top:8px">⚠️ اوزن نفسك الصبح على الريق بعد الحمام — ومتحكمش على يوم واحد، المتوسط الأسبوعي هو اللي يهم.</p>
     </div>
@@ -153,9 +152,6 @@
       <textarea id="notes" placeholder="جوع؟ طاقة؟ خروجة أكلت فيها برة؟ اكتب هنا..." onchange="saveField('notes',this.value)"></textarea>
     </div>
   </div>
-
-  <!-- ============ الخطة ============ -->
-  <div id="pg-plan" style="display:none"></div>
 
   <!-- ============ التقدم ============ -->
   <div id="pg-prog" style="display:none"></div>
@@ -183,7 +179,7 @@
     <p class="muted" style="text-align:center" id="sync-status"></p>
   </div>
 
-  <footer>Diet Tracker — اتبني بواسطة Claude · أغسطس 2026 · <b>v3.7.0</b> · <a href="#privacy" style="color:var(--teal)">الخصوصية</a></footer>
+  <footer>Diet Tracker · أغسطس 2026 · <b>v3.7.0</b> · <a href="#privacy" style="color:var(--teal)">الخصوصية</a></footer>
 </div>
 
 <div class="wrap" id="setup" style="display:none">
@@ -199,7 +195,7 @@
     </div>
     <div class="row" style="margin-bottom:10px">
       <label class="muted">النوع:</label>
-      <select id="su-sex" onchange="suCalc()"><option value="m">ذكر</option><option value="f">أنثى</option></select>
+      <select id="su-sex" onchange="suCalc()"><option value="">اختار...</option><option value="m">ذكر</option><option value="f">أنثى</option></select>
       <label class="muted">السن:</label>
       <input type="number" id="su-age" style="width:70px" min="18" max="100" oninput="suCalc()">
       <label class="muted">الطول (سم):</label>
@@ -214,8 +210,9 @@
     <div class="row">
       <label class="muted">نشاطك:</label>
       <select id="su-act" onchange="suCalc()">
+        <option value="">اختار...</option>
         <option value="1.2">قليل الحركة (شغل مكتب، من غير تمرين)</option>
-        <option value="1.375" selected>خفيف (تمرين 1–3 أيام/أسبوع)</option>
+        <option value="1.375">خفيف (تمرين 1–3 أيام/أسبوع)</option>
         <option value="1.55">متوسط (تمرين 3–5 أيام/أسبوع)</option>
         <option value="1.725">عالي (تمرين 6–7 أيام/أسبوع)</option>
       </select>

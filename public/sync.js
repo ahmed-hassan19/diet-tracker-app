@@ -105,9 +105,6 @@ function start(u){
   document.getElementById("login").style.display="none";
   KEY="diet_tracker_v1_"+u.uid;
   S=load();
-  if(migrateReviewedProfile()){
-    try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){}
-  }
   FB.ref=u.uid;
   const trackerRef=FB.ref, sync=syncGeneration;
   window.firebaseBridge.listenTracker(u.uid,doc=>{
@@ -144,11 +141,11 @@ function showSetup(u){
   const s=S.settings||{};
   const set=(id,val)=>{ document.getElementById(id).value=(val===undefined||val===null)?"":val; };
   set("su-name", s.name||u.displayName||"");
-  document.getElementById("su-sex").value=s.sex||"m";
+  document.getElementById("su-sex").value=s.sex||"";
   set("su-age",s.age); set("su-ht",s.ht);
   set("su-w", s.sw!==undefined?s.sw:(weightSeries().slice(-1)[0]||{}).w);
   set("su-gw",s.gw);
-  document.getElementById("su-act").value=s.act||"1.375";
+  document.getElementById("su-act").value=s.act||"";
   suCalc();
   ["klo","khi","plo","phi"].forEach(k=>{ if(s[k]!==undefined&&s[k]!==null) document.getElementById("su-"+k).value=s[k]; });
   const editing=!!s.ht;
@@ -170,7 +167,7 @@ function suCalc(){
 }
 function suSave(){
   const p=suRead();
-  if(!p){ document.getElementById("su-err").textContent="⚠️ للبالغين فقط: راجع السن والطول والوزن، وخلي هدف الوزن ضمن BMI من 18.5 إلى 40 أو راجع مختص."; return; }
+  if(!p){ document.getElementById("su-err").textContent="⚠️ اختار النوع والنشاط، وراجع السن والطول والوزن، وخلي هدف الوزن ضمن BMI من 18.5 إلى 40 أو راجع مختص."; return; }
   const t=calcTargets(p);
   const v=(id,fb)=>parseFloat(document.getElementById(id).value)||fb;
   const custom={klo:v("su-klo",t.klo),khi:v("su-khi",t.khi),plo:v("su-plo",t.plo),phi:v("su-phi",t.phi)};
@@ -236,7 +233,6 @@ function mergeRemote(remote){
   if(remote.settings && (remote.settings._ts||0)>((S.settings&&S.settings._ts)||0)){ S.settings=remote.settings; changed=true; }
   if(remote.foods && (remote.foods._ts||0)>((S.foods&&S.foods._ts)||0)){ S.foods=remote.foods; changed=true; }
   if(remote.calref && (remote.calref._ts||0)>((S.calref&&S.calref._ts)||0)){ S.calref=remote.calref; changed=true; }
-  if(migrateReviewedProfile()) changed=true;
   if(changed){
     try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
     renderDay();

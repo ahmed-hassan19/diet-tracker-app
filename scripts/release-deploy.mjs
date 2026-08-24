@@ -9,6 +9,7 @@ import { spawnSync } from "node:child_process";
 import {
   FIRESTORE_RULES_RELEASE,
   PROJECT_ID,
+  activeFirebaseProject,
   bundleDetails,
   canonicalIndexSpec,
   matchingValidationRuns,
@@ -182,8 +183,7 @@ const useOut = command("active Firebase project check", "npx", [
   "firebase",
   "use",
 ]);
-const active =
-  (useOut.match(/Active Project:\s*(\S+)/) || useOut.match(/Now using project\s+(\S+)/) || [])[1];
+const active = activeFirebaseProject(useOut);
 if (active !== PROJECT_ID) die(`firebase use says "${active}", expected ${PROJECT_ID}`);
 const gcloudToken = command("gcloud access-token check", "gcloud", [
   "auth",

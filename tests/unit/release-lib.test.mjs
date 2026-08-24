@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   FIRESTORE_RULES_RELEASE,
   PROJECT_ID,
+  activeFirebaseProject,
   canonicalIndexSpec,
   matchingValidationRuns,
   releaseVerificationProblems,
@@ -196,4 +197,21 @@ test("release script validates before deploy and publish verifies all tagged has
   assert.ok(deploy.includes("local/release-verification-${tag}.json"));
   assert.ok(deploy.includes("local/releases/${tag}-manifest.json"));
   assert.ok(!deploy.includes("docs/releases"));
+});
+
+test("activeFirebaseProject parses the labelled firebase use formats", () => {
+  assert.equal(activeFirebaseProject("Active Project: diet-tracker-372ca\n"), PROJECT_ID);
+  assert.equal(activeFirebaseProject("Now using project diet-tracker-372ca\n"), PROJECT_ID);
+});
+
+test("activeFirebaseProject parses the bare firebase-tools 15 output", () => {
+  assert.equal(activeFirebaseProject("diet-tracker-372ca\n"), PROJECT_ID);
+  assert.equal(activeFirebaseProject("diet-tracker-372ca"), PROJECT_ID);
+});
+
+test("activeFirebaseProject fails closed on anything else", () => {
+  assert.equal(activeFirebaseProject(""), null);
+  assert.equal(activeFirebaseProject(undefined), null);
+  assert.equal(activeFirebaseProject("Warning: deprecated\ndiet-tracker-372ca\nother-id\n"), null);
+  assert.equal(activeFirebaseProject("Active Project: wrong-project\n"), "wrong-project");
 });

@@ -143,3 +143,17 @@ export function releaseVerificationProblems(record, { tag, commitSha, model, now
     "release verification must confirm the model remains available without billing");
   return problems;
 }
+
+/* firebase-tools has printed `Active Project: <id>`, `Now using project <id>`,
+   and (15.x) the bare project id; accept exactly those shapes and nothing else. */
+export function activeFirebaseProject(output) {
+  const lines = String(output ?? "").split(/\r?\n/).map((line) => line.trim());
+  for (const line of lines) {
+    const match =
+      line.match(/^Active Project:\s*(\S+)$/) ||
+      line.match(/^Now using project\s+(\S+)$/);
+    if (match) return match[1];
+  }
+  const bare = lines.filter((line) => /^[a-z0-9-]+$/.test(line));
+  return bare.length === 1 ? bare[0] : null;
+}

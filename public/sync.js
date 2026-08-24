@@ -14,6 +14,8 @@ const APP_CHECK_SITE_KEY = "6Lfp2WctAAAAADMCZ8ro60zlxHQqsv4rZXzmE_g2";
 const TEST_MODE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new URLSearchParams(location.search).get("test")==="1";
 let FB={ref:null, active:false, pushTimer:null, unsub:null};
 let deletingAll=false;
+let syncGeneration=0;
+let membershipGeneration=0;
 /* ================= بوابة العضوية (betaMembers) =================
    Tracker cloud writes require an enabled /betaMembers/{uid} doc provisioned by
    the owner in the console. Local use, export, and delete always keep working. */
@@ -23,9 +25,21 @@ const GATE_COPY={
   quota:"⏳ حصة السحابة خلصت دلوقتي — جرّب بعد شوية. التسجيل على جهازك شغال عادي وهيتزامن لاحقًا."
 };
 let GATE={state:"ok", enabled:false};
+const GATE_RECHECK_MS=300000;
 let gateRecheck=null;
+function clearGateRecheck(){
+  if(gateRecheck!==null){ clearTimeout(gateRecheck); gateRecheck=null; }
+}
+function scheduleGateRecheck(){
+  clearGateRecheck();
+  if(!FB.ref||!firebase.auth().currentUser) return;
+  gateRecheck=setTimeout(()=>{
+    gateRecheck=null;
+    loadMembership();
+  },GATE_RECHECK_MS);
+}
 function setGate(state){
-  if(state!=="pending"&&gateRecheck){ clearTimeout(gateRecheck); gateRecheck=null; }
+  if(state==="pending") scheduleGateRecheck(); else clearGateRecheck();
   const wasPending=GATE.state==="pending";
   GATE={state, enabled:state==="ok"};
   const el=document.getElementById("gate-note");
@@ -41,16 +55,23 @@ function syncFailKind(code){
     :(code==="unauthenticated"?"auth"
     :(code==="resource-exhausted"?"quota":""));
 }
+function syncContextCurrent(generation,uid,ref){
+  const current=firebase.auth().currentUser;
+  return generation===syncGeneration&&!!current&&current.uid===uid&&FB.ref===ref;
+}
 async function loadMembership(){
   const u=firebase.auth().currentUser;
   if(!u||!FB.ref) return;
+  const trackerRef=FB.ref, sync=syncGeneration, membership=++membershipGeneration;
   try{
     const snap=await firebase.firestore().collection("betaMembers").doc(u.uid).get();
+    if(!syncContextCurrent(sync,u.uid,trackerRef)||membership!==membershipGeneration) return;
     const enabled=!!(snap.exists&&snap.data().enabled===true);
     setGate(enabled?"ok":"pending");
   }catch(e){
     // can't verify membership → stay quiet; a failed push will classify itself
-    if(GATE.state!=="pending") setGate("ok");
+    if(!syncContextCurrent(sync,u.uid,trackerRef)||membership!==membershipGeneration) return;
+    setGate(GATE.state==="pending"?"pending":"ok");
   }
 }
 function setSyncStatus(s){ const el=document.getElementById("sync-status"); if(el) el.textContent=s; }
@@ -77,7 +98,16 @@ async function initSync(){
     document.getElementById("login-status").textContent="⚠️ مش قادر أوصل بالسيرفر — اتأكد من النت واعمل تحديث للصفحة.";
   }
 }
+function resetSyncContext(){
+  syncGeneration++;
+  membershipGeneration++;
+  if(FB.unsub) FB.unsub();
+  clearTimeout(FB.pushTimer);
+  FB={ref:null, active:false, pushTimer:null, unsub:null};
+  setGate("ok");
+}
 function start(u){
+  resetSyncContext();
   document.getElementById("login").style.display="none";
   KEY="diet_tracker_v1_"+u.uid;
   S=load();
@@ -85,11 +115,14 @@ function start(u){
     try{ localStorage.setItem(KEY,JSON.stringify(S)); }catch(e){}
   }
   FB.ref=firebase.firestore().collection("trackers").doc(u.uid);
-  FB.unsub=FB.ref.onSnapshot(doc=>{
+  const trackerRef=FB.ref, sync=syncGeneration;
+  FB.unsub=trackerRef.onSnapshot(doc=>{
+    if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
     if(doc.exists){ const r=doc.data(); if(r && r.days) mergeRemote(r); }
     if(!FB.active){ FB.active=true; schedulePush(); }
     setSyncStatus("☁️ متزامن مع السحابة · آخر تحديث "+new Date().toLocaleTimeString());
   }, err=>{
+    if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
     const kind=syncFailKind(err&&err.code);
     if(kind==="auth") setGate("auth");
     else if(kind!=="quota") setSyncStatus("⚠️ المزامنة متعطلة: "+err.message);
@@ -158,11 +191,8 @@ function suSave(){
   showApp();
 }
 function stop(){
-  if(FB.unsub) FB.unsub();
-  clearTimeout(FB.pushTimer);
-  FB={ref:null, active:false, pushTimer:null, unsub:null};
+  resetSyncContext();
   S=null; KEY=null;
-  setGate("ok");
   document.getElementById("app").style.display="none";
   document.getElementById("setup").style.display="none";
   document.getElementById("login").style.display="";
@@ -223,21 +253,27 @@ function mergeRemote(remote){
   if(S.settings&&S.settings.ht&&!suEdit&&document.getElementById("setup").style.display!=="none") showApp();
 }
 function schedulePush(){
-  if(deletingAll || !FB.active || !FB.ref) return;
+  const u=firebase.auth().currentUser, trackerRef=FB.ref, sync=syncGeneration;
+  if(deletingAll || !FB.active || !trackerRef || !u) return;
   clearTimeout(FB.pushTimer);
   FB.pushTimer=setTimeout(()=>{
+    if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
     // known nonmember/revoked: skip the doomed write (each denial still bills
     // Rules reads); loadMembership's bounded recheck resumes the flush
     if(GATE.state==="pending") return;
-    FB.ref.set({days:S.days, settings:S.settings||{}, foods:S.foods||{}, calref:S.calref||{}, updated:Date.now()})
-      .then(()=>{ setGate("ok"); setSyncStatus("☁️ متزامن مع السحابة · آخر تحديث "+new Date().toLocaleTimeString()); })
+    trackerRef.set({days:S.days, settings:S.settings||{}, foods:S.foods||{}, calref:S.calref||{}, updated:Date.now()})
+      .then(()=>{
+        if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
+        setGate("ok");
+        setSyncStatus("☁️ متزامن مع السحابة · آخر تحديث "+new Date().toLocaleTimeString());
+      })
       .catch(e=>{
+        if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
         const kind=syncFailKind(e&&e.code);
         if(!kind){ setSyncStatus("⚠️ هيتزامن أول ما النت يرجع"); return; }
         if(kind==="pending"){
           setSyncStatus("");
           setGate("pending");
-          gateRecheck=setTimeout(loadMembership,300000);
           return;
         }
         setSyncStatus("");

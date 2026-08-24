@@ -15,6 +15,12 @@ This is a dependency-free, build-step-free Firebase application. `public/index.h
 - Keep the AI model on the Lite tier (`gemini-flash-lite-latest`) unless a measured change justifies moving it. The broad `gemini-flash-latest` alias previously caused a 4–5 second latency regression; re-run calorie-reference spot checks whenever the model changes.
 - Release A0 ships AI estimation disabled: `window.AI_ENABLED=false` in the inline module guards `aiEstimate()`, and the render.js call sites (`aiFill`, `aiCalRef`) check `aiOn()` before calling, hiding the 🤖 buttons and falling back to manual entry silently — never a network call and never a `console.error`. The named `"ai"` app and model wiring stay intact; Release A1 flips the flag to `true` after its same-app Auth, App Check enforcement, model, privacy, and quota acceptance passes.
 - Tracker cloud writes (create/update on `/trackers/{uid}`) are gated on an owner-provisioned `/betaMembers/{uid}` doc with `enabled == true`. Reads, export, and delete of the user's own tracker are never gated — health data must not be stranded after revocation. Clients can only GET their own membership doc; listing or writing membership docs is denied. sync.js reads that doc at login (`loadMembership()`), shows the pending/not-invited note (`#gate-note`, Egyptian Arabic) proactively, and classifies push failures into pending (403), session-expired (401), and quota (429) copy via `syncFailKind()` while keeping local use working.
+- Every pending membership state owns exactly one five-minute recheck. Replacing
+  the state replaces or clears that timer, logout clears it, and a successful
+  recheck flushes edits accumulated locally while cloud writes were gated.
+- Membership reads are latest-read-wins within a sync session, and tracker
+  listener/write completions must still match their originating Auth UID,
+  tracker reference, and session generation before changing gate or sync UI.
 - Native `<datalist>` suggestions deliberately survive wholesale `innerHTML` re-renders and remote merges. Calorie-reference suggestions split stored `"النوع (الكمية)"` titles between `crNames()` and `qtyNames()` so the quantity is not duplicated in AI prompts.
 
 ### Nutrition and Target Invariants

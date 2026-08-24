@@ -5,6 +5,7 @@ import path from "node:path";
 export const PROJECT_ID = "diet-tracker-372ca";
 export const FIRESTORE_RULES_RELEASE = `projects/${PROJECT_ID}/releases/cloud.firestore`;
 export const VERIFICATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const AI_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 export const PRODUCTION_HOSTS = [
   "https://diet-tracker-372ca.web.app",
   "https://5asesny.web.app",
@@ -234,6 +235,12 @@ function sameObject(actual, expected) {
   return JSON.stringify(sortedObject(actual)) === JSON.stringify(sortedObject(expected));
 }
 
+function canonicalIsoTimestamp(value) {
+  return typeof value === "string" &&
+    /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value) &&
+    Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
+}
+
 export function releaseVerificationProblems(
   record,
   { tag, commitSha, model, indexHtml, now = Date.now() },
@@ -330,8 +337,9 @@ export function releaseVerificationProblems(
     "AI-disabled rollout must not claim post-deployment AI spot-check evidence");
     add(record.logging?.exclusionEnabled === false &&
       record.logging?.exclusionFilter === null &&
+      record.logging?.exclusionActivatedAt === null &&
       record.logging?.existingModelLogsExpireAt === null,
-    "AI-disabled rollout must record the preconfiguration logging baseline without an exclusion or expiry claim");
+    "AI-disabled rollout must record the preconfiguration logging baseline without activation or expiry claims");
   }
   if (clientAiEnabled === true) {
     add(record.appCheck?.aiLogicEnforced === true &&
@@ -355,8 +363,29 @@ export function releaseVerificationProblems(
     add(record.logging?.exclusionEnabled === true &&
       record.logging?.exclusionFilter === AI_LOG_EXCLUSION,
     "AI-enabled rollout must confirm the exact AI Model log-body exclusion");
-    add(Number.isFinite(Date.parse(record.logging?.existingModelLogsExpireAt)),
-      "AI-enabled rollout must record the verified ISO expiry of existing Model logs");
+    const activatedValue = record.logging?.exclusionActivatedAt;
+    const expiryValue = record.logging?.existingModelLogsExpireAt;
+    const activationCanonical = canonicalIsoTimestamp(activatedValue);
+    const expiryCanonical = canonicalIsoTimestamp(expiryValue);
+    const activatedAt = activationCanonical ? Date.parse(activatedValue) : Number.NaN;
+    const expiryAt = expiryCanonical ? Date.parse(expiryValue) : Number.NaN;
+    add(activationCanonical,
+      "AI-enabled rollout must record canonical ISO exclusionActivatedAt evidence");
+    if (activationCanonical && Number.isFinite(verifiedAt)) {
+      add(activatedAt <= verifiedAt,
+        "AI log exclusionActivatedAt cannot be after release verifiedAt");
+      add(verifiedAt - activatedAt >= 0 &&
+        verifiedAt - activatedAt <= VERIFICATION_MAX_AGE_MS,
+      "AI log exclusionActivatedAt must be within 24 hours of verifiedAt for this rollout");
+    }
+    add(expiryCanonical,
+      "AI-enabled rollout must record canonical ISO existingModelLogsExpireAt evidence");
+    if (activationCanonical && expiryCanonical) {
+      add(expiryAt === activatedAt + AI_LOG_RETENTION_MS,
+        "existingModelLogsExpireAt must equal exclusionActivatedAt plus the 30-day _Default retention");
+      add(expiryAt > now && (!Number.isFinite(verifiedAt) || expiryAt > verifiedAt),
+        "existingModelLogsExpireAt must still be in the future");
+    }
   }
   return problems;
 }

@@ -48,10 +48,15 @@ test("AI estimates require exact finite numeric fields, bounds, and macro agreem
 
 test("AI failure classification separates auth, App Check, quota, and offline recovery", () => {
   const app = harness();
-  assert.equal(app.context.aiFailKind({ status: 401 }), "auth");
-  assert.equal(app.context.aiFailKind({ code: "firestore/permission-denied" }), "forbidden");
-  assert.equal(app.context.aiFailKind({ status: 429 }), "quota");
-  assert.equal(app.context.aiFailKind({ code: "firestore/unavailable" }), "offline");
+  const aiFetchError = (status) => ({
+    code: "AI/fetch-error",
+    message: "Error fetching from Firebase AI Logic",
+    customErrorData: status === undefined ? {} : { status },
+  });
+  assert.equal(app.context.aiFailKind(aiFetchError(401)), "auth");
+  assert.equal(app.context.aiFailKind(aiFetchError(403)), "forbidden");
+  assert.equal(app.context.aiFailKind(aiFetchError(429)), "quota");
+  assert.equal(app.context.aiFailKind(aiFetchError()), "offline");
   for (const key of ["auth", "forbidden", "quota", "offline"]) {
     assert.match(app.context.AI_FAIL_COPY[key], /بنفسك|يدوي/);
   }

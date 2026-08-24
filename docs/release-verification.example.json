@@ -55,6 +55,7 @@
   "logging": {
     "exclusionEnabled": false,
     "exclusionFilter": null,
+    "exclusionActivatedAt": null,
     "defaultBucketRetentionDays": 30,
     "existingModelLogsExpireAt": null,
     "aggregateMetricsRemainAvailable": true,

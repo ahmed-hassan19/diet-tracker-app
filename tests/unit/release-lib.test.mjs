@@ -99,8 +99,9 @@ function validVerification({ enabled = false, tag = TAG } = {}) {
     logging: {
       exclusionEnabled: enabled,
       exclusionFilter: enabled ? AI_LOG_EXCLUSION : null,
+      exclusionActivatedAt: enabled ? "2026-08-23T10:00:00.000Z" : null,
       defaultBucketRetentionDays: 30,
-      existingModelLogsExpireAt: enabled ? "2026-09-23T10:00:00.000Z" : null,
+      existingModelLogsExpireAt: enabled ? "2026-09-22T10:00:00.000Z" : null,
       aggregateMetricsRemainAvailable: true,
       exportsConfigured: false,
     },
@@ -207,8 +208,52 @@ test("AI-enabled rollout requires and accepts the full hardened posture", () => 
     "39 location buckets",
     "spot-check evidence",
     "log-body exclusion",
-    "ISO expiry",
+    "canonical ISO existingModelLogsExpireAt",
   ]) assert.ok(problems.some((problem) => problem.includes(marker)), marker);
+});
+
+test("enabled logging evidence requires current canonical activation and exact retention expiry", () => {
+  const enabledTag = "v3.7.1";
+  const problemsFor = (mutate) => {
+    const record = validVerification({ enabled: true, tag: enabledTag });
+    mutate(record.logging);
+    return releaseVerificationProblems(record, {
+      tag: enabledTag,
+      commitSha: COMMIT,
+      model: MODEL,
+      indexHtml: indexHtml(true),
+      now: NOW,
+    });
+  };
+  const old = problemsFor((logging) => {
+    logging.exclusionActivatedAt = "1970-01-01T00:00:00.000Z";
+    logging.existingModelLogsExpireAt = "1970-01-31T00:00:00.000Z";
+  });
+  assert.ok(old.some((problem) => problem.includes("within 24 hours")));
+  assert.ok(old.some((problem) => problem.includes("still be in the future")));
+
+  const noncanonicalActivation = problemsFor((logging) => {
+    logging.exclusionActivatedAt = "2026-08-23 10:00:00Z";
+  });
+  assert.ok(noncanonicalActivation.some((problem) =>
+    problem.includes("canonical ISO exclusionActivatedAt")));
+
+  const noncanonicalExpiry = problemsFor((logging) => {
+    logging.existingModelLogsExpireAt = "2026-09-22T10:00:00Z";
+  });
+  assert.ok(noncanonicalExpiry.some((problem) =>
+    problem.includes("canonical ISO existingModelLogsExpireAt")));
+
+  const future = problemsFor((logging) => {
+    logging.exclusionActivatedAt = "2026-08-23T11:30:00.000Z";
+    logging.existingModelLogsExpireAt = "2026-09-22T11:30:00.000Z";
+  });
+  assert.ok(future.some((problem) => problem.includes("cannot be after")));
+
+  const inconsistent = problemsFor((logging) => {
+    logging.existingModelLogsExpireAt = "2026-09-22T09:59:59.999Z";
+  });
+  assert.ok(inconsistent.some((problem) => problem.includes("plus the 30-day")));
 });
 
 test("release stage is derived from one literal flag in the tagged index bytes", () => {
@@ -296,7 +341,7 @@ test("AI release posture fails closed on auth mode, quota, key, host, and loggin
     "Generative Language",
     "spot-check evidence",
     "log-body exclusion",
-    "ISO expiry",
+    "canonical ISO existingModelLogsExpireAt",
   ]) assert.ok(problems.some((problem) => problem.includes(marker)), marker);
 });
 

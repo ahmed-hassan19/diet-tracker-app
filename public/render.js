@@ -140,7 +140,8 @@ function normalizeAiEstimate(raw){
 }
 function aiFailKind(error){
   const code=String((error&&error.code)||"").toLowerCase();
-  const status=Number(error&&(error.status||error.httpStatus));
+  const custom=error&&error.customErrorData&&typeof error.customErrorData==="object"?error.customErrorData:{};
+  const status=Number(custom.status??(error&&(error.status??error.httpStatus)));
   const message=String((error&&error.message)||"").toLowerCase();
   if(code==="ai/unauthenticated"||status===401||code.includes("unauthenticated")||message.includes(" 401")) return "auth";
   if(code==="ai/forbidden"||status===403||code.includes("permission-denied")||code.includes("app-check")||message.includes(" 403")) return "forbidden";

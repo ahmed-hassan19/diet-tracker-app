@@ -75,7 +75,8 @@ record the observed preconfiguration baseline without claiming later success:
   fail validation and require a reviewed schema update. Never substitute the
   Bidi metric or collapse the applicable locations into a pseudo-scope.
 - The Model log exclusion and existing-log expiry remain unset in the observed
-  section. The exact exclusion belongs in the planned-target section only.
+  section, including `exclusionActivatedAt: null`. The exact exclusion belongs
+  in the planned-target section only.
 
 This baseline record is sufficient to deploy 3.7.0. Do not configure the
 post-deployment AI controls before its compatible client bytes are live.
@@ -96,6 +97,14 @@ current completion times for every spot check. The deploy script rejects an
 enabled tagged client until all of that evidence is present. If any check
 fails, leave AI disabled; another model, a paid tier, and automatic billing are
 never fallbacks.
+
+Record `exclusionActivatedAt` from the console in the canonical UTC form
+`YYYY-MM-DDTHH:mm:ss.sssZ`; it cannot be after the record's `verifiedAt` and
+must be within the preceding 24 hours for this rollout. Set
+`existingModelLogsExpireAt` to exactly 30 days after that activation time. This
+is the conservative deadline for Model bodies ingested immediately before the
+exclusion under the 30-day `_Default` retention. Both timestamps must be
+canonical, and the expiry must still be in the future.
 
 App Check and authenticated-users mode are console actions, never repository
 claims. Preserve the compatible client-before-enforcement ordering, test

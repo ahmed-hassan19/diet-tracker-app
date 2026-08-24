@@ -9,7 +9,7 @@ This is a dependency-free, build-step-free Firebase application. `public/index.h
 ### Architecture Invariants
 
 - The five application files are classic scripts, not modules. Their load order is their dependency order and preserves the inline `onclick=` handlers without `window` shims.
-- `tests/unit/profile.test.mjs` both runs `calc.js` in isolation and checks its source for forbidden state/data identifiers. A free identifier inside an uncalled function still parses, so passing a syntax/load check alone does not prove `calc.js` is isolated.
+- `tests/unit/profile.test.mjs` runs `calc.js` in isolation and checks its source for forbidden state/data identifiers. A free identifier inside an uncalled function still parses, so passing a syntax/load check alone does not prove `calc.js` is isolated.
 - `S` is mirrored to `localStorage["diet_tracker_v1_" + uid]`; `save()` schedules a debounced Firestore write to `/trackers/{uid}`, and `mergeRemote()` applies remote snapshots.
 - The single inline module pins Firebase Web SDK v12.17.1 and initializes exactly one modular app for Auth, Firestore, App Check, and AI. It exposes only the promise-based `window.firebaseBridge` used by the five classic scripts; never add a compat stack, a named second app, SDK objects, or copied Auth/App Check tokens.
 - Keep the AI model pinned to the reviewed stable Lite tier (`gemini-3.5-flash-lite`) through `GoogleAIBackend()`. Never select a runtime fallback. Re-run calorie-reference and latency spot checks and reconfirm billing-not-required status whenever the model changes.
@@ -27,23 +27,25 @@ This is a dependency-free, build-step-free Firebase application. `public/index.h
   listener/write completions must still match their originating Auth UID,
   tracker reference, and session generation before changing gate or sync UI.
 - Native `<datalist>` suggestions deliberately survive wholesale `innerHTML` re-renders and remote merges. Calorie-reference suggestions split stored `"النوع (الكمية)"` titles between `crNames()` and `qtyNames()` so the quantity is not duplicated in AI prompts.
+- `MEALS.nt` is retained only for historical saved-day compatibility. Its option indexes and macros must not change. The group is absent from new days and suggestions; a valid saved numeric selection renders as one removable legacy row.
+- Built-in daily templates are temporarily unavailable. Do not add template UI or data without a separately reviewed change.
 
 ### Nutrition and Target Invariants
 
 - `calcTargets()` uses Mifflin-St Jeor BMR times activity. Cutting subtracts `min(1100, max(300, 8.25 * kg))` — a bodyweight-anchored ~0.75%/week rate, not a fraction of TDEE, because activity raises TDEE without raising fat reserves; bulking adds 300 kcal.
 - The result is floored at `max(1250, ceil(BMR/50)*50)`, so the app can never prescribe intake below resting metabolism. `ceil` is deliberate: rounding to nearest could land below BMR. The floor binds on sedentary cuts, where 0.75%/week is unreachable above BMR — those users correctly get a smaller deficit. `rateBand()` derives the 0.5–1.0%/week acceptance window the UI copy shows from the same rule; it must stay consistent with the deficit.
 - Protein is capped at the 300 g ceiling enforced by `validTargets()`. Calories are deliberately not clamped: out-of-band results must be rejected instead of distorted.
-- The reviewed-profile expected values (`tdee 3220`, `klo 2300`, `khi 2400`, `plo 172`, `phi 189`) live in both the `calc.js` assertion IIFE and `tests/unit/profile.test.mjs`. Update both when formulas change, and bump `REVIEWED_PROFILE_VERSION` so `migrateReviewedProfile()` refreshes the fingerprinted stored profile.
-- The `tw` setting is the weight at which targets were last reviewed; it is written by setup, by `migrateReviewedProfile()`, by 🔄 احسب تلقائي, and by dismissing the stale-target note. `renderProg()` prompts only when `targetsMoved()` — a full 50 kcal rounding step, the smallest real change — separates `calcTargets()` at `basisWeight()` from `calcTargets()` at `tw`. Comparing suggestion to suggestion rather than to the stored target is what keeps hand-typed targets from ever being flagged. Both the prompt and the button read `basisWeight()`, the 14-day mean, so day-to-day water weight cannot move either.
+- Target formula behavior lives in `tests/unit/profile.test.mjs`; `calc.js` contains no load-time profile assertions or state-specific migration hooks.
+- The `tw` setting is the weight at which targets were last reviewed; it is written by setup, by 🔄 احسب تلقائي, and by dismissing the stale-target note. `renderProg()` prompts only when `targetsMoved()` — a full 50 kcal rounding step, the smallest real change — separates `calcTargets()` at `basisWeight()` from `calcTargets()` at `tw`. Comparing suggestion to suggestion rather than to the stored target is what keeps hand-typed targets from ever being flagged. Both the prompt and the button read `basisWeight()`, the 14-day mean, so day-to-day water weight cannot move either.
 - `sw` is the progress baseline for both the milestone ladder and "التغيير من البداية"; it is the declared start weight, not the first logged weigh-in, so the two cards cannot disagree.
-- Every `MEALS`, `EXTRAS`, and `CALREF` entry must satisfy `|k - (p*4 + f*9 + c*4)| / k <= 10%`. Both `data.js` and `scripts/validate.mjs` enforce this, and `macroMismatch()` surfaces it in the UI.
+- The 75 built-in `MEALS`, `EXTRAS`, and `CALREF` entries must satisfy `|k - (p*4 + f*9 + c*4)| / k <= 10%`. Both `data.js` and `scripts/validate.mjs` enforce this, and `macroMismatch()` surfaces it in the UI.
 
 ## Development and Deployment Commands
 
 The app has no runtime build step. Contributor checks use development-only tooling:
 
 - `npm install` installs the development-only formatting tool and configures tracked Git hooks.
-- `npm run check` runs formatting checks, JavaScript/data validation, Spark-guard checks, and reviewed-profile assertions.
+- `npm run check` runs formatting checks, JavaScript/data validation, Spark-guard checks, formula assertions, and Firestore rules tests.
 - `npm run format` formats Markdown and JSON files; `public/index.html` and the five `public/*.js` files intentionally retain their compact style.
 - `firebase emulators:start --only hosting,firestore` serves the app and evaluates Firestore behavior locally.
 - `node scripts/release-deploy.mjs vX.Y.Z` is the owner-run production path: it requires successful validation for the exact tag plus a current local release-verification record, verifies provenance and pinned tooling, deploys and verifies tagged Rules/indexes before both Hosting targets, rechecks Spark/config after every live byte matches, and writes a token-free manifest under `local/releases/`.
@@ -71,14 +73,7 @@ Beyond the suites, exercise login/logout, profile setup, daily entry persistence
 
 ## Health-Content Changes
 
-Treat calorie, macro, projection, and recommendation changes as evidence-sensitive:
-
-- The projection to 86 kg is roughly 20 weeks from 99.6 kg and assumes targets are recalculated as weight falls. Because the deficit is now proportional to weight, recalculating gives exponential decay at 0.75%/week rather than a fixed rate, so the estimate stretches as weight drops.
-- Protein at 2.0–2.2 g/kg of goal weight is an intentional adaptation, not the 2.2–3.0 g/kg recommendation in PMID 34579132.
-- The 221–251 g carbohydrate range is 38.4–43.7% of 2,300 kcal, below the 45–65% AMDR band as a tradeoff of the protein-forward deficit. The rate-anchored deficit widened this gap; fat and carbohydrate remain interchangeable within the calorie ceiling.
-- `project()` and the rate copy use the linear 7,700 kcal/kg approximation, which ignores adaptive thermogenesis and must not be presented as a measurement.
-
-Check primary sources such as USDA FoodData Central, ISSN, FDA, NIH ODS, CDC, and IOM DRI before changing nutrition data or recommendation logic.
+Treat calorie, macro, projection, and recommendation changes as evidence-sensitive. `project()` uses a linear 7,700 kcal/kg approximation that ignores adaptive thermogenesis and must not be presented as a measurement. Check primary sources such as USDA FoodData Central, ISSN, FDA, NIH ODS, CDC, and IOM DRI before changing nutrition data or recommendation logic.
 
 ## Commit & Pull Request Guidelines
 

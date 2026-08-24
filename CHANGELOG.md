@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.8.0] - 2026-08-25
+
+### Changed
+
+- واجهة التطبيق بقت مركزة على التسجيل اليومي، التقدم، ومرجع السعرات؛ صفحة الخطة
+  المخصصة والقوالب اليومية الجاهزة مش متاحة مؤقتًا.
+- اختيارات مجموعة الوجبة القديمة مبقتش تظهر في الأيام الجديدة أو اقتراحات الأكل.
+  اليوم المحفوظ قبل التغيير بيعرض اختياره القديم فقط، مع إمكانية إلغائه ومن غير
+  تغيير رقم الاختيار أو الماكروز المحفوظة.
+- مرجع السعرات يحتفظ بباقي بياناته المدمجة، بإجمالي 75 إدخالًا بعد إزالة إدخال
+  منتج غير مستخدم، مع استمرار تحقق تطابق السعرات والماكروز.
+
+### Removed
+
+- المحتوى الصحي المخصص، بيانات الملف الافتراضية القديمة، ترحيل ملف محدد،
+  والإسناد الظاهر لأداة الإنشاء من الملفات الحالية.
+- لقطات الشاشة القديمة من المستودع. توضح الوثائق أن نسخًا من مواد منشورة سابقًا
+  قد تظل موجودة في الالتزامات والعلامات والأرشيفات والنسخ المحلية وذاكرات التخزين
+  المؤقتة الأقدم.
+
 ## [3.7.0] - 2026-08-24
 
 ### Added
@@ -110,30 +130,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
-- قسم وجبة التمرين بقى محدد بوضوح: أكل اختياري قبل بداية التمرين بـ٦٠–١٢٠
-  دقيقة، وسكوب Nitro-Tech الوحيد بعد نهاية التمرين بـ٠–١٢٠ دقيقة
-  (٦٠ دقيقة موعد عملي). اختيار الواي العام القديم مبقاش يظهر للأيام
-  الجديدة، لكن يفضل ظاهر لو كان محفوظًا في يوم قديم عشان تقدر تلغيه من غير
-  تغيير سجلك.
+- اختيار وجبة قديم مبقاش يظهر للأيام الجديدة، لكنه يفضل ظاهرًا عند فتح يوم كان
+  الاختيار محفوظًا فيه عشان يقدر المستخدم يلغيه من غير تغيير السجل.
 
 ## [3.5.0] - 2026-08-05
 
 ### Added
 
-- اختيار Nitro-Tech يومي مستقل بسكوب واحد: بالمياه والموزة أو بـ ٢٥٠ مل لبن قليل
-  الدسم، مع الماكروز الدقيقة و٣ جم كرياتين في الاختيارين. الاختيار الجديد يقدر
-  يتسجل جنب السناك العادي من غير ما يلغي اختيارات الواي القديمة.
-- ٣ قوالب يومية جاهزة داخل صفحة الخطة — الأساسي، تبديل باللبن، وتبديل باللحمة
-  الحمراء — وكل قالب داخل مدى السعرات والبروتين والدهون والكارب الحالي.
-- مرجع سعرات لسكوب Nitro-Tech منفردًا، وإرشادات عربية للتوقيت العملي، جرعة
-  الكرياتين، مياه العضلات، وتوحيد ظروف قياسات InBody.
+- إضافات لجدول بيانات التغذية مع الحفاظ على توافق أرقام الاختيارات المحفوظة.
 
 ### Changed
 
-- Unit and browser coverage now verifies the exact Nitro-Tech label macros,
-  calorie reconciliation, all three template totals from the real `MEALS`
-  options, preserved legacy meal indexes, both persistent product selections,
-  workout/rest total equivalence, and RTL responsive layout.
+- Unit and browser coverage verifies calorie reconciliation, preserved legacy
+  meal indexes, persistent selections, and RTL responsive layout.
 
 ## [3.4.1] - 2026-07-31
 
@@ -173,10 +182,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - `calcTargets()` now derives the cut deficit from bodyweight,
   `min(1100, max(300, 8.25 * kg))`, instead of `min(900, max(300, 20% of TDEE))`,
   and floors every result at `max(1250, ceil(BMR/50)*50)` so no target can fall
-  below resting metabolism. The reviewed profile moves from 2550–2650 to
-  2300–2400 at 105.5 kg and reads 2250–2350 at 99.6 kg;
-  `REVIEWED_PROFILE_VERSION` is bumped to 3 so stored targets are rewritten, and
-  its weight fingerprint now matches from 95 kg rather than 100 kg.
+  below resting metabolism.
 
 ## [3.3.0] - 2026-07-29
 
@@ -199,19 +205,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `gemini-flash-latest`, cutting a round trip from ~4–5 s to ~0.8–1.3 s. A
   four-item spot-check against the built-in calorie reference put the new
   model's mean absolute error at 4.5%; the old model was not re-measured.
-- Consolidated repository guidance in `AGENTS.md`, documented the reviewed
-  branch-to-release cycle, and made local tool-specific instruction files
-  pointers to that single source of truth.
+- Consolidated repository guidance in `AGENTS.md` and documented the reviewed
+  branch-to-release cycle.
 
 ### Removed
 
 - `scripts/validate.mjs` no longer reimplements Mifflin-St Jeor; the unit test
-  asserts the reviewed profile against the app's own `calcTargets`.
+  asserts formula behavior against the app's own `calcTargets`.
 - `SECURITY.md` and `PRIVACY.md`. `public/privacy.html` is the canonical
   privacy policy; the contributor-facing security guidance moved into
   `AGENTS.md`.
-- The tracked `CLAUDE.md`; local compatibility copies now point to the
-  canonical `AGENTS.md`.
 
 ## [3.2.0] - 2026-07-27
 
@@ -243,16 +246,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- Adult profile validation and a one-time migration for the reviewed profile.
+- Adult profile validation.
 - Macro consistency warnings for user-created foods.
-- Evidence-based guidance for hypotension, hydration, knee rehabilitation, and supplements.
 - Contributor and health-review handoff documentation.
 
 ### Changed
 
-- Rebalanced default meals around a 2,550–2,650 kcal reviewed target.
 - Based fat-loss protein targets on goal weight.
-- Replaced fixed water, step, workout-burn, meal-timing, and diet-break claims with individualized guidance.
 - Updated the displayed app version to 3.1.
 
 ### Fixed

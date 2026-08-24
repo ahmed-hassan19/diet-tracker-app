@@ -7,24 +7,28 @@ const context = { console };
 vm.createContext(context);
 vm.runInContext(
   `${fs.readFileSync("public/data.js", "utf8")}
-Object.assign(globalThis, { MEALS, PLAN_TEMPLATES, CALREF });`,
+Object.assign(globalThis, { MEALS, EXTRAS, CALREF, DEF });`,
   context,
 );
-vm.runInContext(fs.readFileSync("public/calc.js", "utf8"), context);
 
 const plain = (value) => JSON.parse(JSON.stringify(value));
-const templateTotals = (picks) =>
-  Object.entries(picks).reduce(
-    (sum, [key, index]) => {
-      const food = context.MEALS[key].opts[index];
-      sum.k += food.k;
-      sum.p += food.p;
-      sum.f += food.f;
-      sum.c += food.c;
-      return sum;
-    },
-    { k: 0, p: 0, f: 0, c: 0 },
-  );
+
+test("fallback settings use neutral validation boundaries", () => {
+  assert.deepEqual(plain(context.DEF), {
+    name: "",
+    sex: "",
+    age: 0,
+    ht: 0,
+    act: 0,
+    klo: 1200,
+    khi: 1200,
+    plo: 40,
+    phi: 40,
+    sw: 0,
+    gw: 0,
+    tw: 0,
+  });
+});
 
 test("existing meal option indexes retain the same foods", () => {
   const expected = {
@@ -53,6 +57,10 @@ test("existing meal option indexes retain the same foods", () => {
       "٢٠٠ جم جبنة قريش + تفاحة",
       "٢٥٠ جم زبادي يوناني عالي البروتين + موزة",
     ],
+    nt: [
+      "سكوب Nitro-Tech (٤٤ جم) بالمياه + موزة",
+      "سكوب Nitro-Tech (٤٤ جم) + ٢٥٠ مل لبن قليل الدسم",
+    ],
     d: [
       "٢٥٠ جم جبنة قريش + سلطة + ملعقة صغيرة زيت زيتون + ٢ توست أسمر",
       "٣ بيضات + ١٥٠ جم جبنة قريش + خضار + ١ توست أسمر",
@@ -72,11 +80,10 @@ test("existing meal option indexes retain the same foods", () => {
 test("legacy generic whey stays at its saved index but is not a new-day choice", () => {
   assert.equal(context.MEALS.pw.opts[0].legacyOnly, true);
   assert.match(context.MEALS.pw.name, /قبل التمرين بـ٦٠–١٢٠ دقيقة/);
-  assert.match(context.MEALS.nt.name, /اليومي الوحيد/);
-  assert.match(context.MEALS.nt.dayNote, /بعد نهاية التمرين بـ٠–١٢٠ دقيقة/);
 });
 
-test("Nitro-Tech options and calorie reference use the exact label macros", () => {
+test("legacy product meal retains its saved indexes and exact macros", () => {
+  assert.equal(context.MEALS.nt.legacyOnly, true);
   assert.deepEqual(plain(context.MEALS.nt.opts), [
     {
       t: "سكوب Nitro-Tech (٤٤ جم) بالمياه + موزة",
@@ -94,65 +101,23 @@ test("Nitro-Tech options and calorie reference use the exact label macros", () =
     },
   ]);
 
-  const product = context.CALREF.flatMap((group) => group.items).find((food) =>
-    food.t.startsWith("سكوب Nitro-Tech"),
-  );
-  assert.deepEqual(plain(product), {
-    t: "سكوب Nitro-Tech (٤٤ جم) — شامل ٣ جم كرياتين",
-    k: 150,
-    p: 30,
-    f: 2.5,
-    c: 3,
-  });
-});
-
-test("daily templates total the actual selected meal options", () => {
-  const expected = [
-    { k: 2307, p: 184, f: 75.5, c: 224 },
-    { k: 2301, p: 186, f: 65.5, c: 242 },
-    { k: 2286, p: 186, f: 66.5, c: 237 },
-  ];
-
-  assert.equal(context.PLAN_TEMPLATES.length, 3);
-  context.PLAN_TEMPLATES.forEach((template, index) => {
-    assert.deepEqual(Object.keys(template.picks), ["b", "s", "l", "nt", "d"]);
-    assert.deepEqual(templateTotals(template.picks), expected[index]);
-  });
-});
-
-test("daily templates fit the current target and preferred macro bands", () => {
-  const profile = { sex: "m", age: 29, ht: 186, w: 99.1, act: 1.55, gw: 86 };
-  const bmr = 10 * profile.w + 6.25 * profile.ht - 5 * profile.age + 5;
-  const targets = plain(context.calcTargets(profile));
-  const hints = plain(context.macroHints(targets));
-
-  assert.equal(bmr, 2013.5);
-  assert.deepEqual(targets, {
-    tdee: 3121,
-    klo: 2250,
-    khi: 2350,
-    plo: 172,
-    phi: 189,
-  });
-  assert.deepEqual(hints, { flo: 64, fhi: 77, clo: 221, chi: 251 });
-
-  context.PLAN_TEMPLATES.forEach((template) => {
-    const total = templateTotals(template.picks);
-    assert.ok(total.k >= targets.klo && total.k <= targets.khi);
-    assert.ok(total.p >= targets.plo && total.p <= targets.phi);
-    assert.ok(total.f >= hints.flo && total.f <= hints.fhi);
-    assert.ok(total.c >= hints.clo && total.c <= hints.chi);
-  });
-});
-
-test("new Nitro-Tech foods reconcile calories and macros within ten percent", () => {
-  const foods = [
-    ...context.MEALS.nt.opts,
-    ...context.CALREF.flatMap((group) => group.items).filter((food) =>
-      food.t.startsWith("سكوب Nitro-Tech"),
+  assert.equal(
+    context.CALREF.flatMap((group) => group.items).some((food) =>
+      food.t.includes("Nitro-Tech"),
     ),
-  ];
+    false,
+  );
+});
 
+test("all 75 built-in nutrition entries reconcile calories and macros", () => {
+  const foods = Object.values(context.MEALS)
+    .flatMap((meal) => meal.opts)
+    .concat(
+      context.EXTRAS,
+      context.CALREF.flatMap((group) => group.items),
+    );
+
+  assert.equal(foods.length, 75);
   foods.forEach((food) => {
     const macroCalories = food.p * 4 + food.f * 9 + food.c * 4;
     assert.ok(Math.abs(food.k - macroCalories) / food.k <= 0.1, food.t);

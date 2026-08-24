@@ -10,10 +10,11 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/?test=1");
   await expect(page.locator("#setup")).toBeVisible();
   await page.locator("#su-name").fill("مستخدم تجريبي");
-  await page.locator("#su-age").fill("29");
-  await page.locator("#su-ht").fill("186");
-  await page.locator("#su-w").fill("105.5");
-  await page.locator("#su-gw").fill("86");
+  await page.locator("#su-sex").selectOption("m");
+  await page.locator("#su-age").fill("35");
+  await page.locator("#su-ht").fill("170");
+  await page.locator("#su-w").fill("85");
+  await page.locator("#su-gw").fill("75");
   await page.locator("#su-act").selectOption("1.55");
   await page.locator("#su-save").click();
   await expect(page.locator("#app")).toBeVisible();
@@ -51,6 +52,9 @@ test("suggests saved and built-in foods, and autofills a saved match", async ({
   await expect(
     page.locator('#fd-names option[value="فطار الاختبار"]'),
   ).toHaveCount(1);
+  await expect(page.locator('#fd-names option[value*="Nitro-Tech"]')).toHaveCount(
+    0,
+  );
   const builtin = await page.evaluate(() => Object.values(MEALS)[0].opts[0].t);
   expect(
     await page

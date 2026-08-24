@@ -10,10 +10,11 @@ test.beforeEach(async ({ page }) => {
   await page.goto("/?test=1");
   await expect(page.locator("#setup")).toBeVisible();
   await page.locator("#su-name").fill("مستخدم تجريبي");
-  await page.locator("#su-age").fill("29");
-  await page.locator("#su-ht").fill("186");
-  await page.locator("#su-w").fill("105.5");
-  await page.locator("#su-gw").fill("86");
+  await page.locator("#su-sex").selectOption("m");
+  await page.locator("#su-age").fill("35");
+  await page.locator("#su-ht").fill("170");
+  await page.locator("#su-w").fill("85");
+  await page.locator("#su-gw").fill("75");
   await page.locator("#su-act").selectOption("1.55");
   await page.locator("#su-save").click();
   await expect(page.locator("#app")).toBeVisible();
@@ -61,7 +62,7 @@ test("modular Firebase bridge is narrow and AI-disabled calls stop before networ
 
 test("is RTL, responsive, and persists meal totals after reload", async ({
   page,
-}, testInfo) => {
+}) => {
   await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
   const firstMeal = page.locator("#meals-box .opt").first();
   await firstMeal.click();
@@ -72,84 +73,51 @@ test("is RTL, responsive, and persists meal totals after reload", async ({
   await expect(page.locator("#app")).toBeVisible();
   await expect(page.locator("#meals-box .opt").first()).toHaveClass(/sel/);
   await expect(page.locator("body")).not.toHaveCSS("overflow-x", "scroll");
-  if (process.env.CAPTURE_SCREENSHOTS) {
-    await page.screenshot({
-      path: `docs/screenshots/${testInfo.project.name}.png`,
-      fullPage: true,
-    });
-  }
 });
 
-test("tracks both Nitro-Tech rotations with exact persistent totals", async ({
+test("legacy product choices stay hidden except for the selected saved index", async ({
   page,
 }) => {
-  const meal = (text) => page.locator("#meals-box .opt", { hasText: text });
+  const meals = page.locator("#meals-box");
+  const productRows = meals.locator(".opt", { hasText: "Nitro-Tech" });
   const summaryValues = page.locator("#sumbar .v");
-  const expectTotals = async ({ k, p, f, c }) => {
-    await expect(summaryValues.nth(0)).toHaveText(String(k));
-    await expect(summaryValues.nth(1)).toHaveText(`${p} جم`);
-    await expect(summaryValues.nth(2)).toHaveText(`${f} جم`);
-    await expect(summaryValues.nth(3)).toHaveText(`${c} جم`);
-  };
+  await expect(productRows).toHaveCount(0);
+  await expect(page.locator("#tab-plan")).toHaveCount(0);
 
-  await meal("٧ ملاعق فول + ٣ بيضات مسلوقة").click();
-  await meal("كوب لبن قليل الدسم (٢٥٠ مل) + ٢٥ جم فول سوداني").click();
-  await meal("٢٠٠ جم صدور فراخ مشوية + ٣٠٠ جم رز").click();
-  const waterNitro = meal("Nitro-Tech (٤٤ جم) بالمياه + موزة");
-  await waterNitro.click();
-  await meal("٢٥٠ جم زبادي يوناني عالي البروتين + ٣٠ جم لوز").click();
-  await expectTotals({ k: 2307, p: 184, f: 75.5, c: 224 });
-
-  const beforeWorkout = await page.evaluate(() =>
-    window.__dietTest.totals(day()),
-  );
-  await page.locator("#workout-chips .chip", { hasText: "Push" }).click();
-  expect(await page.evaluate(() => window.__dietTest.totals(day()))).toEqual(
-    beforeWorkout,
-  );
-  await page.locator("#workout-chips .chip", { hasText: "راحة" }).click();
-  expect(await page.evaluate(() => window.__dietTest.totals(day()))).toEqual(
-    beforeWorkout,
-  );
-
-  await page.reload();
-  await expect(page.locator("#app")).toBeVisible();
-  await expect(waterNitro).toHaveClass(/sel/);
-  await expectTotals({ k: 2307, p: 184, f: 75.5, c: 224 });
-
-  await meal("٣ بيضات + ٣ توست أسمر + خيار وطماطم").click();
-  await meal("علبة تونة مصفاة + ٢٥٠ جم بطاطس").click();
-  const milkNitro = meal("Nitro-Tech (٤٤ جم) + ٢٥٠ مل لبن قليل الدسم");
-  await milkNitro.click();
-  await expectTotals({ k: 2301, p: 186, f: 65.5, c: 242 });
-
-  await page.reload();
-  await expect(page.locator("#app")).toBeVisible();
-  await expect(milkNitro).toHaveClass(/sel/);
-  await expectTotals({ k: 2301, p: 186, f: 65.5, c: 242 });
-  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
-
-  await page.locator("#tab-plan").click();
-  const templates = page.locator(".card", {
-    has: page.getByRole("heading", { name: /القوالب اليومية وNitro-Tech/ }),
+  await page.evaluate(() => {
+    day().nt = 0;
+    save();
+    renderDay();
   });
-  await expect(templates.getByRole("table")).toHaveCount(3);
-  await expect(templates).toContainText("2307");
-  await expect(templates).toContainText("2301");
-  await expect(templates).toContainText("2286");
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= window.innerWidth,
-    ),
-  ).toBe(true);
+  await expect(productRows).toHaveCount(1);
+  await expect(productRows).toContainText("بالمياه + موزة");
+  await expect(productRows).not.toContainText("٢٥٠ مل لبن");
+  await expect(productRows).toContainText("اختيار محفوظ قديم");
+  await expect(summaryValues.nth(0)).toHaveText("246");
+  await productRows.click();
+  await expect(productRows).toHaveCount(0);
+  await expect(summaryValues.nth(0)).toHaveText("0");
+
+  await page.evaluate(() => {
+    day().nt = 1;
+    save();
+    renderDay();
+  });
+  await expect(productRows).toHaveCount(1);
+  await expect(productRows).toContainText("٢٥٠ مل لبن قليل الدسم");
+  await expect(productRows).not.toContainText("بالمياه + موزة");
+  await expect(summaryValues.nth(0)).toHaveText("270");
+
+  await page.reload();
+  await expect(page.locator("#app")).toBeVisible();
+  await expect(productRows).toHaveCount(1);
+  await expect(productRows).toContainText("٢٥٠ مل لبن قليل الدسم");
+  await expect(summaryValues.nth(0)).toHaveText("270");
+  await productRows.click();
+  await expect(productRows).toHaveCount(0);
 });
 
-test("states exact workout timing and shows only the planned powder scoop", async ({
+test("legacy generic whey stays hidden unless it was saved", async ({
   page,
 }) => {
   const meals = page.locator("#meals-box");
@@ -161,15 +129,6 @@ test("states exact workout timing and shows only the planned powder scoop", asyn
   await expect(meals).toContainText(
     "كلها قبل بداية التمرين بـ٦٠–١٢٠ دقيقة؛ دي مش وجبة بعد التمرين",
   );
-  await expect(
-    meals.getByRole("heading", {
-      name: "🥤 سكوب Nitro-Tech اليومي الوحيد",
-    }),
-  ).toBeVisible();
-  await expect(meals).toContainText(
-    "بعد نهاية التمرين بـ٠–١٢٠ دقيقة (٦٠ دقيقة موعد عملي)",
-  );
-
   const legacyWhey = meals.locator(".opt", {
     hasText: "سكوب واي بروتين بالمياه + موزة",
   });
@@ -184,11 +143,6 @@ test("states exact workout timing and shows only the planned powder scoop", asyn
   await legacyWhey.click();
   await expect(legacyWhey).toHaveCount(0);
   await expect(page.locator("#sumbar .v").nth(0)).toHaveText("0");
-
-  await page.locator("#tab-plan").click();
-  await expect(page.locator("#pg-plan")).not.toContainText(
-    "سكوب واي بروتين بالمياه + موزة",
-  );
 });
 
 test("shows custom macro warnings and supports export/import", async ({
@@ -224,8 +178,6 @@ test("shows custom macro warnings and supports export/import", async ({
 test("progress tab offers a stale-target note that dismisses without changing targets", async ({
   page,
 }) => {
-  // setup weighed in at 105.5 kg, so tw is 105.5 and a 95 kg average moves the
-  // suggestion a full rounding step down: 2300-2400 -> 2200-2300
   await page.evaluate(() => {
     const iso = (back) => {
       const d = new Date();
@@ -241,9 +193,9 @@ test("progress tab offers a stale-target note that dismisses without changing ta
     const state = window.__dietTest.getState();
     const days = { ...state.days };
     [
-      [0, "94.8"],
-      [2, "95.0"],
-      [4, "95.2"],
+      [0, "77.8"],
+      [2, "78.0"],
+      [4, "78.2"],
     ].forEach(([back, weight]) => {
       days[iso(back)] = { ...days[iso(back)], weight };
     });
@@ -252,21 +204,20 @@ test("progress tab offers a stale-target note that dismisses without changing ta
   await page.locator("#tab-prog").click();
   const note = page.locator("#stale-note");
   await expect(note).toBeVisible();
-  await expect(note).toContainText("2200–2300");
+  await expect(note).toContainText("1900–2000");
   await note.getByRole("button", { name: "الاحتفاظ بالهدف الحالي" }).click();
   await expect(note).toBeHidden();
   const settings = await page.evaluate(
     () => window.__dietTest.getState().settings,
   );
-  expect(settings.klo).toBe(2300);
-  expect(settings.khi).toBe(2400);
-  expect(settings.tw).toBeCloseTo(95, 5);
+  expect(settings.klo).toBe(1950);
+  expect(settings.khi).toBe(2050);
+  expect(settings.tw).toBeCloseTo(78, 5);
 });
 
 test("change-from-start measures from the declared start weight, not the first log", async ({
   page,
 }) => {
-  // setup declared sw = 105.5; a single weigh-in is the case the old >=2 guard zeroed
   await page.evaluate(() => {
     const d = new Date();
     const iso =
@@ -276,12 +227,12 @@ test("change-from-start measures from the declared start weight, not the first l
       "-" +
       String(d.getDate()).padStart(2, "0");
     const state = window.__dietTest.getState();
-    const days = { ...state.days, [iso]: { ...state.days[iso], weight: "99.6" } };
+    const days = { ...state.days, [iso]: { ...state.days[iso], weight: "80" } };
     window.__dietTest.setState({ ...state, days });
   });
   await page.locator("#tab-prog").click();
   const stat = page.locator(".stat", { hasText: "التغيير من البداية" });
-  await expect(stat.locator(".v")).toHaveText("−5.9");
+  await expect(stat.locator(".v")).toHaveText("−5.0");
 });
 
 test("delete-all requires typed confirmation and clears cloud/local data", async ({

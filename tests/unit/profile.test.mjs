@@ -5,7 +5,6 @@ import vm from "node:vm";
 
 // calc.js is loaded alone on purpose: it is the pure layer, so anything it
 // touches at load time has to resolve without state or data tables.
-// Its load-time console.assert IIFE still needs a console.
 const source = fs.readFileSync("public/calc.js", "utf8");
 const context = { console };
 vm.createContext(context);
@@ -20,33 +19,28 @@ test("calc.js names no state, data table, or DOM global", () => {
   assert.equal(forbidden, null);
 });
 
-test("reviewed profile retains its approved targets", () => {
+test("representative profiles retain formula outputs", () => {
   assert.deepEqual(
-    {
-      ...context.calcTargets({
-        sex: "m",
-        age: 29,
-        ht: 186,
-        w: 105.5,
-        act: 1.55,
-        gw: 86,
-      }),
-    },
-    { tdee: 3220, klo: 2300, khi: 2400, plo: 172, phi: 189 },
+    { ...context.calcTargets({ sex: "m", age: 30, ht: 175, w: 90, act: 1.55, gw: 80 }) },
+    { tdee: 2866, klo: 2050, khi: 2150, plo: 160, phi: 176 },
+  );
+  assert.deepEqual(
+    { ...context.calcTargets({ sex: "f", age: 30, ht: 165, w: 70, act: 1.375, gw: 60 }) },
+    { tdee: 1953, klo: 1400, khi: 1500, plo: 120, phi: 132 },
   );
 });
 
-test("reviewed profile at its current weight lands on the recommended band", () => {
-  const t = context.calcTargets({
+test("bulking adds energy above maintenance", () => {
+  const target = context.calcTargets({
     sex: "m",
-    age: 29,
-    ht: 186,
-    w: 99.6,
+    age: 25,
+    ht: 180,
+    w: 60,
     act: 1.55,
-    gw: 86,
+    gw: 70,
   });
-  assert.equal(t.klo, 2250);
-  assert.equal(t.khi, 2350);
+  assert.equal(target.khi - target.klo, 100);
+  assert.ok((target.klo + target.khi) / 2 > target.tdee);
 });
 
 test("cut target never drops below resting metabolism", () => {
@@ -60,7 +54,7 @@ test("cut target never drops below resting metabolism", () => {
 });
 
 test("cut deficit tracks bodyweight, not activity", () => {
-  const base = { sex: "m", age: 29, ht: 186, w: 99.6, gw: 86 };
+  const base = { sex: "m", age: 40, ht: 175, w: 92, gw: 82 };
   const deficit = (act) => {
     const t = context.calcTargets({ ...base, act });
     return t.tdee - (t.klo + t.khi) / 2;
@@ -73,13 +67,41 @@ test("cut deficit tracks bodyweight, not activity", () => {
   assert.ok(deficit(1.2) < deficit(1.55));
 });
 
+test("rate band brackets the target rate", () => {
+  assert.deepEqual({ ...context.rateBand(80) }, { lo: "0.4", hi: "0.8" });
+});
+
+test("calculated targets keep supported profiles valid and reject out-of-band energy", () => {
+  const proteinCapped = context.calcTargets({
+    sex: "m",
+    age: 30,
+    ht: 180,
+    w: 140,
+    act: 1.55,
+    gw: 138,
+  });
+  assert.equal(proteinCapped.phi, 300);
+  assert.equal(context.validTargets(proteinCapped), true);
+
+  const outOfBand = context.calcTargets({
+    sex: "m",
+    age: 18,
+    ht: 230,
+    w: 300,
+    act: 1.9,
+    gw: 100,
+  });
+  assert.ok(outOfBand.khi > 6000);
+  assert.equal(context.validTargets(outOfBand), false);
+});
+
 test("basis weight averages only the last 14 days", () => {
   const series = [
-    { date: "2026-07-01", w: 105 },
-    { date: "2026-07-25", w: 100 },
-    { date: "2026-07-29", w: 99.2 },
+    { date: "2026-07-01", w: 92 },
+    { date: "2026-07-25", w: 88 },
+    { date: "2026-07-29", w: 87 },
   ];
-  assert.equal(context.basisWeight(series, "2026-07-30"), 99.6);
+  assert.equal(context.basisWeight(series, "2026-07-30"), 87.5);
 });
 
 test("basis weight falls back to the last weigh-in when the window is empty", () => {
@@ -89,22 +111,21 @@ test("basis weight falls back to the last weigh-in when the window is empty", ()
 });
 
 test("stale-target prompt fires only after a full rounding step", () => {
-  const at = (w) =>
-    context.calcTargets({ sex: "m", age: 29, ht: 186, w, act: 1.55, gw: 86 });
-  const reviewed = at(99.6);
-  // 4.4 kg of loss moves the suggestion 2250-2350 -> 2200-2300
-  assert.equal(context.targetsMoved(reviewed, at(95.2)), true);
-  assert.equal(context.targetsMoved(reviewed, at(96.0)), false);
+  assert.equal(context.targetsMoved({ klo: 1800 }, { klo: 1750 }), true);
+  assert.equal(context.targetsMoved({ klo: 1800 }, { klo: 1751 }), false);
 });
 
 test("profile validation enforces adult and BMI limits", () => {
-  assert.equal(context.validProfile({ age: 18, ht: 170, w: 70, gw: 65 }), true);
+  const valid = { sex: "f", act: 1.375, age: 18, ht: 170, w: 70, gw: 65 };
+  assert.equal(context.validProfile(valid), true);
+  assert.equal(context.validProfile({ ...valid, sex: "" }), false);
+  assert.equal(context.validProfile({ ...valid, act: NaN }), false);
   assert.equal(
-    context.validProfile({ age: 17, ht: 170, w: 70, gw: 65 }),
+    context.validProfile({ ...valid, age: 17 }),
     false,
   );
   assert.equal(
-    context.validProfile({ age: 30, ht: 170, w: 70, gw: 40 }),
+    context.validProfile({ ...valid, age: 30, gw: 40 }),
     false,
   );
 });

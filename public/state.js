@@ -8,26 +8,6 @@ function load(){
   }catch(e){}
   return { days:{} };
 }
-const REVIEWED_PROFILE_VERSION=3;
-function migrateReviewedProfile(){
-  const s=S&&S.settings;
-  if(!s||s.reviewedProfileVersion>=REVIEWED_PROFILE_VERSION) return false;
-  const ws=weightSeries();
-  const w=ws.length?ws[ws.length-1].w:Number(s.sw);
-  const matches=Number(s.age)===29
-    && Math.abs(Number(s.ht)-186)<=0.5
-    && Math.abs(Number(s.gw)-86)<=0.5
-    && w>=95&&w<=110;
-  if(!matches) return false;
-  const act=1.55;
-  const t=calcTargets({sex:"m",age:29,ht:186,w,act,gw:86});
-  S.settings=Object.assign({},s,{
-    sex:"m",age:29,ht:186,act,gw:86,tw:w,
-    klo:t.klo,khi:t.khi,plo:t.plo,phi:t.phi,
-    reviewedProfileVersion:REVIEWED_PROFILE_VERSION,_ts:Date.now()
-  });
-  return true;
-}
 function save(){
   const d=S.days[cur]; if(d) d._ts=Date.now();
   try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){ alert("مش قادر أحفظ — اعمل Export"); }
@@ -75,9 +55,9 @@ console.assert(getExtra(0)===EXTRAS[0],"getExtra predefined");
 // so the datalist can't be what makes the DOM big first. Slice if history ever grows.
 function foodNames(){
   const f=S.foods||{};
-  const mine=Object.keys(f).filter(k=>k!=="_ts").flatMap(k=>f[k]||[]).reverse();
+  const mine=Object.keys(f).filter(k=>k!=="_ts"&&!(MEALS[k]&&MEALS[k].legacyOnly)).flatMap(k=>f[k]||[]).reverse();
   const refs=(((S.calref||{}).items)||[]).slice().reverse();
-  const builtin=[...Object.values(MEALS).flatMap(m=>m.opts),...EXTRAS,...CALREF.flatMap(g=>g.items)];
+  const builtin=[...Object.values(MEALS).filter(m=>!m.legacyOnly).flatMap(m=>m.opts.filter(o=>!o.legacyOnly)),...EXTRAS,...CALREF.flatMap(g=>g.items)];
   const out=new Map();
   [...mine,...refs,...builtin].forEach(o=>{ if(o&&o.t&&!out.has(o.t)) out.set(o.t,o); });
   return [...out.values()];

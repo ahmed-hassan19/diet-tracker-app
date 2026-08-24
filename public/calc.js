@@ -29,37 +29,13 @@ function basisWeight(ws,asOf,days=14){
 function targetsMoved(a,b){ return Math.abs(a.klo-b.klo)>=50; }
 function validProfile(p){
   const goalBmi=p.gw/(p.ht/100)**2;
-  return p.age>=18&&p.age<=100 && p.ht>=120&&p.ht<=230 && p.w>=30&&p.w<=300
+  return (p.sex==="m"||p.sex==="f")&&p.act>=1.2&&p.act<=1.9
+    && p.age>=18&&p.age<=100 && p.ht>=120&&p.ht<=230 && p.w>=30&&p.w<=300
     && p.gw>=30&&p.gw<=300 && goalBmi>=18.5&&goalBmi<=40;
 }
 function validTargets(t){
   return t.klo>=1200&&t.khi>=t.klo&&t.khi<=6000&&t.plo>=40&&t.phi>=t.plo&&t.phi<=300;
 }
-(function(){
-  const m=calcTargets({sex:"m",age:30,ht:175,w:90,act:1.55,gw:80});
-  console.assert(m.klo===2050&&m.khi===2150&&m.plo===160&&m.phi===176,"calcTargets male cut",m);
-  const f=calcTargets({sex:"f",age:30,ht:165,w:70,act:1.375,gw:60});
-  console.assert(f.klo===1400&&f.khi===1500&&f.plo===120&&f.phi===132,"calcTargets female cut",f);
-  const b=calcTargets({sex:"m",age:25,ht:180,w:60,act:1.55,gw:70});
-  console.assert(b.khi-b.klo===100&&(b.klo+b.khi)/2>b.tdee,"calcTargets bulk",b);
-  const personal=calcTargets({sex:"m",age:29,ht:186,w:105.5,act:1.55,gw:86});
-  console.assert(personal.tdee===3220&&personal.klo===2300&&personal.khi===2400&&personal.plo===172&&personal.phi===189,"calcTargets reviewed profile",personal);
-  const personalNow=calcTargets({sex:"m",age:29,ht:186,w:99.6,act:1.55,gw:86});
-  console.assert(personalNow.klo===2250&&personalNow.khi===2350,"calcTargets reviewed profile at current weight",personalNow);
-  const band=rateBand(99.6);
-  console.assert(band.lo==="0.5"&&band.hi==="1.0","rateBand brackets the 0.75%/week target",band);
-  const small=calcTargets({sex:"f",age:20,ht:150,w:45,act:1.2,gw:40});
-  console.assert(small.klo>=1200,"calcTargets never pre-fills below the 1200 floor",small);
-  const heavy=calcTargets({sex:"m",age:30,ht:186,w:140,act:1.55,gw:138});
-  console.assert(validTargets(heavy),"calcTargets clamps protein instead of emitting an unsaveable target",heavy);
-  const huge=calcTargets({sex:"m",age:18,ht:230,w:300,act:1.9,gw:98});
-  console.assert(!validTargets(huge)&&huge.khi>6000,"calcTargets rejects rather than clamps energy needs above the supported band",huge);
-  const series=[{date:"2026-07-01",w:105},{date:"2026-07-25",w:100},{date:"2026-07-29",w:99.2}];
-  console.assert(basisWeight(series,"2026-07-30")===99.6,"basisWeight averages the last 14 days only",basisWeight(series,"2026-07-30"));
-  console.assert(basisWeight([{date:"2026-01-05",w:101}],"2026-07-30")===101,"basisWeight falls back to a single stale weigh-in");
-  console.assert(basisWeight([],"2026-07-30")===null,"basisWeight has nothing to average without weigh-ins");
-  console.assert(!targetsMoved({klo:2250},{klo:2201})&&targetsMoved({klo:2250},{klo:2200}),"targetsMoved needs a full rounding step");
-})();
 function macroHints(g){
   const kmid=(g.klo+g.khi)/2, pmid=(g.plo+g.phi)/2;
   const flo=Math.round(kmid*0.25/9);

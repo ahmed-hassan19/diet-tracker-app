@@ -15,7 +15,7 @@ document per authenticated user with Firebase.
 - `public/calc.js`: pure calorie/protein/macro functions — no state access.
 - `public/state.js`: the `S` state object, localStorage, import/export, and the
   accessors that read state (`T`, `totals`, `project`).
-- `public/render.js`: all four tab renderers and the UI handlers.
+- `public/render.js`: tab renderers and UI handlers.
 - `public/sync.js`: classic-script Auth/Firestore sync through the narrow bridge
   and the `initSync()` entry point. Loads last.
 - `firestore.rules`: owner-only access to `/trackers/{uid}`.
@@ -60,16 +60,8 @@ npm run check
 npx firebase-tools emulators:exec --only auth,firestore,hosting "npm run test:browser"
 ```
 
-Manually verify login/logout, profile setup, daily persistence, every tab,
+Manually verify login/logout, profile setup, daily persistence, every available tab,
 import/export, delete-all, mobile layouts, and a clean browser console.
-
-## Screenshots
-
-| Desktop                                                | Mobile                                               |
-| ------------------------------------------------------ | ---------------------------------------------------- |
-| ![Desktop emulator view](docs/screenshots/desktop.png) | ![Mobile emulator view](docs/screenshots/mobile.png) |
-
-The screenshots use synthetic emulator data only.
 
 ## Deployment
 
@@ -97,3 +89,7 @@ See [public/privacy.html](public/privacy.html) for data handling and deletion.
 Never commit service-account keys, debug tokens, completed release records, or
 console captures. The one modular Firebase app uses invisible reCAPTCHA v3 for
 App Check. AI is disabled in v3.7.0; manual macro entry remains available.
+
+Previously published material may remain in older commits, tags, downloaded
+archives, clones, and intermediary caches even after it is removed from the
+current tree.

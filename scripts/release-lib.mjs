@@ -16,6 +16,11 @@ export const AI_ROLLOUT_STAGES = {
   disabled: "ai-disabled-rollout",
   enabled: "ai-enabled-rollout",
 };
+export const AI_CONFIGURATION_STATES = {
+  disabledPreconfiguration: "disabled-preconfiguration",
+  disabledHardened401: "disabled-hardened-invalid-app-check-401",
+  enabled: "enabled",
+};
 export const AI_GENERATE_CONTENT_QUOTA_METRIC =
   "firebasevertexai.googleapis.com/generate_content_requests_per_minute_per_project_per_user";
 export const AI_GENERATE_CONTENT_QUOTA_ID =
@@ -252,7 +257,7 @@ export function releaseVerificationProblems(
   add(!!record && typeof record === "object" && !Array.isArray(record),
     "release verification must be a JSON object");
   if (problems.length) return problems;
-  add(record.schemaVersion === 3, "release verification schemaVersion must be 3");
+  add(record.schemaVersion === 4, "release verification schemaVersion must be 4");
   add(record.projectId === PROJECT_ID,
     `release verification projectId must be ${PROJECT_ID}`);
   add(record.tag === tag, `release verification tag must be ${tag}`);
@@ -319,29 +324,91 @@ export function releaseVerificationProblems(
     "release verification must confirm aggregate AI metrics remain available");
   add(record.logging?.exportsConfigured === false,
     "release verification must confirm no log export sink is configured");
+  const validateHardenedSpotChecks = (label) => {
+    add(spot?.calorieReferencePassed === true && spot?.latencyCompared === true &&
+      spot?.localhostDebugTokenPassed === true &&
+      JSON.stringify(spot?.productionHostsPassed) === JSON.stringify(PRODUCTION_HOSTS) &&
+      Number.isFinite(spotAt) && spotAt <= now + 5 * 60 * 1000 && now - spotAt <= VERIFICATION_MAX_AGE_MS,
+    `${label} must include current localhost, both-host, calorie-reference, and latency spot-check evidence`);
+  };
+  const validateHardenedLogging = (label) => {
+    add(record.logging?.exclusionEnabled === true &&
+      record.logging?.exclusionFilter === AI_LOG_EXCLUSION,
+    `${label} must confirm the exact AI Model log-body exclusion`);
+    const activatedValue = record.logging?.exclusionActivatedAt;
+    const expiryValue = record.logging?.existingModelLogsExpireAt;
+    const activationCanonical = canonicalIsoTimestamp(activatedValue);
+    const expiryCanonical = canonicalIsoTimestamp(expiryValue);
+    const activatedAt = activationCanonical ? Date.parse(activatedValue) : Number.NaN;
+    const expiryAt = expiryCanonical ? Date.parse(expiryValue) : Number.NaN;
+    add(activationCanonical,
+      `${label} must record canonical ISO exclusionActivatedAt evidence`);
+    if (activationCanonical && Number.isFinite(verifiedAt)) {
+      add(activatedAt <= verifiedAt,
+        "AI log exclusionActivatedAt cannot be after release verifiedAt");
+      add(verifiedAt - activatedAt >= 0 &&
+        verifiedAt - activatedAt <= VERIFICATION_MAX_AGE_MS,
+      "AI log exclusionActivatedAt must be within 24 hours of verifiedAt for this rollout");
+    }
+    add(expiryCanonical,
+      `${label} must record canonical ISO existingModelLogsExpireAt evidence`);
+    if (activationCanonical && expiryCanonical) {
+      add(expiryAt === activatedAt + AI_LOG_RETENTION_MS,
+        "existingModelLogsExpireAt must equal exclusionActivatedAt plus the 30-day _Default retention");
+      add(expiryAt > now && (!Number.isFinite(verifiedAt) || expiryAt > verifiedAt),
+        "existingModelLogsExpireAt must still be in the future");
+    }
+  };
   if (clientAiEnabled === false) {
-    add(record.appCheck?.aiLogicEnforced === false &&
-      record.appCheck?.bothHostsVerified === false,
-    "AI-disabled rollout must record the preconfiguration AI App Check baseline without live-host success claims");
-    add(record.aiLogic?.authenticatedUsersRequired === false &&
-      record.aiLogic?.authenticatedSuccessVerified === false &&
-      record.aiLogic?.unauthenticated401Verified === false &&
-      record.aiLogic?.invalidAppCheck403Verified === false,
-    "AI-disabled rollout must record the preconfiguration authenticated-users baseline without request success claims");
-    add(quotaInventoryAt(record.aiLogic?.generateContentRpmPerUserQuota, 100),
-      "AI-disabled rollout must record the exact Generate Content metric/quotaId and all 39 preconfiguration location buckets at 100 RPM/user");
-    add(spot?.calorieReferencePassed === false && spot?.latencyCompared === false &&
-      spot?.localhostDebugTokenPassed === false &&
-      Array.isArray(spot?.productionHostsPassed) && spot.productionHostsPassed.length === 0 &&
-      spot?.completedAt === null,
-    "AI-disabled rollout must not claim post-deployment AI spot-check evidence");
-    add(record.logging?.exclusionEnabled === false &&
-      record.logging?.exclusionFilter === null &&
-      record.logging?.exclusionActivatedAt === null &&
-      record.logging?.existingModelLogsExpireAt === null,
-    "AI-disabled rollout must record the preconfiguration logging baseline without activation or expiry claims");
+    const disabledState = record.configurationState;
+    add(disabledState === AI_CONFIGURATION_STATES.disabledPreconfiguration ||
+      disabledState === AI_CONFIGURATION_STATES.disabledHardened401,
+    "AI-disabled rollout must explicitly select a supported configurationState");
+    if (disabledState === AI_CONFIGURATION_STATES.disabledPreconfiguration) {
+      add(record.appCheck?.aiLogicEnforced === false &&
+        record.appCheck?.bothHostsVerified === false,
+      "Preconfiguration AI-disabled rollout must record the AI App Check baseline without live-host success claims");
+      add(record.aiLogic?.authenticatedUsersRequired === false &&
+        record.aiLogic?.authenticatedSuccessVerified === false &&
+        record.aiLogic?.unauthenticated401Verified === false &&
+        record.aiLogic?.invalidAppCheck403Verified === false &&
+        record.aiLogic?.invalidAppCheckObservedHttpStatus === null,
+      "Preconfiguration AI-disabled rollout must record the authenticated-users baseline without request success claims");
+      add(quotaInventoryAt(record.aiLogic?.generateContentRpmPerUserQuota, 100),
+        "Preconfiguration AI-disabled rollout must record the exact Generate Content metric/quotaId and all 39 location buckets at 100 RPM/user");
+      add(spot?.calorieReferencePassed === false && spot?.latencyCompared === false &&
+        spot?.localhostDebugTokenPassed === false &&
+        Array.isArray(spot?.productionHostsPassed) && spot.productionHostsPassed.length === 0 &&
+        spot?.completedAt === null,
+      "Preconfiguration AI-disabled rollout must not claim post-deployment AI spot-check evidence");
+      add(record.logging?.exclusionEnabled === false &&
+        record.logging?.exclusionFilter === null &&
+        record.logging?.exclusionActivatedAt === null &&
+        record.logging?.existingModelLogsExpireAt === null,
+      "Preconfiguration AI-disabled rollout must record the logging baseline without activation or expiry claims");
+    }
+    if (disabledState === AI_CONFIGURATION_STATES.disabledHardened401) {
+      add(record.appCheck?.aiLogicEnforced === true &&
+        record.appCheck?.bothHostsVerified === true,
+      "Hardened AI-disabled rollout must confirm Firebase AI Logic App Check enforcement on both production hosts");
+      add(record.aiLogic?.authenticatedUsersRequired === true,
+        "Hardened AI-disabled rollout must confirm Firebase AI Logic authenticated-users mode");
+      add(record.aiLogic?.authenticatedSuccessVerified === true,
+        "Hardened AI-disabled rollout must confirm an authenticated AI success");
+      add(record.aiLogic?.unauthenticated401Verified === true,
+        "Hardened AI-disabled rollout must confirm unauthenticated AI returns 401");
+      add(record.aiLogic?.invalidAppCheck403Verified === false &&
+        record.aiLogic?.invalidAppCheckObservedHttpStatus === 401,
+      "Hardened AI-disabled rollout must record invalid App Check returning 401 without claiming 403 verification");
+      add(quotaInventoryAt(record.aiLogic?.generateContentRpmPerUserQuota, 6),
+        "Hardened AI-disabled rollout must record the exact Generate Content metric/quotaId and all 39 location buckets at exactly 6 RPM/user");
+      validateHardenedSpotChecks("Hardened AI-disabled rollout");
+      validateHardenedLogging("Hardened AI-disabled rollout");
+    }
   }
   if (clientAiEnabled === true) {
+    add(record.configurationState === AI_CONFIGURATION_STATES.enabled,
+      "AI-enabled rollout configurationState must be enabled");
     add(record.appCheck?.aiLogicEnforced === true &&
       record.appCheck?.bothHostsVerified === true,
     "AI-enabled rollout must confirm Firebase AI Logic App Check enforcement on both production hosts");
@@ -355,37 +422,8 @@ export function releaseVerificationProblems(
       "AI-enabled rollout must confirm invalid App Check returns 403");
     add(quotaInventoryAt(record.aiLogic?.generateContentRpmPerUserQuota, 6),
       "AI-enabled rollout must record the exact Generate Content metric/quotaId and all 39 location buckets at exactly 6 RPM/user");
-    add(spot?.calorieReferencePassed === true && spot?.latencyCompared === true &&
-      spot?.localhostDebugTokenPassed === true &&
-      JSON.stringify(spot?.productionHostsPassed) === JSON.stringify(PRODUCTION_HOSTS) &&
-      Number.isFinite(spotAt) && spotAt <= now + 5 * 60 * 1000 && now - spotAt <= VERIFICATION_MAX_AGE_MS,
-    "AI-enabled rollout must include current localhost, both-host, calorie-reference, and latency spot-check evidence");
-    add(record.logging?.exclusionEnabled === true &&
-      record.logging?.exclusionFilter === AI_LOG_EXCLUSION,
-    "AI-enabled rollout must confirm the exact AI Model log-body exclusion");
-    const activatedValue = record.logging?.exclusionActivatedAt;
-    const expiryValue = record.logging?.existingModelLogsExpireAt;
-    const activationCanonical = canonicalIsoTimestamp(activatedValue);
-    const expiryCanonical = canonicalIsoTimestamp(expiryValue);
-    const activatedAt = activationCanonical ? Date.parse(activatedValue) : Number.NaN;
-    const expiryAt = expiryCanonical ? Date.parse(expiryValue) : Number.NaN;
-    add(activationCanonical,
-      "AI-enabled rollout must record canonical ISO exclusionActivatedAt evidence");
-    if (activationCanonical && Number.isFinite(verifiedAt)) {
-      add(activatedAt <= verifiedAt,
-        "AI log exclusionActivatedAt cannot be after release verifiedAt");
-      add(verifiedAt - activatedAt >= 0 &&
-        verifiedAt - activatedAt <= VERIFICATION_MAX_AGE_MS,
-      "AI log exclusionActivatedAt must be within 24 hours of verifiedAt for this rollout");
-    }
-    add(expiryCanonical,
-      "AI-enabled rollout must record canonical ISO existingModelLogsExpireAt evidence");
-    if (activationCanonical && expiryCanonical) {
-      add(expiryAt === activatedAt + AI_LOG_RETENTION_MS,
-        "existingModelLogsExpireAt must equal exclusionActivatedAt plus the 30-day _Default retention");
-      add(expiryAt > now && (!Number.isFinite(verifiedAt) || expiryAt > verifiedAt),
-        "existingModelLogsExpireAt must still be in the future");
-    }
+    validateHardenedSpotChecks("AI-enabled rollout");
+    validateHardenedLogging("AI-enabled rollout");
   }
   return problems;
 }

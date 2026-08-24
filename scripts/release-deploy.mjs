@@ -172,7 +172,7 @@ console.log(
   `  ok: Spark/no billing verified; highest observed quota usage ` +
     `${verification.maxObservedQuotaPercent}%; ` +
     (clientAiEnabled ? "hardened AI enablement evidence verified" :
-      "AI-disabled baseline and enablement targets verified"),
+      "AI-disabled release posture and enablement targets verified"),
 );
 
 console.log("— pinned tooling and credentials");

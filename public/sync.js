@@ -16,6 +16,8 @@ let FB={ref:null, active:false, pushTimer:null, unsub:null};
 let deletingAll=false;
 let syncGeneration=0;
 let membershipGeneration=0;
+let cloudWriteBlocked=false;
+let rawCloudState=null;
 /* ================= بوابة العضوية (betaMembers) =================
    Tracker cloud writes require an enabled /betaMembers/{uid} doc provisioned by
    the owner in the console. Local use, export, and delete always keep working. */
@@ -75,6 +77,42 @@ async function loadMembership(){
   }
 }
 function setSyncStatus(s){ const el=document.getElementById("sync-status"); if(el) el.textContent=s; }
+function setSyncSuccess(){
+  if(typeof storageWarning!=="undefined"&&storageWarning){ setStorageMessage(); return; }
+  if(typeof stateSizeClass!=="undefined"&&stateSizeClass==="warning"){ setSyncStatus("⚠️ بياناتك قربت من حد المزامنة؛ نزّل نسخة احتياطية وقلّل حجمها."); return; }
+  if(typeof stateSizeClass!=="undefined"&&stateSizeClass==="oversized"){ setSyncStatus("⚠️ البيانات أكبر من حد المزامنة. التصدير والحذف لسه متاحين."); return; }
+  setSyncStatus("☁️ متزامن مع السحابة · آخر تحديث "+new Date().toLocaleTimeString());
+}
+function cloneCloudRecovery(value,seen=new Set()){
+  if(value===null||typeof value==="string"||typeof value==="boolean"||typeof value==="number") return value;
+  if(typeof value!=="object"||seen.has(value)) throw new Error("unsafe recovery value");
+  seen.add(value);
+  const output=Array.isArray(value)?[]:{};
+  const descriptors=Object.getOwnPropertyDescriptors(value);
+  for(const key of Reflect.ownKeys(descriptors)){
+    if(typeof key!=="string"||key==="__proto__") throw new Error("unsafe recovery key");
+    const descriptor=descriptors[key];
+    if(!Object.prototype.hasOwnProperty.call(descriptor,"value")) throw new Error("unsafe recovery descriptor");
+    output[key]=cloneCloudRecovery(descriptor.value,seen);
+  }
+  seen.delete(value);
+  return output;
+}
+function setCloudRecovery(message,raw=null){
+  const wasBlocked=cloudWriteBlocked;
+  cloudWriteBlocked=!!message;
+  try{ rawCloudState=raw===null?null:cloneCloudRecovery(raw); }
+  catch(_error){ rawCloudState=null; }
+  const box=document.getElementById("cloud-recovery"),copy=document.getElementById("cloud-recovery-copy");
+  const button=document.getElementById("cloud-recovery-export");
+  if(copy) copy.textContent=message||"";
+  if(button) button.disabled=!rawCloudState;
+  if(box) box.style.display=message?"":"none";
+  if(wasBlocked&&!cloudWriteBlocked) schedulePush();
+}
+function exportRawCloud(){
+  if(rawCloudState) downloadJson(rawCloudState,"diet-tracker-cloud-recovery-"+today()+".json");
+}
 function firebaseReady(){
   if(window.firebaseBridge) return Promise.resolve(window.firebaseBridge);
   return new Promise((resolve,reject)=>{
@@ -85,7 +123,7 @@ function firebaseReady(){
 async function initSync(){
   try{
     const bridge=await firebaseReady();
-    await bridge.observeAuth(u=>{ u?start(u):stop(); });
+    await bridge.observeAuth(u=>{ if(u) start(u); else stop(); });
     if(TEST_MODE&&!bridge.currentUser()) await bridge.signInForTest();
   }catch(e){
     document.getElementById("login").style.display="";
@@ -98,25 +136,30 @@ function resetSyncContext(){
   if(FB.unsub) FB.unsub();
   clearTimeout(FB.pushTimer);
   FB={ref:null, active:false, pushTimer:null, unsub:null};
+  setCloudRecovery("");
   setGate("ok");
 }
-function start(u){
+async function start(u){
   resetSyncContext();
   document.getElementById("login").style.display="none";
-  KEY="diet_tracker_v1_"+u.uid;
-  S=load();
+  KEY=u.uid;
+  S=typeof emptyState==="function"?emptyState():{days:{},settings:{},foods:{},calref:{}};
   FB.ref=u.uid;
   const trackerRef=FB.ref, sync=syncGeneration;
+  const loading=load(u.uid);
+  const loaded=loading&&typeof loading.then==="function"?await loading:loading;
+  if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
+  S=loaded;
   window.firebaseBridge.listenTracker(u.uid,doc=>{
     if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
-    if(doc.exists){ const r=doc.data; if(r && r.days) mergeRemote(r); }
+    const safe=!doc.exists||mergeRemote(doc.data);
     if(!FB.active){ FB.active=true; schedulePush(); }
-    setSyncStatus("☁️ متزامن مع السحابة · آخر تحديث "+new Date().toLocaleTimeString());
+    if(safe) setSyncSuccess();
   }, err=>{
     if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
     const kind=syncFailKind(err&&err.code);
     if(kind==="auth") setGate("auth");
-    else if(kind!=="quota") setSyncStatus("⚠️ المزامنة متعطلة: "+err.message);
+    else if(kind!=="quota") setSyncStatus("⚠️ المزامنة متعطلة مؤقتًا — بياناتك المحلية لسه متاحة.");
   }).then(unsub=>{
     if(syncContextCurrent(sync,u.uid,trackerRef)) FB.unsub=unsub;
     else unsub();
@@ -175,13 +218,14 @@ function suSave(){
     document.getElementById("su-err").textContent="⚠️ راجع ترتيب ونطاق أهداف السعرات والبروتين.";
     return;
   }
-  S.settings=Object.assign({},S.settings,{
-    name:document.getElementById("su-name").value.trim(),
-    sex:p.sex, age:p.age, ht:p.ht, act:p.act, sw:p.w, gw:p.gw, tw:p.w,
-    klo:custom.klo, khi:custom.khi, plo:custom.plo, phi:custom.phi,
-    _ts:Date.now()
-  });
-  save();
+  const saved=commitMutation(candidate=>{
+    candidate.settings=Object.assign({},candidate.settings,{
+      name:document.getElementById("su-name").value.trim(),
+      sex:p.sex,age:p.age,ht:p.ht,act:p.act,sw:p.w,gw:p.gw,tw:p.w,
+      klo:custom.klo,khi:custom.khi,plo:custom.plo,phi:custom.phi
+    });
+  },{touchSections:["settings"]});
+  if(!saved){ document.getElementById("su-err").textContent="⚠️ راجع البيانات وحدودها."; return; }
   showApp();
 }
 function stop(){
@@ -194,7 +238,7 @@ function stop(){
 function login(){
   window.firebaseBridge.signInGoogle().catch(e=>{
     if(e.code!=="auth/popup-closed-by-user"&&e.code!=="auth/cancelled-popup-request")
-      document.getElementById("login-status").textContent="⚠️ فشل الدخول: "+(e.code||e.message);
+      document.getElementById("login-status").textContent="⚠️ فشل الدخول. جرّب تاني بعد شوية.";
   });
 }
 function logout(){ window.firebaseBridge.signOut(); }
@@ -202,7 +246,7 @@ async function deleteAllData(){
   if(deletingAll||!FB.ref||!KEY) return;
   if(!confirm("هتمسح كل بيانات المتابعة من الجهاز والسحابة. تحب تكمل؟")) return;
   if(prompt('للتأكيد اكتب كلمة "حذف"')!=="حذف"){ alert("الإلغاء تم — بياناتك زي ما هي."); return; }
-  const u=window.firebaseBridge.currentUser(), ref=FB.ref, localKey=KEY;
+  const u=window.firebaseBridge.currentUser(),ref=FB.ref,uid=KEY;
   deletingAll=true;
   const btn=document.getElementById("delete-all");
   btn.disabled=true;
@@ -211,30 +255,51 @@ async function deleteAllData(){
   FB.pushTimer=null;
   FB.active=false;
   if(FB.unsub){ FB.unsub(); FB.unsub=null; }
-  try{
-    await window.firebaseBridge.deleteTracker(ref);
-    localStorage.removeItem(localKey);
-    S=null; KEY=null; FB.ref=null;
-    await window.firebaseBridge.signOut();
-    alert("اتحذفت كل بيانات المتابعة من الجهاز والسحابة ✅");
-  }catch(e){
+  try{ await window.firebaseBridge.deleteTracker(ref); }
+  catch(e){
     deletingAll=false;
     btn.disabled=false;
     setSyncStatus("⚠️ الحذف ماكملش. بياناتك محفوظة؛ جرّب تاني لما الاتصال يرجع.");
     if(u) start(u);
+    return;
   }
+  let localFailed=false;
+  try{ await deleteStateRecord(uid); }catch(_error){ localFailed=true; }
+  for(const key of [legacyKey(uid),migratedKey(uid)]) try{ localStorage.removeItem(key); }catch(_error){ localFailed=true; }
+  S=null; KEY=null; FB.ref=null;
+  try{ await window.firebaseBridge.signOut(); }catch(_error){ localFailed=true; }
+  deletingAll=false;
+  document.getElementById("app").style.display="none";
+  document.getElementById("setup").style.display="none";
+  document.getElementById("login").style.display="";
+  alert(localFailed?"اتحذفت بيانات السحابة ومش هترجع تترفع. امسح بيانات الموقع من إعدادات المتصفح عشان تزيل أي نسخة محلية متبقية.":"اتحذفت كل بيانات المتابعة من الجهاز والسحابة ✅");
 }
 function mergeRemote(remote){
-  let changed=false;
-  for(const k in remote.days){
-    const r=remote.days[k], l=S.days[k];
-    if(!l || (r._ts||0)>(l._ts||0)){ S.days[k]=r; changed=true; }
+  const normalized=normalizeState(remote,"remote");
+  if(!normalized.ok){
+    setCloudRecovery("⚠️ نسخة السحابة مش قابلة للعرض بأمان. المزامنة متوقفة عشان بياناتها متتكتبش فوقها؛ تقدر تنزّل نسخة خام أو تحذف كل بياناتك.",remote);
+    setSyncStatus("");
+    return false;
   }
-  if(remote.settings && (remote.settings._ts||0)>((S.settings&&S.settings._ts)||0)){ S.settings=remote.settings; changed=true; }
-  if(remote.foods && (remote.foods._ts||0)>((S.foods&&S.foods._ts)||0)){ S.foods=remote.foods; changed=true; }
-  if(remote.calref && (remote.calref._ts||0)>((S.calref&&S.calref._ts)||0)){ S.calref=remote.calref; changed=true; }
+  if(normalized.sizeClass==="oversized"){
+    setCloudRecovery("⚠️ نسخة السحابة أكبر من حد المزامنة الحالي. هي متاحة للقراءة والتصدير والحذف، والكتابة متوقفة لحد ما الحجم يقل.",remote);
+  }else setCloudRecovery("");
+  const clean=normalized.value,candidate=mutableState();
+  let changed=false;
+  for(const k in clean.days){
+    const r=clean.days[k],l=candidate.days[k];
+    if(!l||(r._ts||0)>(l._ts||0)){ candidate.days[k]=r; changed=true; }
+  }
+  if((clean.settings._ts||0)>((candidate.settings&&candidate.settings._ts)||0)){ candidate.settings=clean.settings; changed=true; }
+  if((clean.foods._ts||0)>((candidate.foods&&candidate.foods._ts)||0)){ candidate.foods=clean.foods; changed=true; }
+  if((clean.calref._ts||0)>((candidate.calref&&candidate.calref._ts)||0)){ candidate.calref=clean.calref; changed=true; }
   if(changed){
-    try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
+    const merged=normalizeState(candidate,"mutation");
+    if(!merged.ok){
+      setCloudRecovery("⚠️ نسخة السحابة مش قابلة للدمج بأمان. المزامنة متوقفة؛ تقدر تنزّل نسخة خام أو تحذف كل بياناتك.",remote);
+      return false;
+    }
+    applyNormalizedState(merged,{persist:true,push:false});
     renderDay();
     if(curTab==="prog") renderProg();
     if(curTab==="examples") renderExamples();
@@ -242,6 +307,7 @@ function mergeRemote(remote){
   }
   // returning user on a fresh device: cloud profile arrived while setup is showing
   if(S.settings&&S.settings.ht&&!suEdit&&document.getElementById("setup").style.display!=="none") showApp();
+  return true;
 }
 function schedulePush(){
   const u=window.firebaseBridge&&window.firebaseBridge.currentUser(), trackerRef=FB.ref, sync=syncGeneration;
@@ -251,12 +317,18 @@ function schedulePush(){
     if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
     // known nonmember/revoked: skip the doomed write (each denial still bills
     // Rules reads); loadMembership's bounded recheck resumes the flush
-    if(GATE.state==="pending") return;
-    window.firebaseBridge.writeTracker(trackerRef,{days:S.days, settings:S.settings||{}, foods:S.foods||{}, calref:S.calref||{}, updated:Date.now()})
+    if(GATE.state==="pending"||cloudWriteBlocked||(typeof stateSizeClass!=="undefined"&&stateSizeClass==="oversized")) return;
+    const checked=typeof normalizeState==="function"?normalizeState(S,"cloud"):{ok:true};
+    if(!checked.ok){
+      setSyncStatus("⚠️ البيانات أكبر من حد المزامنة أو فيها قيمة محتاجة مراجعة. التصدير والحذف لسه متاحين.");
+      return;
+    }
+    const payload={days:S.days,settings:S.settings,foods:S.foods,calref:S.calref,updated:Date.now()};
+    window.firebaseBridge.writeTracker(trackerRef,payload)
       .then(()=>{
         if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
         setGate("ok");
-        setSyncStatus("☁️ متزامن مع السحابة · آخر تحديث "+new Date().toLocaleTimeString());
+        setSyncSuccess();
       })
       .catch(e=>{
         if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
@@ -274,5 +346,15 @@ function schedulePush(){
 }
 
 /* ================= تشغيل ================= */
-window.__dietTest={calcTargets,validProfile,validTargets,macroMismatch,totals,getState:()=>S,setState:x=>{S=x;},getGate:()=>GATE,setGate};
+const recoveryExport=document.getElementById("cloud-recovery-export");
+if(recoveryExport&&typeof recoveryExport.addEventListener==="function") recoveryExport.addEventListener("click",exportRawCloud);
+const testNormalize=typeof normalizeState==="function"?normalizeState:null;
+window.__dietTest={
+  calcTargets,validProfile,validTargets,macroMismatch,totals,...(testNormalize?{normalizeState:testNormalize}:{}),
+  getState:()=>S,
+  setState:value=>testNormalize&&applyNormalizedState(testNormalize(value,"test"),{persist:false,push:false}),
+  mutate:(change,options)=>typeof commitMutation==="function"&&commitMutation(change,options),
+  flushStorage:()=>typeof flushStateWrites==="function"?flushStateWrites():Promise.resolve(false),
+  getGate:()=>GATE,setGate
+};
 initSync();

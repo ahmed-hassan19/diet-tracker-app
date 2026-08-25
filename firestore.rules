@@ -1,25 +1,116 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    function isOwner(uid) {
-      return request.auth != null && request.auth.uid == uid;
+    // Data model:
+    // /trackers/{uid}: exactly days (map), settings (map), foods (map),
+    // calref (map), and updated (integer milliseconds). The document is private
+    // to uid. Enabled /betaMembers/{uid} membership is required only for create
+    // and update; owner get/read/export/delete remains available after revocation.
+    // /betaMembers/{uid}: owner-provisioned membership; app clients may only get
+    // their own document and can never list or write membership documents.
+    function isAuthenticated() {
+      return request.auth != null;
     }
-    /* Tracker writes are gated on beta membership provisioned by the owner in
-       the console; reads and deletes stay open to the owner so health data is
-       never stranded after revocation. */
+    function isOwner(uid) {
+      return isAuthenticated() && request.auth.uid == uid;
+    }
     function betaEnabled() {
-      return request.auth != null
+      return isAuthenticated()
         && exists(/databases/$(database)/documents/betaMembers/$(request.auth.uid))
         && get(/databases/$(database)/documents/betaMembers/$(request.auth.uid)).data.enabled == true;
     }
+    function validMillis(value) {
+      return value is int
+        && value >= 1577836800000
+        && value <= request.time.toMillis() + 300000;
+    }
+    function optionalNumber(data, key, minimum, maximum) {
+      return !(key in data) || (data[key] is number && data[key] >= minimum && data[key] <= maximum);
+    }
+    function optionalInt(data, key, minimum, maximum) {
+      return !(key in data) || (data[key] is int && data[key] >= minimum && data[key] <= maximum);
+    }
+    function optionalList(data, key, maximum) {
+      return !(key in data) || (data[key] is list && data[key].size() <= maximum);
+    }
+    function optionalMillis(data, key) {
+      return !(key in data) || validMillis(data[key]);
+    }
+    function validSettings(data) {
+      return data is map
+        && data.keys().hasOnly([
+          'name', 'sex', 'age', 'ht', 'act', 'klo', 'khi', 'plo', 'phi',
+          'sw', 'gw', 'tw', '_ts', 'aiDisclosureVersion', 'aiDisclosureAcceptedAt'
+        ])
+        && (!('name' in data) || (data.name is string && data.name.size() <= 40))
+        && (!('sex' in data) || data.sex in ['m', 'f'])
+        && optionalInt(data, 'age', 18, 100)
+        && optionalInt(data, 'ht', 120, 230)
+        && (!('act' in data) || (data.act is number && data.act in [1.2, 1.375, 1.55, 1.725]))
+        && optionalNumber(data, 'klo', 1200, 6000)
+        && optionalNumber(data, 'khi', 1200, 6000)
+        && optionalNumber(data, 'plo', 40, 300)
+        && optionalNumber(data, 'phi', 40, 300)
+        && optionalNumber(data, 'sw', 30, 300)
+        && optionalNumber(data, 'gw', 30, 300)
+        && optionalNumber(data, 'tw', 0, 300)
+        && (!('tw' in data) || data.tw == 0 || data.tw >= 30)
+        && (!('klo' in data) || !('khi' in data) || data.klo <= data.khi)
+        && (!('plo' in data) || !('phi' in data) || data.plo <= data.phi)
+        && optionalMillis(data, '_ts')
+        && (('aiDisclosureVersion' in data) == ('aiDisclosureAcceptedAt' in data))
+        && (!('aiDisclosureVersion' in data) || (
+          data.aiDisclosureVersion is int
+          && data.aiDisclosureVersion == 1
+          && data.aiDisclosureAcceptedAt is string
+          && data.aiDisclosureAcceptedAt.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9][.][0-9]{3}Z$')
+        ));
+    }
+    function validFoods(data) {
+      return data is map
+        && data.keys().hasOnly(['b', 'bc', 's', 'l', 'cf', 'pw', 'nt', 'd', 'extras', '_ts'])
+        && optionalList(data, 'b', 200)
+        && optionalList(data, 'bc', 200)
+        && optionalList(data, 's', 200)
+        && optionalList(data, 'l', 200)
+        && optionalList(data, 'cf', 200)
+        && optionalList(data, 'pw', 200)
+        && optionalList(data, 'nt', 200)
+        && optionalList(data, 'd', 200)
+        && optionalList(data, 'extras', 200)
+        && optionalMillis(data, '_ts');
+    }
+    function validCalref(data) {
+      return data is map
+        && data.keys().hasOnly(['items', '_ts'])
+        && optionalList(data, 'items', 500)
+        && optionalMillis(data, '_ts');
+    }
+    function validTracker(data) {
+      return data is map
+        && data.keys().hasAll(['days', 'settings', 'foods', 'calref', 'updated'])
+        && data.keys().hasOnly(['days', 'settings', 'foods', 'calref', 'updated'])
+        && data.days is map
+        && data.days.size() <= 1095
+        && validSettings(data.settings)
+        && validFoods(data.foods)
+        && validCalref(data.calref)
+        && validMillis(data.updated);
+    }
+
     match /trackers/{uid} {
-      allow read, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && betaEnabled();
+      allow get, delete: if isOwner(uid);
+      allow create, update: if isOwner(uid) && betaEnabled() && validTracker(request.resource.data);
+    }
+    match /trackers/{uid}/{document=**} {
+      allow read, write: if false;
     }
     match /betaMembers/{uid} {
       allow get: if isOwner(uid);
-      // list, create, update, and delete are denied for all app clients;
-      // membership docs are owner-provisioned only.
+      // list, create, update, and delete are denied for all app clients.
+    }
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

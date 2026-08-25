@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "resources": [
+    {
+      "url": "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js",
+      "bytes": 104893,
+      "sha256": "79b4d0818cef01681e6a1b2cd6caddc907a714286ea18ef89d65d79d4170b2d5"
+    },
+    {
+      "url": "https://www.gstatic.com/firebasejs/12.17.1/firebase-app-check.js",
+      "bytes": 25286,
+      "sha256": "99eb1914d92caf9f3cc5f784a17e669afe8ebccf7076542b30953c553b05250a"
+    },
+    {
+      "url": "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js",
+      "bytes": 156871,
+      "sha256": "b4020ce5e81d1247681d4973839f0861df900f86c82201e01a1a16d48796f8e9"
+    },
+    {
+      "url": "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js",
+      "bytes": 683502,
+      "sha256": "090f40cff408d8ecce4803cb82a146ebaa9def839d29ed01bf73187389862e84"
+    },
+    {
+      "url": "https://www.gstatic.com/firebasejs/12.17.1/firebase-ai.js",
+      "bytes": 62300,
+      "sha256": "2dc56a1248a9d0cc8d5706bf57f3fd50230a5461c49c3c7fa417e07d28cea5c9"
+    }
+  ]
+}

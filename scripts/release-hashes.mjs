@@ -12,6 +12,8 @@ if (process.argv[2] === "--bundle-list") {
     bundleSha256: process.env.EXPECTED_BUNDLE,
     rulesetSha256: process.env.EXPECTED_RULESET,
     indexesSha256: process.env.EXPECTED_INDEXES,
+    runtimeResourcesSha256: process.env.EXPECTED_RUNTIME_RESOURCES,
+    hostingHeadersSha256: process.env.EXPECTED_HOSTING_HEADERS,
   };
   for (const [key, actual] of Object.entries(hashes)) {
     if (!expected[key] || expected[key] !== actual) {
@@ -19,7 +21,7 @@ if (process.argv[2] === "--bundle-list") {
       process.exit(1);
     }
   }
-  console.log("Tagged bundle, Rules, and index hashes match the deployment record.");
+  console.log("Tagged bundle, Rules, indexes, runtime resources, and Hosting headers match the deployment record.");
 } else {
   console.log(JSON.stringify(hashes, null, 2));
 }

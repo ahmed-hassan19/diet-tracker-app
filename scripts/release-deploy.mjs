@@ -21,6 +21,8 @@ import {
 } from "./release-lib.mjs";
 import { AI_MODEL_ALLOWLIST } from "./spark-guard.mjs";
 import { assertVersionContract } from "./version-contract.mjs";
+import { verifyRuntimeResources } from "./runtime-resources.mjs";
+import { verifyHostingHeaders } from "./verify-hosting-headers.mjs";
 
 const HOSTS = PRODUCTION_HOSTS;
 const MODEL = AI_MODEL_ALLOWLIST[0];
@@ -110,6 +112,11 @@ try { assertVersionContract({ tag }); }
 catch (error) { die(error.message); }
 const html = fs.readFileSync("public/index.html", "utf8");
 console.log(`  ok: package/lock/runtime/tag/changelog agree on ${pkg.version}`);
+
+console.log("— pinned Firebase runtime resources");
+try { await verifyRuntimeResources(); }
+catch (error) { die(error.message); }
+console.log("  ok: all five CDN resources match their tracked lengths, digests, and dependency inventory");
 
 console.log("— successful tag validation");
 const validationOutput = command("GitHub validation lookup", "gh", [
@@ -307,6 +314,10 @@ for (const host of HOSTS) {
 }
 if (!liveOk) die("live byte verification failed on at least one file/host");
 if (bundle.hash !== taggedHashes.bundleSha256) die("tagged bundle hash changed during deployment");
+console.log("— verify live Hosting security and no-store headers");
+try { await verifyHostingHeaders({ hosts: HOSTS }); }
+catch (error) { die(error.message); }
+console.log("  ok: root, HTML, JavaScript, privacy, and rewritten-missing paths match on both hosts");
 const deployedAt = new Date().toISOString();
 
 if (!process.stdin.isTTY || !process.stdout.isTTY) {
@@ -339,6 +350,8 @@ const manifest = {
   rulesetSha256: taggedHashes.rulesetSha256,
   indexesSha256: taggedHashes.indexesSha256,
   bundleSha256: taggedHashes.bundleSha256,
+  runtimeResourcesSha256: taggedHashes.runtimeResourcesSha256,
+  hostingHeadersSha256: taggedHashes.hostingHeadersSha256,
   hostsVerified: HOSTS,
   filesCompared: bundle.files.length,
   smokeResults: {
@@ -346,6 +359,8 @@ const manifest = {
     authenticatedIndexListing: "ok",
     compositeIndexesReady: "ok",
     liveByteComparison: "ok",
+    liveHeaderComparison: "ok",
+    runtimeResourceVerification: "ok",
   },
   results: {
     rulesAndIndexesDeploy: "ok",
@@ -366,6 +381,8 @@ console.log(
     `-f bundle_sha256=${taggedHashes.bundleSha256} ` +
     `-f ruleset_sha256=${taggedHashes.rulesetSha256} ` +
     `-f indexes_sha256=${taggedHashes.indexesSha256} ` +
+    `-f runtime_resources_sha256=${taggedHashes.runtimeResourcesSha256} ` +
+    `-f hosting_headers_sha256=${taggedHashes.hostingHeadersSha256} ` +
     `-f verification_sha256=${manifest.verificationSha256} ` +
     `-f deployed_at=${manifest.deployedAt} ` +
     `-f post_deploy_verified_at=${postDeployVerifiedAt}`,

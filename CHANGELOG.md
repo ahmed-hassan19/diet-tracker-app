@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.9.2] - 2026-08-25
+
+### Fixed
+
+- شعار التطبيق بقى في سطر لوحده ومتوسّط فوق العنوان، ومحتوى التطبيق بقى يحترم
+  المساحة الآمنة فوق وتحت على iPhone عشان ميتغطاش بالـ Dynamic Island في وضع
+  التطبيق المثبّت.
+
 ## [3.9.1] - 2026-08-25
 
 ### Fixed

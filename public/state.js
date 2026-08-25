@@ -42,7 +42,7 @@ function exportData(){
 function importData(inp){
   const f=inp.files[0]; if(!f) return;
   const r=new FileReader();
-  r.onload=()=>{ try{ S=JSON.parse(r.result); save(); renderDay(); alert("تم الاسترجاع ✅"); }catch(e){ alert("الملف مش صالح"); } };
+  r.onload=()=>{ try{ S=JSON.parse(r.result); save(); renderDay(); if(curTab==="examples") renderExamples(); alert("تم الاسترجاع ✅"); }catch(e){ alert("الملف مش صالح"); } };
   r.readAsText(f);
 }
 

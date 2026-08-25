@@ -3,12 +3,37 @@
 let curTab="day";
 function showTab(t){
   curTab=t;
-  ["day","prog","cal"].forEach(x=>{
+  ["day","prog","examples","cal"].forEach(x=>{
     document.getElementById("pg-"+x).style.display = (x===t)?"":"none";
     document.getElementById("tab-"+x).classList.toggle("on", x===t);
   });
   if(t==="prog") renderProg();
+  if(t==="examples") renderExamples();
   if(t==="cal") renderCalRef();
+}
+
+function renderAppVersion(){
+  const el=document.getElementById("app-version");
+  if(el) el.textContent="v"+APP_VERSION;
+}
+
+/* ================= أمثلة أيام عامة ================= */
+function renderExamples(){
+  const examples=rankedExampleDays(T());
+  let h='<div class="card"><h2>🍽️ أمثلة أيام قريبة من أهدافك</h2>'
+    +'<p class="muted">دي أمثلة تقريبية من الاختيارات الأساسية المدمجة، مش روشتة ولا ضمان إنها مناسبة ليك. راجع الكميات والملصقات وعدّل يومك حسب احتياجك.</p></div>';
+  examples.forEach((example,i)=>{
+    const rows=example.picks.map(pick=>'<li><b>'+MEALS[pick.key].name+'</b>: '+MEALS[pick.key].opts[pick.index].t+'</li>').join("");
+    const total=example.total;
+    h+='<div class="card example-day" data-signature="'+example.signature+'"><h2>مثال '+(i+1)+'</h2>'
+      +'<div class="summary"><div><div class="v">'+total.k+'</div><div class="l">سعر</div></div>'
+      +'<div><div class="v">'+total.p+' جم</div><div class="l">بروتين</div></div>'
+      +'<div><div class="v">'+total.f+' جم</div><div class="l">دهون</div></div>'
+      +'<div><div class="v">'+total.c+' جم</div><div class="l">كارب</div></div></div>'
+      +'<ol>'+rows+'</ol></div>';
+  });
+  if(!examples.length) h+='<div class="card"><p class="muted">راجع أهداف السعرات والبروتين عشان نعرض الأمثلة.</p></div>';
+  document.getElementById("pg-examples").innerHTML=h;
 }
 
 /* ================= صفحة اليوم ================= */
@@ -16,6 +41,7 @@ function setDay(v){ cur=v||today(); renderDay(); }
 function shiftDay(n){ const d=new Date(cur+"T12:00:00"); d.setDate(d.getDate()+n); setDay(d.toISOString().slice(0,10)); }
 
 function renderDay(){
+  renderAppVersion();
   document.getElementById("dpick").value=cur;
   const d=day();
   // meals

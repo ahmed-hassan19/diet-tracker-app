@@ -237,6 +237,7 @@ function mergeRemote(remote){
     try{ localStorage.setItem(KEY, JSON.stringify(S)); }catch(e){}
     renderDay();
     if(curTab==="prog") renderProg();
+    if(curTab==="examples") renderExamples();
     if(curTab==="cal") renderCalRef();
   }
   // returning user on a fresh device: cloud profile arrived while setup is showing

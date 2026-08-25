@@ -1,5 +1,7 @@
 import fs from "node:fs";
 import vm from "node:vm";
+import { iconProblems } from "./generate-icons.mjs";
+import { versionContractProblems } from "./version-contract.mjs";
 import {
   guardAiModule,
   guardDependencies,
@@ -47,6 +49,40 @@ Object.assign(globalThis, { MEALS, EXTRAS, CALREF });`,
 );
 
 const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+const contractProblems = versionContractProblems();
+if (contractProblems.length) {
+  throw new Error(`Version contract failed:\n${contractProblems.map((s) => `  - ${s}`).join("\n")}`);
+}
+
+const manifest = JSON.parse(fs.readFileSync("public/manifest.webmanifest", "utf8"));
+const requiredManifest = {
+  lang: "ar", dir: "rtl", id: "/", start_url: "/", scope: "/",
+  display: "standalone", background_color: "#0e141b", theme_color: "#0e141b",
+};
+for (const [key, value] of Object.entries(requiredManifest)) {
+  if (manifest[key] !== value) throw new Error(`manifest.webmanifest ${key} must be ${value}`);
+}
+if (typeof manifest.name !== "string" || !manifest.name || typeof manifest.short_name !== "string" || !manifest.short_name) {
+  throw new Error("manifest.webmanifest needs name and short_name");
+}
+const expectedIcons = [180, 192, 512].map((size) => ({
+  src: `/icons/icon-${size}.png`, sizes: `${size}x${size}`, type: "image/png", purpose: "any",
+}));
+if (JSON.stringify(manifest.icons) !== JSON.stringify(expectedIcons)) {
+  throw new Error("manifest.webmanifest must reference the three generated PNG icons");
+}
+const generatedIconProblems = iconProblems();
+if (generatedIconProblems.length) throw new Error(generatedIconProblems.join("\n"));
+if (!/<link rel="manifest" href="\/manifest\.webmanifest">/.test(html) ||
+    !/<link rel="apple-touch-icon" sizes="180x180" href="\/icons\/icon-180\.png">/.test(html)) {
+  throw new Error("index.html must link the web manifest and Apple touch icon");
+}
+const publicNames = fs.readdirSync("public", { recursive: true }).map(String);
+const allClientText = html + sources.map((name) => fs.readFileSync(`public/${name}`, "utf8")).join("\n");
+if (publicNames.some((name) => /(?:^|\/)s(?:ervice)?w(?:\.|$)|service-worker/i.test(name)) ||
+    /navigator\.serviceWorker|serviceWorker\.register|registerServiceWorker/.test(allClientText)) {
+  throw new Error("Offline-first launch is unsupported; service-worker files and registration are forbidden");
+}
 if (!/\ninitSync\(\);\s*$/.test(fs.readFileSync("public/sync.js", "utf8"))) {
   throw new Error("sync.js must end with initSync() as its final call");
 }
@@ -92,6 +128,4 @@ if (sparkProblems.length) {
   );
 }
 
-console.log(
-  `Validated ${sources.length} app scripts, ${foods.length} foods, and Firebase JSON.`,
-);
+console.log(`Validated ${sources.length} app scripts, ${foods.length} foods, install assets, version contract, and Firebase JSON.`);

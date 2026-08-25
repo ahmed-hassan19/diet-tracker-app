@@ -8,9 +8,11 @@ publishes Releases, but it has no Google or Firebase deployment credential.
 
 1. Merge the release changes into `main` through a reviewed pull request.
 2. Update local `main` with `git pull --ff-only origin main`.
-3. Confirm `package.json`, the visible footer version, and `CHANGELOG.md` use the
-   same Semantic Version.
-4. Run `npm run check` and the browser suite.
+3. Set the new version in `package.json`, its two root `package-lock.json`
+   copies, `APP_VERSION` in `public/data.js`, and a dated `CHANGELOG.md` section.
+   The footer reads the checked runtime copy and must not hard-code a version.
+4. Run `npm run check`, the browser suite, and
+   `node scripts/version-contract.mjs --tag vX.Y.Z`.
 5. Create and push an annotated tag:
 
    ```sh
@@ -19,7 +21,8 @@ publishes Releases, but it has no Google or Firebase deployment credential.
    ```
 
 Wait for the tag-triggered `release` workflow to pass. It verifies that the tag
-points to `main`, runs the full test suites, and records checksums for the public
+points to `main`, applies the same version contract used by contributor checks
+and the deployment script, runs the full test suites, and records checksums for the public
 bundle, Firestore Rules, and Firestore indexes.
 
 ## Verify Firebase settings

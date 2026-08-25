@@ -1,19 +1,20 @@
 "use strict";
+const APP_VERSION="3.9.0";
 /* ================= بيانات الوجبات المدمجة ================= */
 const MEALS = {
-  b:{name:"🌅 الفطار", note:"اختار وجبة وسجّل اختلافات العبوة أو الكمية: ≈ 455–510 سعر · 29–37 جم بروتين", opts:[
+  b:{name:"🌅 الفطار", examples:true, note:"اختار وجبة وسجّل اختلافات العبوة أو الكمية: ≈ 455–510 سعر · 29–37 جم بروتين", opts:[
     {t:"٣ بيضات + ٣ توست أسمر + خيار وطماطم", k:454, p:29, f:18, c:44},
     {t:"٢٥٠ جم جبنة قريش + ٣ توست أسمر + ملعقة صغيرة زيت زيتون + خيار", k:478, p:37, f:16, c:47},
     {t:"٧٠ جم شوفان + ٣٠٠ مل لبن قليل الدسم + نص سكوب واي", k:484, p:32, f:12, c:62},
     {t:"٧ ملاعق فول + ٣ بيضات مسلوقة + ١ توست أسمر", k:508, p:35, f:20, c:47}]},
   bc:{name:"☕ مشروب الصبح (اختياري)", note:"بيتحسب في مجموع اليوم — السويتال صفر سعرات", opts:[
     {t:"نيسكافيه Coffee Break 2×1 (ظرف ١٢ جم) + سويتال", k:55, p:1, f:3, c:6}]},
-  s:{name:"🍎 سناك", note:"اختار حسب باقي يومك: ≈ 210–275 سعر · 14–20 جم بروتين", opts:[
+  s:{name:"🍎 سناك", examples:true, note:"اختار حسب باقي يومك: ≈ 210–275 سعر · 14–20 جم بروتين", opts:[
     {t:"زبادي يوناني عالي البروتين (١٧٠ جم) + تفاحة + ١٠ جم لوز", k:266, p:20, f:6, c:33},
     {t:"٢٠٠ جم زبادي قليل الدسم + ٢٠ جم لوز", k:249, p:15, f:13, c:18},
     {t:"١٥٠ جم جبنة قريش + ١ توست أسمر + طماطم", k:210, p:20, f:6, c:19},
     {t:"كوب لبن قليل الدسم (٢٥٠ مل) + ٢٥ جم فول سوداني", k:273, p:14, f:17, c:16}]},
-  l:{name:"🍗 الغدا", note:"الأوزان مطبوخة والزيت موزون: ≈ 750–810 سعر · 61–68 جم بروتين", opts:[
+  l:{name:"🍗 الغدا", examples:true, note:"الأوزان مطبوخة والزيت موزون: ≈ 750–810 سعر · 61–68 جم بروتين", opts:[
     {t:"٢٠٠ جم صدور فراخ مشوية + ٣٠٠ جم رز مطبوخ + سلطة + ١٠ جم زيت", k:792, p:68, f:16, c:94},
     {t:"٢٢٠ جم سمك مشوي + ٤٠٠ جم بطاطس مسلوقة + سلطة + ١٠ جم زيت", k:748, p:61, f:16, c:90},
     {t:"٢٠٠ جم لحم أحمر قليل الدهن + ٢٥٠ جم رز مطبوخ + خضار سوتيه", k:778, p:64, f:18, c:90}]},
@@ -27,12 +28,39 @@ const MEALS = {
   nt:{legacyOnly:true, opts:[
     {t:"سكوب Nitro-Tech (٤٤ جم) بالمياه + موزة", k:246, p:31, f:2.5, c:26},
     {t:"سكوب Nitro-Tech (٤٤ جم) + ٢٥٠ مل لبن قليل الدسم", k:270, p:38, f:6.5, c:15}]},
-  d:{name:"🌙 العشا", note:"اختيارات كاملة بدل سناك صغير: ≈ 445–515 سعر · 35–38 جم بروتين", opts:[
+  d:{name:"🌙 العشا", examples:true, note:"اختيارات كاملة بدل سناك صغير: ≈ 445–515 سعر · 35–38 جم بروتين", opts:[
     {t:"٢٥٠ جم جبنة قريش + سلطة + ملعقة صغيرة زيت زيتون + ٢ توست أسمر", k:446, p:35, f:14, c:45},
     {t:"٣ بيضات + ١٥٠ جم جبنة قريش + خضار + ١ توست أسمر", k:465, p:38, f:21, c:31},
     {t:"علبة تونة مصفاة + ٢٥٠ جم بطاطس مسلوقة + ٢ توست + سلطة بملعقة صغيرة زيت", k:512, p:37, f:8, c:73},
     {t:"٢٥٠ جم زبادي يوناني عالي البروتين + ٣٠ جم لوز + ٤٠ جم شوفان", k:488, p:36, f:20, c:41}]}
 };
+/* أمثلة عامة من الأربع مجموعات الأساسية فقط؛ الدالة نقية ومبتقرأش حالة المستخدم. */
+function rankedExampleDays(targets,limit=3){
+  if(!targets||typeof targets!=="object"||!Number.isInteger(limit)||limit<0) return [];
+  const values=[targets.klo,targets.khi,targets.plo,targets.phi];
+  if(!values.every(Number.isFinite)||targets.klo<=0||targets.plo<=0||targets.klo>targets.khi||targets.plo>targets.phi) return [];
+  const km=(targets.klo+targets.khi)/2, pm=(targets.plo+targets.phi)/2;
+  const groups=Object.entries(MEALS).filter(([,meal])=>meal.examples===true);
+  if(groups.length!==4) return [];
+  let days=[{picks:[],total:{k:0,p:0,f:0,c:0}}];
+  groups.forEach(([key,meal])=>{
+    const next=[];
+    meal.opts.forEach((food,index)=>{
+      if(food.legacyOnly) return;
+      days.forEach(day=>next.push({
+        picks:day.picks.concat({key,index}),
+        total:{k:day.total.k+food.k,p:day.total.p+food.p,f:day.total.f+(food.f||0),c:day.total.c+(food.c||0)}
+      }));
+    });
+    days=next;
+  });
+  return days.map(day=>{
+    const calorieError=Math.abs(day.total.k-km), proteinError=Math.abs(day.total.p-pm);
+    const signature=day.picks.map(pick=>pick.key+":"+pick.index).join("|");
+    return Object.assign(day,{distance:(calorieError/km)**2+(proteinError/pm)**2,signature,calorieError,proteinError});
+  }).sort((a,b)=>a.distance-b.distance||a.calorieError-b.calorieError||a.proteinError-b.proteinError||(a.signature<b.signature?-1:a.signature>b.signature?1:0))
+    .slice(0,limit).map(({picks,total,distance,signature})=>({picks,total,distance,signature}));
+}
 const EXTRAS = [
   {t:"موزة", k:96, p:1, f:0, c:23},
   {t:"رغيف بلدي صغير", k:173, p:6, f:1, c:35},

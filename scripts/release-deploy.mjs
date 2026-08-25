@@ -20,6 +20,7 @@ import {
   taggedConfigHashes,
 } from "./release-lib.mjs";
 import { AI_MODEL_ALLOWLIST } from "./spark-guard.mjs";
+import { assertVersionContract } from "./version-contract.mjs";
 
 const HOSTS = PRODUCTION_HOSTS;
 const MODEL = AI_MODEL_ALLOWLIST[0];
@@ -105,18 +106,10 @@ console.log(`  ok: ${tag} -> ${peeled} = origin/main`);
 
 console.log("— version agreement");
 const pkg = parseJson(fs.readFileSync("package.json", "utf8"), "package.json");
-const version = tag.slice(1);
-if (pkg.version !== version) die(`package.json ${pkg.version} != ${version}`);
+try { assertVersionContract({ tag }); }
+catch (error) { die(error.message); }
 const html = fs.readFileSync("public/index.html", "utf8");
-const visibleVersion = (html.match(/<footer>[\s\S]*?<b>v([^<]+)<\/b>/) || [])[1];
-if (visibleVersion !== version) {
-  die(`index.html visible version ${visibleVersion || "<missing>"} != ${version}`);
-}
-const changelog = fs.readFileSync("CHANGELOG.md", "utf8");
-if (!new RegExp(`^## \\[?${version.replaceAll(".", "\\.")}\\]?`, "m").test(changelog)) {
-  die(`CHANGELOG.md has no ${version} section`);
-}
-console.log(`  ok: package/index/changelog agree on ${version}`);
+console.log(`  ok: package/lock/runtime/tag/changelog agree on ${pkg.version}`);
 
 console.log("— successful tag validation");
 const validationOutput = command("GitHub validation lookup", "gh", [

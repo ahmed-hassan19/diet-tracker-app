@@ -75,6 +75,74 @@ test("is RTL, responsive, and persists meal totals after reload", async ({
   await expect(page.locator("body")).not.toHaveCSS("overflow-x", "scroll");
 });
 
+test("renders the runtime version and hosted-install resources", async ({ page, request }) => {
+  await expect(page.locator("#app-version")).toHaveText("v3.9.0");
+  const link = page.locator('link[rel="manifest"]');
+  await expect(link).toHaveAttribute("href", "/manifest.webmanifest");
+  const manifestResponse = await request.get("/manifest.webmanifest");
+  expect(manifestResponse.ok()).toBe(true);
+  const manifest = await manifestResponse.json();
+  expect(manifest).toMatchObject({ lang: "ar", dir: "rtl", id: "/", start_url: "/", scope: "/", display: "standalone" });
+  for (const icon of manifest.icons) {
+    const response = await request.get(icon.src);
+    expect(response.ok()).toBe(true);
+    expect((await response.body()).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
+  }
+  await page.locator("#install summary").click();
+  await expect(page.locator("#install")).toContainText("فتح كتطبيق ويب");
+  await expect(page.locator("#install")).toContainText("التشغيل من غير إنترنت مش مدعوم");
+});
+
+test("shows exactly three approximate core examples with exact totals and responsive RTL layout", async ({ page }) => {
+  await page.locator("#tab-examples").click();
+  const cards = page.locator("#pg-examples .example-day");
+  await expect(cards).toHaveCount(3);
+  await expect(page.locator("#pg-examples")).toContainText("أمثلة تقريبية");
+  await expect(page.locator("#pg-examples")).toContainText("مش روشتة ولا ضمان");
+  await expect(page.locator("#pg-examples")).not.toContainText("Nitro-Tech");
+  const expected = await page.evaluate(() => rankedExampleDays(T()));
+  for (let i = 0; i < expected.length; i++) {
+    const card = cards.nth(i);
+    await expect(card).toHaveAttribute("data-signature", expected[i].signature);
+    const values = card.locator(".summary .v");
+    await expect(values.nth(0)).toHaveText(String(expected[i].total.k));
+    await expect(values.nth(1)).toHaveText(`${expected[i].total.p} جم`);
+    await expect(values.nth(2)).toHaveText(`${expected[i].total.f} جم`);
+    await expect(values.nth(3)).toHaveText(`${expected[i].total.c} جم`);
+    await expect(card.locator("li")).toHaveCount(4);
+  }
+  await expect(page.locator("html")).toHaveAttribute("dir", "rtl");
+  await expect(page.locator("body")).not.toHaveCSS("overflow-x", "scroll");
+});
+
+test("reranks examples immediately after remote and imported target changes", async ({ page }) => {
+  await page.locator("#tab-examples").click();
+  const first = page.locator("#pg-examples .example-day").first();
+  const initial = await first.getAttribute("data-signature");
+  await page.evaluate(() => {
+    mergeRemote({
+      days: {},
+      settings: { ...S.settings, klo: 1450, khi: 1550, plo: 90, phi: 100, _ts: (S.settings._ts || 0) + 1 },
+    });
+  });
+  const remote = await first.getAttribute("data-signature");
+  expect(remote).not.toBe(initial);
+  const imported = await page.evaluate(() => ({
+    ...S,
+    days: S.days,
+    settings: { ...S.settings, klo: 2500, khi: 2600, plo: 200, phi: 220, _ts: Date.now() + 1000 },
+  }));
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.locator("#imp").setInputFiles({
+    name: "targets.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify(imported)),
+  });
+  await expect(first).not.toHaveAttribute("data-signature", remote);
+  const expected = await page.evaluate(() => rankedExampleDays(T())[0]);
+  await expect(first).toHaveAttribute("data-signature", expected.signature);
+});
+
 test("legacy product choices stay hidden except for the selected saved index", async ({
   page,
 }) => {

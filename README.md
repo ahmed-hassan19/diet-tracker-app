@@ -22,6 +22,8 @@ document per authenticated user with Firebase.
 - `firebase.json`: fixed Auth, Firestore, and Hosting emulator ports plus the
   `main` and `nice` production Hosting targets.
 - `scripts/validate.mjs`: script-tag, nutrition, and configuration assertions.
+- `scripts/version-contract.mjs`: shared package, runtime, changelog, and release-tag version check.
+- `scripts/generate-icons.mjs`: deterministic hosted-install icon generator and byte checker.
 - `tests/`: unit, emulator-backed rules, and Playwright browser coverage.
 
 Data model:
@@ -63,6 +65,17 @@ npx firebase-tools emulators:exec --only auth,firestore,hosting "npm run test:br
 Manually verify login/logout, profile setup, daily persistence, every available tab,
 import/export, delete-all, mobile layouts, and a clean browser console.
 
+## Install on iPhone
+
+Open the primary host, <https://diet-tracker-372ca.web.app>, in the current
+Safari. Choose Share, then Add to Home Screen, enable Open as Web App, and
+choose Add. This follows [Apple's current installation flow](https://support.apple.com/guide/iphone/open-as-web-app-iphea86e5236/ios).
+WebKit [confirms that an iOS Home Screen web app does not require a service
+worker](https://webkit.org/blog/17333/webkit-features-in-safari-26-0/).
+This app intentionally has no service worker and does not support an
+offline-first launch; an internet connection is required. HTML and JavaScript
+keep their production `no-store` headers.
+
 ## Deployment
 
 Production deploys are owner-run with human Firebase OAuth; GitHub holds no
@@ -74,7 +87,8 @@ npx firebase-tools use
 node scripts/release-deploy.mjs vX.Y.Z
 ```
 
-The script requires successful validation for the exact tag and a current local
+The script requires successful validation for the exact tag, exact agreement
+between the package, lockfile, runtime version, tag, and changelog, and a current local
 record of Spark/no-billing status, quota usage, exact AI model, and
 P4SA/API-key posture. It derives the AI rollout stage from the tagged client:
 disabled releases record the current preconfiguration baseline and exact

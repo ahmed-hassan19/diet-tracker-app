@@ -22,8 +22,10 @@ publishes Releases, but it has no Google or Firebase deployment credential.
 
 Wait for the tag-triggered `release` workflow to pass. It verifies that the tag
 points to `main`, applies the same version contract used by contributor checks
-and the deployment script, runs the full test suites, and records checksums for the public
-bundle, Firestore Rules, and Firestore indexes.
+and the deployment script, runs the full test suites, verifies every pinned
+Firebase browser SDK resource, and records checksums for the public bundle,
+Firestore Rules, Firestore indexes, runtime-resource manifest, and complete
+Hosting header configuration.
 
 ## Verify Firebase settings
 
@@ -156,17 +158,29 @@ The script requires successful validation for the exact tag, confirms the local
 release record, checks pinned tooling and the active Firebase project, deploys
 Firestore Rules and indexes, and compares the deployed configuration with the
 tag. It then deploys both Hosting targets and byte-compares every public file on
-both hosts.
+both hosts. It also fetches all five Firebase SDK URLs and rejects changed
+bytes, undeclared imports, or version drift. Finally it verifies the exact CSP
+and security headers, including `no-store`, on `/`, HTML, JavaScript, the privacy
+page, and a rewritten missing path on both hosts.
+
+Because local browser tests bypass App Check, also open each production host in
+a clean signed-in session and confirm that the reCAPTCHA/App Check bootstrap,
+Google sign-in, tracker read, and a permitted tracker write complete without a
+CSP violation before publication. This is a read/write smoke check against the
+already-deployed tagged client, not permission to change Firebase configuration.
 
 After deployment, repeat the Spark, billing, and configuration checks when
 prompted. The script writes a private manifest under `local/releases/` and
-prints the exact `gh workflow run release.yml` command for publication.
+prints the exact `gh workflow run release.yml` command for publication. The
+command includes the runtime-resource and Hosting-header hashes from the tagged
+revision; do not calculate or substitute them manually.
 
 ## Publish
 
 Run the command printed by the deployment script. The workflow rechecks the tag,
-successful validation run, tagged hashes, and every live public file before it
-creates or updates the GitHub Release.
+successful validation run, all tagged hashes, every live runtime dependency,
+both hosts' response headers, and every live public file before it creates or
+updates the GitHub Release.
 
 If deployment or verification fails, fix the problem through a new branch and
 pull request, then release a new Semantic Version. Never move or reuse a release

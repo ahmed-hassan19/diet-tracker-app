@@ -41,6 +41,7 @@
   .opt.sel{border-color:var(--teal); background:#12332e}
   .opt .kp{margin-inline-start:auto; color:var(--muted); font-size:12px; white-space:nowrap}
   .opt.sel .kp{color:var(--teal)}
+  .row-delete{color:var(--red);background:transparent;border:0;padding:4px;cursor:pointer;font:inherit}
   .kp-mini{display:none}
   .opt .kp b{font-weight:800}
   @media(max-width:640px){ .kp-full{display:none} .kp-mini{display:inline} }
@@ -94,6 +95,7 @@
 </head>
 <body>
 <div id="gate-note" class="note" style="display:none"></div>
+<div id="storage-note" class="note" style="display:none"></div>
 
 <div class="wrap" id="app" style="display:none">
   <header>
@@ -140,24 +142,24 @@
       <div class="chips" id="workout-chips"></div>
       <div class="row" style="margin-top:12px">
         <label class="muted">خطوات اليوم:</label>
-        <input type="number" id="steps" style="width:110px" placeholder="—" onchange="saveField('steps',this.value)">
+        <input type="number" id="steps" min="0" max="200000" step="1" style="width:110px" placeholder="—" onchange="saveField('steps',this.value)">
         <label class="muted">كارديو (دقايق):</label>
-        <input type="number" id="cardio" style="width:90px" placeholder="0" onchange="saveField('cardio',this.value)">
+        <input type="number" id="cardio" min="0" max="1440" step="1" style="width:90px" placeholder="0" onchange="saveField('cardio',this.value)">
       </div>
     </div>
 
     <div class="card"><h2>⚖️ الوزن والنوم</h2>
       <div class="row">
         <label class="muted">وزن الصبح (كجم):</label>
-        <input type="number" step="0.1" id="weight" style="width:110px" placeholder="—" onchange="saveField('weight',this.value)">
+        <input type="number" step="0.1" min="30" max="300" id="weight" style="width:110px" placeholder="—" onchange="saveField('weight',this.value)">
         <label class="muted">ساعات النوم:</label>
-        <input type="number" step="0.5" id="sleep" style="width:90px" placeholder="—" onchange="saveField('sleep',this.value)">
+        <input type="number" step="0.5" min="0" max="24" id="sleep" style="width:90px" placeholder="—" onchange="saveField('sleep',this.value)">
       </div>
       <p class="muted" style="margin-top:8px">⚠️ اوزن نفسك الصبح على الريق بعد الحمام — ومتحكمش على يوم واحد، المتوسط الأسبوعي هو اللي يهم.</p>
     </div>
 
     <div class="card"><h2>📝 ملاحظات</h2>
-      <textarea id="notes" placeholder="جوع؟ طاقة؟ خروجة أكلت فيها برة؟ اكتب هنا..." onchange="saveField('notes',this.value)"></textarea>
+      <textarea id="notes" maxlength="2000" placeholder="جوع؟ طاقة؟ خروجة أكلت فيها برة؟ اكتب هنا..." onchange="saveField('notes',this.value)"></textarea>
     </div>
   </div>
 
@@ -184,9 +186,13 @@
     </div>
     <details id="privacy" style="margin-top:14px">
       <summary style="cursor:pointer;color:var(--teal)">الخصوصية والبيانات</summary>
-      <p class="muted" style="line-height:1.8;margin-top:8px">بياناتك محفوظة في متصفحك ومتزامنة مع مستندك المحمي في Firestore، وزر «حذف كل بياناتي» يمسحهم الاتنين.</p>
+      <p class="muted" style="line-height:1.8;margin-top:8px">بياناتك محفوظة في IndexedDB في متصفحك ومتزامنة مع مستندك المحمي في Firestore. لو التخزين المحلي وقف، هننبهك من غير ما نخفي بيانات الذاكرة أو التصدير؛ وزر «حذف كل بياناتي» يمسح النسختين.</p>
       <p class="muted" style="line-height:1.8;margin-top:6px">راجع <a href="/privacy.html" style="color:var(--teal)">سياسة الخصوصية الكاملة</a>. التطبيق أداة متابعة عامة وليس تشخيصًا أو بديلًا للطبيب.</p>
     </details>
+    <div class="note" id="cloud-recovery" style="display:none;margin-top:14px">
+      <p id="cloud-recovery-copy"></p>
+      <button class="btn ghost" id="cloud-recovery-export" type="button" style="width:auto;margin-top:8px">تنزيل نسخة السحابة الخام</button>
+    </div>
     <details id="install" style="margin-top:14px">
       <summary style="cursor:pointer;color:var(--teal)">تثبيت التطبيق على iPhone</summary>
       <p class="muted" style="line-height:1.8;margin-top:8px">من Safari على <a href="https://diet-tracker-372ca.web.app" style="color:var(--teal)">الموقع الأساسي</a>: دوس مشاركة، وبعدها «إضافة إلى الشاشة الرئيسية»، فعّل «فتح كتطبيق ويب»، وبعدين دوس «إضافة».</p>

@@ -14,6 +14,14 @@ function harness() {
     save() { saves++; },
     confirm() { confirms++; return true; },
   };
+  context.commitMutation = (change, options = {}) => {
+    const now = Date.now(),candidate = structuredClone(context.S);
+    change(candidate, now);
+    for (const section of options.touchSections || []) candidate[section]._ts = now;
+    context.S = candidate;
+    saves++;
+    return true;
+  };
   vm.createContext(context);
   vm.runInContext(
     `${fs.readFileSync("public/render.js", "utf8")}
@@ -44,6 +52,13 @@ test("AI estimates require exact finite numeric fields, bounds, and macro agreem
     { k: 500, p: 0, f: 0, c: 1251 },
     { k: 500, p: 1, f: 1, c: 1 },
   ]) assert.equal(normalize(invalid).ok, false, JSON.stringify(invalid));
+
+  let reads = 0;
+  const accessor = { k: 500, p: 30, f: 20, c: 50 };
+  Object.defineProperty(accessor, "k", { enumerable: true, get() { reads++; return 500; } });
+  assert.equal(normalize(accessor).ok, false);
+  assert.equal(reads, 0);
+  assert.equal(normalize(Object.assign(Object.create({ hostile: true }), { k: 500, p: 30, f: 20, c: 50 })).ok, false);
 });
 
 test("AI failure classification separates auth, App Check, quota, and offline recovery", () => {

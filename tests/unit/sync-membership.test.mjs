@@ -18,7 +18,7 @@ const membershipSnapshot = (exists, enabled = false) => ({
   data: { enabled },
 });
 
-function createHarness() {
+function createHarness(loadState = () => ({ settings: { ht: 170, name: "" }, days: {} })) {
   const elements = new Map();
   const membershipReads = [];
   const timers = new Map();
@@ -72,7 +72,7 @@ function createHarness() {
     },
     S: null,
     KEY: null,
-    load: () => ({ settings: { ht: 170, name: "" }, days: {} }),
+    load: loadState,
     showTab() {},
     setDay() {},
     today: () => "2026-08-24",
@@ -101,7 +101,7 @@ function createHarness() {
   };
   const start = (uid = "member-1") => {
     auth.currentUser = { uid, displayName: "" };
-    evaluate("start(window.firebaseBridge.currentUser()); FB.active=true");
+    return evaluate("start(window.firebaseBridge.currentUser()); FB.active=true");
   };
 
   return {
@@ -116,6 +116,21 @@ function createHarness() {
     writes,
   };
 }
+
+test("a superseded account load cannot replace the active account state", async () => {
+  const loads=new Map();
+  const app=createHarness(uid=>{
+    const result=deferred(); loads.set(uid,result); return result.promise;
+  });
+  app.start("account-a");
+  app.start("account-b");
+  loads.get("account-b").resolve({ settings:{ ht:170,name:"الحساب ب" },days:{},foods:{},calref:{} });
+  await flushPromises();
+  loads.get("account-a").resolve({ settings:{ ht:170,name:"الحساب أ" },days:{},foods:{},calref:{} });
+  await flushPromises();
+  assert.equal(app.evaluate("KEY"),"account-b");
+  assert.equal(app.evaluate("S.settings.name"),"الحساب ب");
+});
 
 test("absent membership schedules one five-minute recheck", async () => {
   const app = createHarness();

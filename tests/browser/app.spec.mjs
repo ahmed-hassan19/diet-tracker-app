@@ -69,6 +69,7 @@ test("is RTL, responsive, and persists meal totals after reload", async ({
   await expect(firstMeal).toHaveClass(/sel/);
   const summary = await page.locator("#sumbar").innerText();
   expect(summary).not.toContain("0\nسعر");
+  await page.evaluate(() => window.__dietTest.flushStorage());
   await page.reload();
   await expect(page.locator("#app")).toBeVisible();
   await expect(page.locator("#meals-box .opt").first()).toHaveClass(/sel/);
@@ -76,7 +77,7 @@ test("is RTL, responsive, and persists meal totals after reload", async ({
 });
 
 test("renders the runtime version and hosted-install resources", async ({ page, request }) => {
-  await expect(page.locator("#app-version")).toHaveText("v3.9.2");
+  await expect(page.locator("#app-version")).toHaveText("v3.10.0");
   const link = page.locator('link[rel="manifest"]');
   await expect(link).toHaveAttribute("href", "/manifest.webmanifest");
   const manifestResponse = await request.get("/manifest.webmanifest");
@@ -148,6 +149,7 @@ test("reranks examples immediately after remote and imported target changes", as
     mergeRemote({
       days: {},
       settings: { ...S.settings, klo: 1450, khi: 1550, plo: 90, phi: 100, _ts: (S.settings._ts || 0) + 1 },
+      updated: Date.now(),
     });
   });
   const remote = await first.getAttribute("data-signature");
@@ -178,8 +180,7 @@ test("legacy product choices stay hidden except for the selected saved index", a
   await expect(page.locator("#tab-plan")).toHaveCount(0);
 
   await page.evaluate(() => {
-    day().nt = 0;
-    save();
+    window.__dietTest.mutate((state) => { state.days[today()] = { ...(state.days[today()] || {}), nt: 0 }; }, { touchDay: today() });
     renderDay();
   });
   await expect(productRows).toHaveCount(1);
@@ -192,8 +193,7 @@ test("legacy product choices stay hidden except for the selected saved index", a
   await expect(summaryValues.nth(0)).toHaveText("0");
 
   await page.evaluate(() => {
-    day().nt = 1;
-    save();
+    window.__dietTest.mutate((state) => { state.days[today()] = { ...(state.days[today()] || {}), nt: 1 }; }, { touchDay: today() });
     renderDay();
   });
   await expect(productRows).toHaveCount(1);
@@ -201,6 +201,7 @@ test("legacy product choices stay hidden except for the selected saved index", a
   await expect(productRows).not.toContainText("بالمياه + موزة");
   await expect(summaryValues.nth(0)).toHaveText("270");
 
+  await page.evaluate(() => window.__dietTest.flushStorage());
   await page.reload();
   await expect(page.locator("#app")).toBeVisible();
   await expect(productRows).toHaveCount(1);
@@ -228,7 +229,7 @@ test("legacy generic whey stays hidden unless it was saved", async ({
   await expect(legacyWhey).toHaveCount(0);
 
   await page.evaluate(() => {
-    day().pw = 0;
+    window.__dietTest.mutate((state) => { state.days[today()] = { ...(state.days[today()] || {}), pw: 0 }; }, { touchDay: today() });
     renderDay();
   });
   await expect(legacyWhey).toContainText("اختيار محفوظ قديم");
@@ -286,9 +287,9 @@ test("progress tab offers a stale-target note that dismisses without changing ta
     const state = window.__dietTest.getState();
     const days = { ...state.days };
     [
-      [0, "77.8"],
-      [2, "78.0"],
-      [4, "78.2"],
+      [0, 77.8],
+      [2, 78.0],
+      [4, 78.2],
     ].forEach(([back, weight]) => {
       days[iso(back)] = { ...days[iso(back)], weight };
     });
@@ -320,7 +321,7 @@ test("change-from-start measures from the declared start weight, not the first l
       "-" +
       String(d.getDate()).padStart(2, "0");
     const state = window.__dietTest.getState();
-    const days = { ...state.days, [iso]: { ...state.days[iso], weight: "80" } };
+    const days = { ...state.days, [iso]: { ...state.days[iso], weight: 80 } };
     window.__dietTest.setState({ ...state, days });
   });
   await page.locator("#tab-prog").click();

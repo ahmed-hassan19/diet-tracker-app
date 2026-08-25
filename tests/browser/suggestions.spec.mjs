@@ -73,10 +73,9 @@ test("calorie reference inputs offer name and quantity suggestions", async ({
   page,
 }) => {
   await page.evaluate(() => {
-    S.calref = {
-      items: [{ t: "بسبوسة (قطعة ١٠٠ جم)", k: 350, p: 4, f: 12, c: 56 }],
-    };
-    save();
+    window.__dietTest.mutate((state) => {
+      state.calref = { items: [{ t: "بسبوسة (قطعة ١٠٠ جم)", k: 350, p: 4, f: 12, c: 56 }] };
+    }, { touchSections: ["calref"] });
   });
   await page.locator("#tab-cal").click();
   await expect(page.locator("#calref-list")).toBeVisible();

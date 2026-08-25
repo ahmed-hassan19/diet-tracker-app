@@ -28,7 +28,9 @@ This is a dependency-free, build-step-free Firebase application. `public/index.h
   tracker reference, and session generation before changing gate or sync UI.
 - Native `<datalist>` suggestions deliberately survive wholesale `innerHTML` re-renders and remote merges. Calorie-reference suggestions split stored `"النوع (الكمية)"` titles between `crNames()` and `qtyNames()` so the quantity is not duplicated in AI prompts.
 - `MEALS.nt` is retained only for historical saved-day compatibility. Its option indexes and macros must not change. The group is absent from new days and suggestions; a valid saved numeric selection renders as one removable legacy row.
-- Built-in daily templates are temporarily unavailable. Do not add template UI or data without a separately reviewed change.
+- `rankedExampleDays()` builds exactly 192 combinations from the four groups explicitly marked `examples:true` (`b`, `s`, `l`, `d`). It stays outside `calc.js`, reads no state, excludes custom, extra, optional, and legacy content, and uses the documented deterministic ranking and stable source indexes. The examples tab always renders the top three as approximate examples, never as prescriptions or saved templates.
+- `package.json` is the canonical app version. Its exact version must match the root package-lock copies, `APP_VERSION` in `data.js`, the dated changelog section, and the annotated `vX.Y.Z` tag through the shared version-contract validator; the footer renders only the checked runtime copy.
+- Install icons are deterministic outputs of `scripts/generate-icons.mjs`; keep the manifest Arabic/RTL and rooted at `/`. Offline-first launch is unsupported: do not add a service worker or relax the HTML/JavaScript `no-store` headers.
 
 ### Nutrition and Target Invariants
 

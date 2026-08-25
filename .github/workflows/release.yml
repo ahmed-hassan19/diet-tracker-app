@@ -70,6 +70,7 @@ jobs:
           distribution: temurin
           java-version: "21"
       - run: npm ci
+      - run: node scripts/version-contract.mjs --tag "$GITHUB_REF_NAME"
       - run: npx playwright install --with-deps chromium
       - run: npm run check
       - run: npx firebase emulators:exec --project diet-tracker-372ca --only auth,firestore,hosting "npm run test:browser"

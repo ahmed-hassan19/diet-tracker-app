@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Diet Tracker">
 <meta name="theme-color" content="#0e141b">
+<meta name="application-name" content="Diet Tracker">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png">
 <title>Diet Tracker — المتابعة اليومية</title>
 <style>
   :root{
@@ -72,6 +75,8 @@
   .stat{background:var(--card2); border-radius:10px; padding:12px; text-align:center}
   .stat .v{font-size:22px; font-weight:800; color:var(--teal)}
   .stat .l{font-size:12px; color:var(--muted); margin-top:3px}
+  .example-day{border-inline-start:3px solid var(--teal)}
+  .example-day ol{margin:8px 22px 0 0;line-height:1.8}
   .note{background:#2b2213; border:1px solid #6b5518; border-radius:10px; padding:10px 12px; font-size:13px; color:#f5d78e; margin:8px 0}
   .macro-warn{display:block; color:var(--orange); font-size:11px; margin-top:3px}
   ul.plain{margin:6px 18px 6px 0}
@@ -102,6 +107,7 @@
   <div class="tabs">
     <button id="tab-day" class="on" onclick="showTab('day')">📋 اليوم</button>
     <button id="tab-prog" onclick="showTab('prog')">📈 التقدم</button>
+    <button id="tab-examples" onclick="showTab('examples')">🍽️ أمثلة</button>
     <button id="tab-cal" onclick="showTab('cal')">📖 دليل السعرات</button>
   </div>
 
@@ -156,6 +162,9 @@
   <!-- ============ التقدم ============ -->
   <div id="pg-prog" style="display:none"></div>
 
+  <!-- ============ أمثلة أيام عامة ============ -->
+  <div id="pg-examples" style="display:none"></div>
+
   <!-- ============ مرجع السعرات ============ -->
   <div id="pg-cal" style="display:none">
     <div class="card"><h2>📖 دليل السعرات</h2>
@@ -176,10 +185,15 @@
       <p class="muted" style="line-height:1.8;margin-top:8px">بياناتك محفوظة في متصفحك ومتزامنة مع مستندك المحمي في Firestore، وزر «حذف كل بياناتي» يمسحهم الاتنين.</p>
       <p class="muted" style="line-height:1.8;margin-top:6px">راجع <a href="/privacy.html" style="color:var(--teal)">سياسة الخصوصية الكاملة</a>. التطبيق أداة متابعة عامة وليس تشخيصًا أو بديلًا للطبيب.</p>
     </details>
+    <details id="install" style="margin-top:14px">
+      <summary style="cursor:pointer;color:var(--teal)">تثبيت التطبيق على iPhone</summary>
+      <p class="muted" style="line-height:1.8;margin-top:8px">من Safari على <a href="https://diet-tracker-372ca.web.app" style="color:var(--teal)">الموقع الأساسي</a>: دوس مشاركة، وبعدها «إضافة إلى الشاشة الرئيسية»، فعّل «فتح كتطبيق ويب»، وبعدين دوس «إضافة».</p>
+      <p class="muted" style="line-height:1.8;margin-top:6px">التشغيل من غير إنترنت مش مدعوم؛ افتح التطبيق وإنت متصل بالإنترنت.</p>
+    </details>
     <p class="muted" style="text-align:center" id="sync-status"></p>
   </div>
 
-  <footer>Diet Tracker · أغسطس 2026 · <b>v3.8.1</b> · <a href="#privacy" style="color:var(--teal)">الخصوصية</a></footer>
+  <footer>Diet Tracker · أغسطس 2026 · <b id="app-version"></b> · <a href="#privacy" style="color:var(--teal)">الخصوصية</a> · <a href="#install" style="color:var(--teal)">التثبيت</a></footer>
 </div>
 
 <div class="wrap" id="setup" style="display:none">
@@ -243,6 +257,10 @@
     <p class="muted" style="margin-bottom:12px">سجّل دخولك عشان بياناتك تتحفظ وتتزامن على كل أجهزتك.</p>
     <button class="btn" onclick="login()">دخول بحساب Google</button>
     <p class="muted" id="login-status" style="margin-top:10px"></p>
+    <details style="margin-top:14px;text-align:right">
+      <summary style="cursor:pointer;color:var(--teal)">تثبيت التطبيق على iPhone</summary>
+      <p class="muted" style="line-height:1.8;margin-top:8px">من Safari على <a href="https://diet-tracker-372ca.web.app" style="color:var(--teal)">الموقع الأساسي</a>: مشاركة ← إضافة إلى الشاشة الرئيسية ← فعّل «فتح كتطبيق ويب» ← إضافة. التشغيل من غير إنترنت مش مدعوم.</p>
+    </details>
   </div>
 </div>
 

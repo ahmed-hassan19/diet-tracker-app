@@ -1,9 +1,11 @@
 {
   "name": "diet-tracker-app",
-  "version": "3.8.1",
+  "version": "3.9.0",
   "private": true,
   "description": "Arabic RTL diet tracker hosted on Firebase",
   "scripts": {
+    "icons": "node scripts/generate-icons.mjs",
+    "icons:check": "node scripts/generate-icons.mjs --check",
     "format": "prettier --write \"*.md\" \"*.json\"",
     "format:check": "prettier --check \"*.md\" \"*.json\"",
     "lint": "node scripts/validate.mjs",

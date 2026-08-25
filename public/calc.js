@@ -47,13 +47,7 @@ function macroMismatch(o){
   const macroCalories=(Number(o.p)||0)*4+(Number(o.f)||0)*9+(Number(o.c)||0)*4;
   return Number(o.k)>0 && Math.abs(Number(o.k)-macroCalories)/Number(o.k)>0.10;
 }
-function macros(o,warn=false){
-  const f=o.f||0, c=o.c||0;
-  return '<b>'+o.k+' سعر</b> · '
-       + '<span class="kp-full">بروتين '+o.p+' · دهون '+f+' · كارب '+c+'</span>'
-       + '<span class="kp-mini">ب'+o.p+' · د'+f+' · ك'+c+'</span>'
-       + (warn&&macroMismatch(o)?'<span class="macro-warn">⚠️ السعرات والماكروز مش متوافقة — راجع الملصق</span>':'');
-}
+function macroValues(o){ return {k:o.k,p:o.p,f:o.f||0,c:o.c||0}; }
 
 /* نفس حدود suRead/suSave عشان لوحة التقدم متقبلش قيم بترفضها صفحة الإعداد */
 const KMSG="السعرات لازم تكون بين 1200 و6000، وأي هدف شديد الانخفاض يحتاج إشراف طبي.";

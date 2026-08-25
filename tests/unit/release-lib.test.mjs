@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 import {
+  AI_CONFIGURATION_STATES,
   AI_GENERATE_CONTENT_QUOTA_ID,
   AI_GENERATE_CONTENT_QUOTA_METRIC,
   FIRESTORE_RULES_RELEASE,
@@ -48,10 +49,14 @@ function quotaInventory(limit) {
   };
 }
 
-function validVerification({ enabled = false, tag = TAG } = {}) {
+function validVerification({ enabled = false, hardened = false, tag = TAG } = {}) {
+  const configured = enabled || hardened;
   return {
-    schemaVersion: 3,
+    schemaVersion: 4,
     stage: enabled ? AI_ROLLOUT_STAGES.enabled : AI_ROLLOUT_STAGES.disabled,
+    configurationState: enabled ? AI_CONFIGURATION_STATES.enabled :
+      hardened ? AI_CONFIGURATION_STATES.disabledHardened401 :
+        AI_CONFIGURATION_STATES.disabledPreconfiguration,
     projectId: PROJECT_ID,
     tag,
     commitSha: COMMIT,
@@ -62,17 +67,18 @@ function validVerification({ enabled = false, tag = TAG } = {}) {
     productionHosts: PRODUCTION_HOSTS,
     appCheck: {
       firestoreEnforced: true,
-      aiLogicEnforced: enabled,
-      bothHostsVerified: enabled,
+      aiLogicEnforced: configured,
+      bothHostsVerified: configured,
     },
     model: MODEL,
     modelAvailableWithoutBilling: true,
     aiLogic: {
-      authenticatedUsersRequired: enabled,
-      authenticatedSuccessVerified: enabled,
-      unauthenticated401Verified: enabled,
+      authenticatedUsersRequired: configured,
+      authenticatedSuccessVerified: configured,
+      unauthenticated401Verified: configured,
       invalidAppCheck403Verified: enabled,
-      generateContentRpmPerUserQuota: quotaInventory(enabled ? 6 : 100),
+      invalidAppCheckObservedHttpStatus: enabled ? 403 : hardened ? 401 : null,
+      generateContentRpmPerUserQuota: quotaInventory(configured ? 6 : 100),
       freeTierBackendQuotas: {
         rpmPerProjectModel: 15,
         rpdPerProjectModel: 500,
@@ -89,19 +95,19 @@ function validVerification({ enabled = false, tag = TAG } = {}) {
       publicBrowserKeyAllowsGenerativeLanguage: false,
       obsoleteGeminiKeyHasRecentConsumers: false,
       spotChecks: {
-        calorieReferencePassed: enabled,
-        latencyCompared: enabled,
-        localhostDebugTokenPassed: enabled,
-        productionHostsPassed: enabled ? PRODUCTION_HOSTS : [],
-        completedAt: enabled ? "2026-08-23T10:00:00.000Z" : null,
+        calorieReferencePassed: configured,
+        latencyCompared: configured,
+        localhostDebugTokenPassed: configured,
+        productionHostsPassed: configured ? PRODUCTION_HOSTS : [],
+        completedAt: configured ? "2026-08-23T10:00:00.000Z" : null,
       },
     },
     logging: {
-      exclusionEnabled: enabled,
-      exclusionFilter: enabled ? AI_LOG_EXCLUSION : null,
-      exclusionActivatedAt: enabled ? "2026-08-23T10:00:00.000Z" : null,
+      exclusionEnabled: configured,
+      exclusionFilter: configured ? AI_LOG_EXCLUSION : null,
+      exclusionActivatedAt: configured ? "2026-08-23T10:00:00.000Z" : null,
       defaultBucketRetentionDays: 30,
-      existingModelLogsExpireAt: enabled ? "2026-09-22T10:00:00.000Z" : null,
+      existingModelLogsExpireAt: configured ? "2026-09-22T10:00:00.000Z" : null,
       aggregateMetricsRemainAvailable: true,
       exportsConfigured: false,
     },
@@ -154,7 +160,7 @@ test("only the exact successful tag validation run matches", () => {
   }
 });
 
-test("AI-disabled rollout accepts the observed baseline and exact enablement targets", () => {
+test("preconfiguration AI-disabled rollout accepts its baseline and exact enablement targets", () => {
   assert.deepEqual(
     releaseVerificationProblems(validVerification(), {
       tag: TAG,
@@ -177,8 +183,60 @@ test("AI-disabled rollout accepts the observed baseline and exact enablement tar
     now: NOW,
   });
   assert.ok(problems.some((problem) => problem.includes("no Cloud Billing")));
-  assert.ok(problems.some((problem) => problem.includes("preconfiguration AI App Check")));
+  assert.ok(problems.some((problem) => problem.includes("AI App Check baseline")));
   assert.ok(problems.some((problem) => problem.includes("between 0 and 70")));
+});
+
+test("hardened AI-disabled rollout accepts current controls with the observed invalid-App-Check 401", () => {
+  const hardenedTag = "v3.8.1";
+  assert.deepEqual(
+    releaseVerificationProblems(validVerification({ hardened: true, tag: hardenedTag }), {
+      tag: hardenedTag,
+      commitSha: COMMIT,
+      model: MODEL,
+      indexHtml: indexHtml(false),
+      now: NOW,
+    }),
+    [],
+  );
+});
+
+test("hardened AI-disabled rollout rejects contradictory status claims and stale evidence", () => {
+  const hardenedTag = "v3.8.1";
+  const invalid = validVerification({ hardened: true, tag: hardenedTag });
+  invalid.aiLogic.invalidAppCheck403Verified = true;
+  invalid.aiLogic.invalidAppCheckObservedHttpStatus = 403;
+  invalid.aiLogic.spotChecks.completedAt = "2026-08-20T10:00:00.000Z";
+  invalid.appCheck.firestoreEnforced = false;
+  invalid.appCheck.bothHostsVerified = false;
+  invalid.aiLogic.authenticatedSuccessVerified = false;
+  invalid.aiLogic.generateContentRpmPerUserQuota.dimensionsInfos[0].limit = 100;
+  invalid.aiLogic.p4saEmail = "wrong@example.invalid";
+  invalid.aiLogic.telemetryMode = "FULL";
+  invalid.aiLogic.publicBrowserKeyAllowsGenerativeLanguage = true;
+  invalid.maxObservedQuotaPercent = 71;
+  invalid.logging.exclusionActivatedAt = "2026-08-20T10:00:00.000Z";
+  invalid.logging.existingModelLogsExpireAt = "2026-09-19T10:00:00.000Z";
+  const problems = releaseVerificationProblems(invalid, {
+    tag: hardenedTag,
+    commitSha: COMMIT,
+    model: MODEL,
+    indexHtml: indexHtml(false),
+    now: NOW,
+  });
+  for (const marker of [
+    "returning 401 without claiming 403",
+    "spot-check evidence",
+    "Firestore App Check",
+    "both production hosts",
+    "authenticated AI success",
+    "39 location buckets",
+    "P4SA",
+    "telemetry mode NONE",
+    "Generative Language",
+    "between 0 and 70",
+    "within 24 hours",
+  ]) assert.ok(problems.some((problem) => problem.includes(marker)), marker);
 });
 
 test("AI-enabled rollout requires and accepts the full hardened posture", () => {
@@ -203,6 +261,7 @@ test("AI-enabled rollout requires and accepts the full hardened posture", () => 
   });
   for (const marker of [
     "stage",
+    "configurationState",
     "App Check enforcement",
     "authenticated-users",
     "39 location buckets",
@@ -210,6 +269,23 @@ test("AI-enabled rollout requires and accepts the full hardened posture", () => 
     "log-body exclusion",
     "canonical ISO existingModelLogsExpireAt",
   ]) assert.ok(problems.some((problem) => problem.includes(marker)), marker);
+});
+
+test("AI-enabled rollout rejects missing or contradictory invalid-App-Check status", () => {
+  const enabledTag = "v3.7.1";
+  for (const status of [null, 401]) {
+    const record = validVerification({ enabled: true, tag: enabledTag });
+    record.aiLogic.invalidAppCheckObservedHttpStatus = status;
+    const problems = releaseVerificationProblems(record, {
+      tag: enabledTag,
+      commitSha: COMMIT,
+      model: MODEL,
+      indexHtml: indexHtml(true),
+      now: NOW,
+    });
+    assert.ok(problems.some((problem) =>
+      problem.includes("returning 403 and confirm 403 verification")), status);
+  }
 });
 
 test("enabled logging evidence requires current canonical activation and exact retention expiry", () => {
@@ -363,13 +439,13 @@ test("checked-in release verification template fails closed", () => {
     "firebasePlan",
     "Cloud Billing",
     "maxObservedQuotaPercent",
-    "39 preconfiguration location buckets",
+    "39 location buckets at exactly 6",
   ]) {
     assert.ok(problems.some((problem) => problem.includes(marker)), marker);
   }
 });
 
-test("a current record completed from the template can deploy the disabled rollout", () => {
+test("a current record completed from the template can deploy the hardened disabled rollout", () => {
   const record = JSON.parse(
     fs.readFileSync("docs/release-verification.example.json", "utf8"),
   );
@@ -381,8 +457,32 @@ test("a current record completed from the template can deploy the disabled rollo
     billingAccountLinked: false,
     maxObservedQuotaPercent: 65,
   });
+  Object.assign(record.appCheck, {
+    aiLogicEnforced: true,
+    bothHostsVerified: true,
+  });
+  Object.assign(record.aiLogic, {
+    authenticatedUsersRequired: true,
+    authenticatedSuccessVerified: true,
+    unauthenticated401Verified: true,
+    invalidAppCheck403Verified: false,
+    invalidAppCheckObservedHttpStatus: 401,
+  });
   record.aiLogic.generateContentRpmPerUserQuota.dimensionsInfos =
-    quotaInventory(100).dimensionsInfos;
+    quotaInventory(6).dimensionsInfos;
+  Object.assign(record.aiLogic.spotChecks, {
+    calorieReferencePassed: true,
+    latencyCompared: true,
+    localhostDebugTokenPassed: true,
+    productionHostsPassed: PRODUCTION_HOSTS,
+    completedAt: "2026-08-23T10:00:00.000Z",
+  });
+  Object.assign(record.logging, {
+    exclusionEnabled: true,
+    exclusionFilter: AI_LOG_EXCLUSION,
+    exclusionActivatedAt: "2026-08-23T10:00:00.000Z",
+    existingModelLogsExpireAt: "2026-09-22T10:00:00.000Z",
+  });
   assert.deepEqual(releaseVerificationProblems(record, {
     tag: TAG,
     commitSha: COMMIT,

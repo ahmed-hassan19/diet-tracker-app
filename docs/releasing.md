@@ -30,12 +30,15 @@ Copy the template to the ignored `local/` directory:
 cp docs/release-verification.example.json local/release-verification-vX.Y.Z.json
 ```
 
-The checked-in schema 3 template represents the AI-disabled rollout stage. It
-contains blocking identity, time, usage, and quota-inventory placeholders and
-is intentionally invalid until the current checks are completed. The release
-validator reads `window.AI_ENABLED` from the exact tagged `public/index.html`
-bytes and rejects a record whose stage disagrees; the record cannot choose its
-own validation path.
+The checked-in schema 4 template represents an AI-disabled client after the
+Firebase AI controls have been hardened, with an invalid-App-Check response of
+`401` still blocking enablement. It contains blocking identity, time, control,
+test, and quota-inventory placeholders and is intentionally invalid until the
+current checks are completed. The release validator reads `window.AI_ENABLED`
+from the exact tagged `public/index.html` bytes and rejects a record whose stage
+disagrees; the record cannot choose its own enabled or disabled validation path.
+Within a disabled stage, `configurationState` explicitly selects either the
+preconfiguration contract or the hardened-disabled contract.
 
 Check the current Firebase and Google Cloud consoles, then complete the local
 record with the release tag, its 40-character commit SHA, and the current time.
@@ -59,8 +62,10 @@ Every stage must confirm all of the following:
 - The enablement-target section keeps the exact model, hosts, App Check and Auth
   requirements, 6 RPM/user target, log filter, and required spot checks.
 
-For an AI-disabled tag such as 3.7.0, use `stage: "ai-disabled-rollout"` and
-record the observed preconfiguration baseline without claiming later success:
+For an AI-disabled tag whose controls have not yet been configured, use
+`stage: "ai-disabled-rollout"` and
+`configurationState: "disabled-preconfiguration"`. Record the observed
+preconfiguration baseline without claiming later success:
 
 - Firebase AI Logic App Check and authenticated-users mode are off; the Auth,
   `401`, `403`, both-host, and model spot-check fields remain false or empty.
@@ -90,13 +95,32 @@ registered debug token and from both production hosts. A session-only owner
 override may exercise the exact deployed 3.7.0 bridge while the shipped flag
 remains false; never store the debug token or override in the release record.
 
+If those controls have been configured but AI must remain disabled because an
+invalid App Check request returned `401` instead of the required `403`, keep
+`stage: "ai-disabled-rollout"` and use
+`configurationState: "disabled-hardened-invalid-app-check-401"`. This contract
+requires current evidence for Firestore and Firebase AI Logic App Check,
+authenticated-users mode, authenticated success, unauthenticated `401`, both
+production hosts, localhost debug-token access, calorie-reference and latency
+checks, the exact Model log exclusion, and its activation and 30-day expiry.
+It also requires the exact non-Bidi Generate Content quota metric and all 39
+location buckets at 6 RPM/user, plus the Spark-plan reserve, model availability,
+P4SA, key restrictions, and telemetry checks shared by every stage. Record
+`invalidAppCheckObservedHttpStatus: 401` and keep
+`invalidAppCheck403Verified: false`; a `403` success claim is contradictory and
+fails validation. The checked-in template uses this state but leaves completion
+evidence false, empty, or null until it is verified.
+
 For an AI-enabled tag such as 3.7.1, use `stage: "ai-enabled-rollout"`, replace
-the observed baseline with the hardened current posture, record all 39 exact
-location buckets at 6, the exact log exclusion and older-log expiry, and
-current completion times for every spot check. The deploy script rejects an
-enabled tagged client until all of that evidence is present. If any check
-fails, leave AI disabled; another model, a paid tier, and automatic billing are
-never fallbacks.
+the observed baseline with the hardened current posture, set
+`configurationState: "enabled"`, record all 39 exact location buckets at 6, the
+exact log exclusion and older-log expiry, and current completion times for every
+spot check. Enabled releases continue to require
+`invalidAppCheck403Verified: true` together with
+`invalidAppCheckObservedHttpStatus: 403`; a missing status or an observed `401`
+fails validation. The deploy script rejects an enabled tagged client until all
+of that evidence is present. If any check fails, leave AI disabled; another
+model, a paid tier, and automatic billing are never fallbacks.
 
 Record `exclusionActivatedAt` from the console in the canonical UTC form
 `YYYY-MM-DDTHH:mm:ss.sssZ`; it cannot be after the record's `verifiedAt` and

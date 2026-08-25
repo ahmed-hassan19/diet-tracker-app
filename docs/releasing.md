@@ -35,7 +35,7 @@ Copy the template to the ignored `local/` directory:
 cp docs/release-verification.example.json local/release-verification-vX.Y.Z.json
 ```
 
-The checked-in schema 4 template represents an AI-disabled client after the
+The checked-in schema 5 template represents an AI-disabled client after the
 Firebase AI controls have been hardened, with an invalid-App-Check response of
 `401` still blocking enablement. It contains blocking identity, time, control,
 test, and quota-inventory placeholders and is intentionally invalid until the
@@ -84,9 +84,11 @@ preconfiguration baseline without claiming later success:
   `aiEnablementTargets`; invented, missing, renamed, or newly reported regions
   fail validation and require a reviewed schema update. Never substitute the
   Bidi metric or collapse the applicable locations into a pseudo-scope.
-- The Model log exclusion and existing-log expiry remain unset in the observed
-  section, including `exclusionActivatedAt: null`. The exact exclusion belongs
-  in the planned-target section only.
+- The Model log exclusion resource and existing-log expiry remain unset in the
+  observed section: `exclusionDisabled`, `exclusionFilter`,
+  `exclusionCreatedAt`, `exclusionUpdatedAt`, `exclusionVerifiedAt`, and
+  `existingModelLogsExpireAt` are all `null`. The exact exclusion belongs in
+  the planned-target section only.
 
 This baseline record is sufficient to deploy 3.7.0. Do not configure the
 post-deployment AI controls before its compatible client bytes are live.
@@ -107,7 +109,8 @@ invalid App Check request returned `401` instead of the required `403`, keep
 requires current evidence for Firestore and Firebase AI Logic App Check,
 authenticated-users mode, authenticated success, unauthenticated `401`, both
 production hosts, localhost debug-token access, calorie-reference and latency
-checks, the exact Model log exclusion, and its activation and 30-day expiry.
+checks, the exact current Model log exclusion resource, and its derived 30-day
+older-log expiry.
 It also requires the exact non-Bidi Generate Content quota metric and all 39
 location buckets at 6 RPM/user, plus the Spark-plan reserve, model availability,
 P4SA, key restrictions, and telemetry checks shared by every stage. Record
@@ -119,7 +122,8 @@ evidence false, empty, or null until it is verified.
 For an AI-enabled tag such as 3.7.1, use `stage: "ai-enabled-rollout"`, replace
 the observed baseline with the hardened current posture, set
 `configurationState: "enabled"`, record all 39 exact location buckets at 6, the
-exact log exclusion and older-log expiry, and current completion times for every
+exact current log exclusion resource and older-log expiry, and current
+completion times for every
 spot check. Enabled releases continue to require
 `invalidAppCheck403Verified: true` together with
 `invalidAppCheckObservedHttpStatus: 403`; a missing status or an observed `401`
@@ -127,13 +131,21 @@ fails validation. The deploy script rejects an enabled tagged client until all
 of that evidence is present. If any check fails, leave AI disabled; another
 model, a paid tier, and automatic billing are never fallbacks.
 
-Record `exclusionActivatedAt` from the console in the canonical UTC form
-`YYYY-MM-DDTHH:mm:ss.sssZ`; it cannot be after the record's `verifiedAt` and
-must be within the preceding 24 hours for this rollout. Set
-`existingModelLogsExpireAt` to exactly 30 days after that activation time. This
+Read the current Cloud Logging
+[`LogExclusion` resource](https://docs.cloud.google.com/logging/docs/reference/v2/rest/v2/exclusions)
+and record its exact `filter` and `disabled` value together with its authoritative
+`createTime` and `updateTime`. Store those times as canonical UTC
+`exclusionCreatedAt` and `exclusionUpdatedAt`, add the canonical current time at
+which the resource was inspected as `exclusionVerifiedAt`, and require
+`created <= updated <= verified`. The exclusion must be enabled
+(`exclusionDisabled: false`), and verification must be no more than 24 hours old
+and no later than the release record's `verifiedAt`. Set
+`existingModelLogsExpireAt` to exactly 30 days after `exclusionUpdatedAt`. This
 is the conservative deadline for Model bodies ingested immediately before the
-exclusion under the 30-day `_Default` retention. Both timestamps must be
-canonical, and the expiry must still be in the future.
+latest exclusion configuration under the `_Default` retention. The deadline may
+already have passed; it remains useful historical evidence. If the resource is
+edited, advance the recorded update time and derived expiry. Missing,
+noncanonical, future-dated, stale, or inconsistent evidence fails validation.
 
 App Check and authenticated-users mode are console actions, never repository
 claims. Preserve the compatible client-before-enforcement ordering, test

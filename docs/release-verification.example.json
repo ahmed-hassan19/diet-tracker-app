@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 4,
+  "schemaVersion": 5,
   "stage": "ai-disabled-rollout",
   "configurationState": "disabled-hardened-invalid-app-check-401",
   "projectId": "diet-tracker-372ca",
@@ -55,9 +55,11 @@
     }
   },
   "logging": {
-    "exclusionEnabled": false,
+    "exclusionDisabled": null,
     "exclusionFilter": null,
-    "exclusionActivatedAt": null,
+    "exclusionCreatedAt": null,
+    "exclusionUpdatedAt": null,
+    "exclusionVerifiedAt": null,
     "defaultBucketRetentionDays": 30,
     "existingModelLogsExpireAt": null,
     "aggregateMetricsRemainAvailable": true,

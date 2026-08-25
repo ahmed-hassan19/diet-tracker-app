@@ -261,7 +261,7 @@ export function releaseVerificationProblems(
   add(!!record && typeof record === "object" && !Array.isArray(record),
     "release verification must be a JSON object");
   if (problems.length) return problems;
-  add(record.schemaVersion === 4, "release verification schemaVersion must be 4");
+  add(record.schemaVersion === 5, "release verification schemaVersion must be 5");
   add(record.projectId === PROJECT_ID,
     `release verification projectId must be ${PROJECT_ID}`);
   add(record.tag === tag, `release verification tag must be ${tag}`);
@@ -336,31 +336,62 @@ export function releaseVerificationProblems(
     `${label} must include current localhost, both-host, calorie-reference, and latency spot-check evidence`);
   };
   const validateHardenedLogging = (label) => {
-    add(record.logging?.exclusionEnabled === true &&
+    add(record.logging?.exclusionDisabled === false &&
       record.logging?.exclusionFilter === AI_LOG_EXCLUSION,
-    `${label} must confirm the exact AI Model log-body exclusion`);
-    const activatedValue = record.logging?.exclusionActivatedAt;
+    `${label} must confirm the enabled exact AI Model log-body exclusion resource`);
+    const createdValue = record.logging?.exclusionCreatedAt;
+    const updatedValue = record.logging?.exclusionUpdatedAt;
+    const exclusionVerifiedValue = record.logging?.exclusionVerifiedAt;
     const expiryValue = record.logging?.existingModelLogsExpireAt;
-    const activationCanonical = canonicalIsoTimestamp(activatedValue);
+    const createdCanonical = canonicalIsoTimestamp(createdValue);
+    const updatedCanonical = canonicalIsoTimestamp(updatedValue);
+    const exclusionVerifiedCanonical = canonicalIsoTimestamp(exclusionVerifiedValue);
     const expiryCanonical = canonicalIsoTimestamp(expiryValue);
-    const activatedAt = activationCanonical ? Date.parse(activatedValue) : Number.NaN;
+    const createdAt = createdCanonical ? Date.parse(createdValue) : Number.NaN;
+    const updatedAt = updatedCanonical ? Date.parse(updatedValue) : Number.NaN;
+    const exclusionVerifiedAt = exclusionVerifiedCanonical ?
+      Date.parse(exclusionVerifiedValue) : Number.NaN;
     const expiryAt = expiryCanonical ? Date.parse(expiryValue) : Number.NaN;
-    add(activationCanonical,
-      `${label} must record canonical ISO exclusionActivatedAt evidence`);
-    if (activationCanonical && Number.isFinite(verifiedAt)) {
-      add(activatedAt <= verifiedAt,
-        "AI log exclusionActivatedAt cannot be after release verifiedAt");
-      add(verifiedAt - activatedAt >= 0 &&
-        verifiedAt - activatedAt <= VERIFICATION_MAX_AGE_MS,
-      "AI log exclusionActivatedAt must be within 24 hours of verifiedAt for this rollout");
+    add(createdCanonical,
+      `${label} must record canonical ISO exclusionCreatedAt evidence`);
+    add(updatedCanonical,
+      `${label} must record canonical ISO exclusionUpdatedAt evidence`);
+    add(exclusionVerifiedCanonical,
+      `${label} must record canonical ISO exclusionVerifiedAt evidence`);
+    if (createdCanonical && updatedCanonical) {
+      add(createdAt <= updatedAt,
+        "AI log exclusion createTime cannot be after updateTime");
+    }
+    if (updatedCanonical && exclusionVerifiedCanonical) {
+      add(updatedAt <= exclusionVerifiedAt,
+        "AI log exclusion updateTime cannot be after exclusionVerifiedAt");
+    }
+    if (exclusionVerifiedCanonical && Number.isFinite(verifiedAt)) {
+      add(exclusionVerifiedAt <= verifiedAt,
+        "AI log exclusionVerifiedAt cannot be after release verifiedAt");
+      add(verifiedAt - exclusionVerifiedAt >= 0 &&
+        verifiedAt - exclusionVerifiedAt <= VERIFICATION_MAX_AGE_MS,
+      "AI log exclusionVerifiedAt must be within 24 hours of release verifiedAt");
+    }
+    if (createdCanonical) {
+      add(createdAt <= now,
+        "AI log exclusion createTime cannot be in the future");
+    }
+    if (updatedCanonical) {
+      add(updatedAt <= now,
+        "AI log exclusion updateTime cannot be in the future");
+    }
+    if (exclusionVerifiedCanonical) {
+      add(exclusionVerifiedAt <= now,
+        "AI log exclusionVerifiedAt cannot be in the future");
+      add(now - exclusionVerifiedAt <= VERIFICATION_MAX_AGE_MS,
+        "AI log exclusion resource verification is older than 24 hours");
     }
     add(expiryCanonical,
       `${label} must record canonical ISO existingModelLogsExpireAt evidence`);
-    if (activationCanonical && expiryCanonical) {
-      add(expiryAt === activatedAt + AI_LOG_RETENTION_MS,
-        "existingModelLogsExpireAt must equal exclusionActivatedAt plus the 30-day _Default retention");
-      add(expiryAt > now && (!Number.isFinite(verifiedAt) || expiryAt > verifiedAt),
-        "existingModelLogsExpireAt must still be in the future");
+    if (updatedCanonical && expiryCanonical) {
+      add(expiryAt === updatedAt + AI_LOG_RETENTION_MS,
+        "existingModelLogsExpireAt must equal exclusionUpdatedAt plus the 30-day _Default retention");
     }
   };
   if (clientAiEnabled === false) {
@@ -385,11 +416,13 @@ export function releaseVerificationProblems(
         Array.isArray(spot?.productionHostsPassed) && spot.productionHostsPassed.length === 0 &&
         spot?.completedAt === null,
       "Preconfiguration AI-disabled rollout must not claim post-deployment AI spot-check evidence");
-      add(record.logging?.exclusionEnabled === false &&
+      add(record.logging?.exclusionDisabled === null &&
         record.logging?.exclusionFilter === null &&
-        record.logging?.exclusionActivatedAt === null &&
+        record.logging?.exclusionCreatedAt === null &&
+        record.logging?.exclusionUpdatedAt === null &&
+        record.logging?.exclusionVerifiedAt === null &&
         record.logging?.existingModelLogsExpireAt === null,
-      "Preconfiguration AI-disabled rollout must record the logging baseline without activation or expiry claims");
+      "Preconfiguration AI-disabled rollout must record the logging baseline without exclusion-resource or expiry claims");
     }
     if (disabledState === AI_CONFIGURATION_STATES.disabledHardened401) {
       add(record.appCheck?.aiLogicEnforced === true &&

@@ -52,7 +52,7 @@ function quotaInventory(limit) {
 function validVerification({ enabled = false, hardened = false, tag = TAG } = {}) {
   const configured = enabled || hardened;
   return {
-    schemaVersion: 4,
+    schemaVersion: 5,
     stage: enabled ? AI_ROLLOUT_STAGES.enabled : AI_ROLLOUT_STAGES.disabled,
     configurationState: enabled ? AI_CONFIGURATION_STATES.enabled :
       hardened ? AI_CONFIGURATION_STATES.disabledHardened401 :
@@ -103,11 +103,13 @@ function validVerification({ enabled = false, hardened = false, tag = TAG } = {}
       },
     },
     logging: {
-      exclusionEnabled: configured,
+      exclusionDisabled: configured ? false : null,
       exclusionFilter: configured ? AI_LOG_EXCLUSION : null,
-      exclusionActivatedAt: configured ? "2026-08-23T10:00:00.000Z" : null,
+      exclusionCreatedAt: configured ? "2025-01-01T00:00:00.000Z" : null,
+      exclusionUpdatedAt: configured ? "2025-02-01T00:00:00.000Z" : null,
+      exclusionVerifiedAt: configured ? "2026-08-23T10:00:00.000Z" : null,
       defaultBucketRetentionDays: 30,
-      existingModelLogsExpireAt: configured ? "2026-09-22T10:00:00.000Z" : null,
+      existingModelLogsExpireAt: configured ? "2025-03-03T00:00:00.000Z" : null,
       aggregateMetricsRemainAvailable: true,
       exportsConfigured: false,
     },
@@ -215,8 +217,7 @@ test("hardened AI-disabled rollout rejects contradictory status claims and stale
   invalid.aiLogic.telemetryMode = "FULL";
   invalid.aiLogic.publicBrowserKeyAllowsGenerativeLanguage = true;
   invalid.maxObservedQuotaPercent = 71;
-  invalid.logging.exclusionActivatedAt = "2026-08-20T10:00:00.000Z";
-  invalid.logging.existingModelLogsExpireAt = "2026-09-19T10:00:00.000Z";
+  invalid.logging.exclusionVerifiedAt = "2026-08-20T10:00:00.000Z";
   const problems = releaseVerificationProblems(invalid, {
     tag: hardenedTag,
     commitSha: COMMIT,
@@ -288,7 +289,7 @@ test("AI-enabled rollout rejects missing or contradictory invalid-App-Check stat
   }
 });
 
-test("enabled logging evidence requires current canonical activation and exact retention expiry", () => {
+test("enabled logging evidence requires the current authoritative exclusion resource", () => {
   const enabledTag = "v3.7.1";
   const problemsFor = (mutate) => {
     const record = validVerification({ enabled: true, tag: enabledTag });
@@ -301,18 +302,29 @@ test("enabled logging evidence requires current canonical activation and exact r
       now: NOW,
     });
   };
-  const old = problemsFor((logging) => {
-    logging.exclusionActivatedAt = "1970-01-01T00:00:00.000Z";
-    logging.existingModelLogsExpireAt = "1970-01-31T00:00:00.000Z";
+  const staleVerification = problemsFor((logging) => {
+    logging.exclusionVerifiedAt = "2026-08-20T10:00:00.000Z";
   });
-  assert.ok(old.some((problem) => problem.includes("within 24 hours")));
-  assert.ok(old.some((problem) => problem.includes("still be in the future")));
+  assert.ok(staleVerification.some((problem) => problem.includes("within 24 hours")));
+  assert.ok(staleVerification.some((problem) => problem.includes("older than 24 hours")));
 
-  const noncanonicalActivation = problemsFor((logging) => {
-    logging.exclusionActivatedAt = "2026-08-23 10:00:00Z";
+  const noncanonicalCreated = problemsFor((logging) => {
+    logging.exclusionCreatedAt = "2025-01-01 00:00:00Z";
   });
-  assert.ok(noncanonicalActivation.some((problem) =>
-    problem.includes("canonical ISO exclusionActivatedAt")));
+  assert.ok(noncanonicalCreated.some((problem) =>
+    problem.includes("canonical ISO exclusionCreatedAt")));
+
+  const noncanonicalUpdated = problemsFor((logging) => {
+    logging.exclusionUpdatedAt = "2025-02-01T00:00:00Z";
+  });
+  assert.ok(noncanonicalUpdated.some((problem) =>
+    problem.includes("canonical ISO exclusionUpdatedAt")));
+
+  const noncanonicalVerified = problemsFor((logging) => {
+    logging.exclusionVerifiedAt = "2026-08-23T10:00:00Z";
+  });
+  assert.ok(noncanonicalVerified.some((problem) =>
+    problem.includes("canonical ISO exclusionVerifiedAt")));
 
   const noncanonicalExpiry = problemsFor((logging) => {
     logging.existingModelLogsExpireAt = "2026-09-22T10:00:00Z";
@@ -321,13 +333,35 @@ test("enabled logging evidence requires current canonical activation and exact r
     problem.includes("canonical ISO existingModelLogsExpireAt")));
 
   const future = problemsFor((logging) => {
-    logging.exclusionActivatedAt = "2026-08-23T11:30:00.000Z";
-    logging.existingModelLogsExpireAt = "2026-09-22T11:30:00.000Z";
+    logging.exclusionCreatedAt = "2026-08-23T11:30:00.000Z";
+    logging.exclusionUpdatedAt = "2026-08-23T11:31:00.000Z";
+    logging.exclusionVerifiedAt = "2026-08-23T11:32:00.000Z";
+    logging.existingModelLogsExpireAt = "2026-09-22T11:31:00.000Z";
   });
   assert.ok(future.some((problem) => problem.includes("cannot be after")));
 
+  const futureDated = problemsFor((logging) => {
+    logging.exclusionCreatedAt = "2026-08-23T12:01:00.000Z";
+    logging.exclusionUpdatedAt = "2026-08-23T12:02:00.000Z";
+    logging.exclusionVerifiedAt = "2026-08-23T12:03:00.000Z";
+    logging.existingModelLogsExpireAt = "2026-09-22T12:02:00.000Z";
+  });
+  assert.ok(futureDated.some((problem) => problem.includes("in the future")));
+
+  const reversedCreation = problemsFor((logging) => {
+    logging.exclusionCreatedAt = "2025-02-02T00:00:00.000Z";
+  });
+  assert.ok(reversedCreation.some((problem) => problem.includes("createTime")));
+
+  const staleResourceSnapshot = problemsFor((logging) => {
+    logging.exclusionUpdatedAt = "2026-08-23T10:30:00.000Z";
+    logging.existingModelLogsExpireAt = "2025-03-03T00:00:00.000Z";
+  });
+  assert.ok(staleResourceSnapshot.some((problem) =>
+    problem.includes("plus the 30-day")));
+
   const inconsistent = problemsFor((logging) => {
-    logging.existingModelLogsExpireAt = "2026-09-22T09:59:59.999Z";
+    logging.existingModelLogsExpireAt = "2025-03-02T23:59:59.999Z";
   });
   assert.ok(inconsistent.some((problem) => problem.includes("plus the 30-day")));
 });
@@ -478,10 +512,12 @@ test("a current record completed from the template can deploy the hardened disab
     completedAt: "2026-08-23T10:00:00.000Z",
   });
   Object.assign(record.logging, {
-    exclusionEnabled: true,
+    exclusionDisabled: false,
     exclusionFilter: AI_LOG_EXCLUSION,
-    exclusionActivatedAt: "2026-08-23T10:00:00.000Z",
-    existingModelLogsExpireAt: "2026-09-22T10:00:00.000Z",
+    exclusionCreatedAt: "2025-01-01T00:00:00.000Z",
+    exclusionUpdatedAt: "2025-02-01T00:00:00.000Z",
+    exclusionVerifiedAt: "2026-08-23T10:00:00.000Z",
+    existingModelLogsExpireAt: "2025-03-03T00:00:00.000Z",
   });
   assert.deepEqual(releaseVerificationProblems(record, {
     tag: TAG,

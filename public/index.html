@@ -22,7 +22,8 @@
   body{background:var(--bg); color:var(--txt); font-family:"Segoe UI",Tahoma,Arial,sans-serif; min-height:100vh; padding-bottom:60px}
   .wrap{max-width:860px; margin:0 auto; padding:16px}
   header{text-align:center; padding:18px 0 6px}
-  header h1{font-size:26px; color:var(--teal)}
+  header h1{font-size:26px; color:var(--teal); display:inline-flex; align-items:center; gap:8px; direction:ltr}
+  .brand-icon{width:32px; height:32px; border-radius:7px; display:block; flex:none}
   header p{color:var(--muted); font-size:13px; margin-top:4px}
   .tabs{display:flex; gap:8px; justify-content:center; margin:16px 0; flex-wrap:wrap}
   .tabs button{background:var(--card); color:var(--muted); border:1px solid var(--line); border-radius:22px; padding:9px 22px; font-size:15px; cursor:pointer; font-family:inherit; transition:.15s}
@@ -70,6 +71,7 @@
     .summary{gap:8px; padding:8px 10px}
     .summary .v{font-size:15px}
     header h1{font-size:22px}
+    .brand-icon{width:28px; height:28px; border-radius:6px}
     .wrap{padding:10px}
   }
   .stat{background:var(--card2); border-radius:10px; padding:12px; text-align:center}
@@ -95,7 +97,7 @@
 
 <div class="wrap" id="app" style="display:none">
   <header>
-    <h1>🥗 Diet Tracker</h1>
+    <h1><img class="brand-icon" src="/icons/icon-180.png" width="32" height="32" alt=""><span>Diet Tracker</span></h1>
     <p>متابعة يومية</p>
     <div id="who" style="font-size:16px; font-weight:700; margin-top:8px"></div>
     <div class="row" style="justify-content:center; margin-top:6px">
@@ -198,7 +200,7 @@
 
 <div class="wrap" id="setup" style="display:none">
   <header>
-    <h1>🥗 Diet Tracker</h1>
+    <h1><img class="brand-icon" src="/icons/icon-180.png" width="32" height="32" alt=""><span>Diet Tracker</span></h1>
     <p id="su-sub">خطوة واحدة — دخّل بياناتك وهنحسبلك أهدافك</p>
     <div class="row" style="justify-content:center; margin-top:8px"><button class="chip" id="su-back" style="display:none" onclick="showApp()">⬅️ رجوع</button><button class="chip" onclick="logout()">خروج</button></div>
   </header>
@@ -249,7 +251,7 @@
 
 <div class="wrap" id="login" style="display:none">
   <header>
-    <h1>🥗 Diet Tracker</h1>
+    <h1><img class="brand-icon" src="/icons/icon-180.png" width="32" height="32" alt=""><span>Diet Tracker</span></h1>
     <p>متابعة يومية</p>
   </header>
   <div class="card" style="text-align:center">

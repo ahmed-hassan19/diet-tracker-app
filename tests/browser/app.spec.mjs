@@ -76,7 +76,7 @@ test("is RTL, responsive, and persists meal totals after reload", async ({
 });
 
 test("renders the runtime version and hosted-install resources", async ({ page, request }) => {
-  await expect(page.locator("#app-version")).toHaveText("v3.9.0");
+  await expect(page.locator("#app-version")).toHaveText("v3.9.1");
   const link = page.locator('link[rel="manifest"]');
   await expect(link).toHaveAttribute("href", "/manifest.webmanifest");
   const manifestResponse = await request.get("/manifest.webmanifest");
@@ -88,6 +88,16 @@ test("renders the runtime version and hosted-install resources", async ({ page, 
     expect(response.ok()).toBe(true);
     expect((await response.body()).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
   }
+  const headerLogos = page.locator("header .brand-icon");
+  await expect(headerLogos).toHaveCount(3);
+  await expect(headerLogos.first()).toBeVisible();
+  await expect(headerLogos.first()).toHaveAttribute("src", "/icons/icon-180.png");
+  const centerOffset = await page.locator("#app header h1").evaluate((heading) => {
+    const image = heading.querySelector("img").getBoundingClientRect();
+    const title = heading.querySelector("span").getBoundingClientRect();
+    return Math.abs(image.top + image.height / 2 - title.top - title.height / 2);
+  });
+  expect(centerOffset).toBeLessThanOrEqual(1);
   await page.locator("#install summary").click();
   await expect(page.locator("#install")).toContainText("فتح كتطبيق ويب");
   await expect(page.locator("#install")).toContainText("التشغيل من غير إنترنت مش مدعوم");

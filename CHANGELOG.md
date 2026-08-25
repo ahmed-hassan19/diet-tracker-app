@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [3.9.1] - 2026-08-25
+
+### Fixed
+
+- شعار العنوان بقى بيستخدم نفس أيقونة التطبيق اللي بتظهر على شاشة iPhone
+  الرئيسية بدل رمز مختلف.
+
 ## [3.9.0] - 2026-08-25
 
 ### Added

@@ -30,6 +30,12 @@ test("all icon files are exact deterministic PNG outputs with declared dimension
   }
 });
 
+test("every page header uses the same icon file as the iPhone Home Screen app", () => {
+  const headerLogos = html.match(/<h1><img class="brand-icon" src="\/icons\/icon-180\.png" width="32" height="32" alt=""><span>Diet Tracker<\/span><\/h1>/g) || [];
+  assert.equal(headerLogos.length, 3);
+  assert.doesNotMatch(html, /🥗 Diet Tracker/);
+});
+
 test("offline-first behavior stays explicitly unsupported", () => {
   const files = fs.readdirSync("public", { recursive: true }).map(String);
   const scripts = ["data.js", "calc.js", "state.js", "render.js", "sync.js"]

@@ -2,6 +2,8 @@ import fs from "node:fs";
 import vm from "node:vm";
 import { iconProblems } from "./generate-icons.mjs";
 import { versionContractProblems } from "./version-contract.mjs";
+import { securityHeaderProblems } from "./csp.mjs";
+import { runtimeResourceProblems } from "./runtime-resources.mjs";
 import {
   guardAiModule,
   guardDependencies,
@@ -79,6 +81,13 @@ if (!/<link rel="manifest" href="\/manifest\.webmanifest">/.test(html) ||
 }
 const publicNames = fs.readdirSync("public", { recursive: true }).map(String);
 const allClientText = html + sources.map((name) => fs.readFileSync(`public/${name}`, "utf8")).join("\n");
+const classicClientText = sources.map((name) => fs.readFileSync(`public/${name}`, "utf8")).join("\n");
+if (/\.innerHTML\b|\.outerHTML\b|insertAdjacentHTML\b|document\.write\b|<svg\b/i.test(classicClientText)) {
+  throw new Error("Classic scripts must build dynamic UI with DOM nodes, never HTML or SVG strings");
+}
+if (/\bon(?:click|change|input)\s*=/.test(classicClientText)) {
+  throw new Error("Classic scripts must attach dynamic handlers with addEventListener");
+}
 if (publicNames.some((name) => /(?:^|\/)s(?:ervice)?w(?:\.|$)|service-worker/i.test(name)) ||
     /navigator\.serviceWorker|serviceWorker\.register|registerServiceWorker/.test(allClientText)) {
   throw new Error("Offline-first launch is unsupported; service-worker files and registration are forbidden");
@@ -119,6 +128,7 @@ sparkProblems.push(
   ...guardFirestoreIndexes(JSON.parse(fs.readFileSync("firestore.indexes.json", "utf8"))),
   ...guardDependencies(JSON.parse(fs.readFileSync("package.json", "utf8"))),
 );
+sparkProblems.push(...securityHeaderProblems(), ...runtimeResourceProblems());
 for (const name of fs.readdirSync(".github/workflows")) {
   sparkProblems.push(...guardWorkflowText(fs.readFileSync(`.github/workflows/${name}`, "utf8")));
 }
@@ -128,4 +138,4 @@ if (sparkProblems.length) {
   );
 }
 
-console.log(`Validated ${sources.length} app scripts, ${foods.length} foods, install assets, version contract, and Firebase JSON.`);
+console.log(`Validated ${sources.length} app scripts, ${foods.length} foods, safe DOM sinks, CSP, runtime resources, install assets, version contract, and Firebase JSON.`);

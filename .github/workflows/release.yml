@@ -24,6 +24,12 @@ on:
       indexes_sha256:
         description: "indexes_sha256 from the local deployment manifest"
         required: true
+      runtime_resources_sha256:
+        description: "runtime_resources_sha256 from the local deployment manifest"
+        required: true
+      hosting_headers_sha256:
+        description: "hosting_headers_sha256 from the local deployment manifest"
+        required: true
       verification_sha256:
         description: "Hash of the local release verification record"
         required: true
@@ -71,10 +77,11 @@ jobs:
           java-version: "21"
       - run: npm ci
       - run: node scripts/version-contract.mjs --tag "$GITHUB_REF_NAME"
+      - run: node scripts/runtime-resources.mjs
       - run: npx playwright install --with-deps chromium
       - run: npm run check
       - run: npx firebase emulators:exec --project diet-tracker-372ca --only auth,firestore,hosting "npm run test:browser"
-      - name: Record tagged bundle, Rules, and index checksums
+      - name: Record tagged bundle, Rules, indexes, runtime resources, and Hosting-header checksums
         run: |
           node scripts/release-hashes.mjs > tagged-hashes.json
           node scripts/release-hashes.mjs --bundle-list > bundle.txt
@@ -139,11 +146,13 @@ jobs:
           test "$(jq -r .status <<<"$validation")" = completed &&
           test "$(jq -r .conclusion <<<"$validation")" = success || {
             echo "::error::run $VALIDATION_RUN_ID is not successful validation for $TAG/$EXPECTED_COMMIT"; exit 1; }
-      - name: Compare tagged bundle, Rules, and indexes with the deployment record
+      - name: Compare all tagged release hashes with the deployment record
         env:
           EXPECTED_BUNDLE: ${{ inputs.bundle_sha256 }}
           EXPECTED_RULESET: ${{ inputs.ruleset_sha256 }}
           EXPECTED_INDEXES: ${{ inputs.indexes_sha256 }}
+          EXPECTED_RUNTIME_RESOURCES: ${{ inputs.runtime_resources_sha256 }}
+          EXPECTED_HOSTING_HEADERS: ${{ inputs.hosting_headers_sha256 }}
         run: |
           node scripts/release-hashes.mjs --verify
       - name: Verify every public live byte on both hosts
@@ -168,6 +177,10 @@ jobs:
               check "$host/$path" "public/$file"
             done < <(node scripts/release-hashes.mjs --file-list0)
           done
+      - name: Verify pinned runtime resources and live Hosting headers
+        run: |
+          node scripts/runtime-resources.mjs
+          node scripts/verify-hosting-headers.mjs
       - name: Publish GitHub Release with the deployment summary
         env:
           GH_TOKEN: ${{ github.token }}
@@ -176,6 +189,8 @@ jobs:
           BUNDLE: ${{ inputs.bundle_sha256 }}
           RULESET: ${{ inputs.ruleset_sha256 }}
           INDEXES: ${{ inputs.indexes_sha256 }}
+          RUNTIME_RESOURCES: ${{ inputs.runtime_resources_sha256 }}
+          HOSTING_HEADERS: ${{ inputs.hosting_headers_sha256 }}
           VERIFICATION: ${{ inputs.verification_sha256 }}
           DEPLOYED_AT: ${{ inputs.deployed_at }}
           POST_DEPLOY_VERIFIED_AT: ${{ inputs.post_deploy_verified_at }}
@@ -191,11 +206,15 @@ jobs:
           indexes_short="${INDEXES:0:12}"
           bundle_short="${BUNDLE:0:12}"
           verification_short="${VERIFICATION:0:12}"
+          runtime_short="${RUNTIME_RESOURCES:0:12}"
+          headers_short="${HOSTING_HEADERS:0:12}"
           notes="Verified production deployment from ${COMMIT} at ${DEPLOYED_AT}.
           Deployed and byte-verified locally from the exact annotated tag with
           human Firebase OAuth (\`scripts/release-deploy.mjs\`); Firestore Rules
           source sha256 \`${rules_short}…\`; index specification sha256
-          \`${indexes_short}…\`; tagged bundle sha256 \`${bundle_short}…\`.
+          \`${indexes_short}…\`; tagged bundle sha256 \`${bundle_short}…\`;
+          runtime-resource manifest sha256 \`${runtime_short}…\`; Hosting-header
+          configuration sha256 \`${headers_short}…\`.
           Release verification sha256 \`${verification_short}…\`; Spark/no-billing
           and configuration were rechecked at ${POST_DEPLOY_VERIFIED_AT}."
           if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then

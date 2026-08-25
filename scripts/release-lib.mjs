@@ -164,10 +164,14 @@ export function taggedConfigHashes(root = ".") {
   const indexes = JSON.parse(
     fs.readFileSync(path.join(root, config.firestore.indexes), "utf8"),
   );
+  const runtimeResources = fs.readFileSync(path.join(root, "runtime-resources.json"));
+  const hostingHeaders = config.hosting.map((site) => ({ target: site.target, headers: site.headers }));
   return {
     rulesetSha256: sha256(rules),
     indexesSha256: sha256(canonicalIndexSpec(indexes)),
     bundleSha256: bundleDetails(path.join(root, "public")).hash,
+    runtimeResourcesSha256: sha256(runtimeResources),
+    hostingHeadersSha256: sha256(JSON.stringify(hostingHeaders)),
   };
 }
 

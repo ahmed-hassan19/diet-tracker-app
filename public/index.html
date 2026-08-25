@@ -19,7 +19,7 @@
     --orange:#fb923c; --red:#f87171; --green:#4ade80; --blue:#60a5fa;
   }
   *{box-sizing:border-box; margin:0; padding:0}
-  body{background:var(--bg); color:var(--txt); font-family:"Segoe UI",Tahoma,Arial,sans-serif; min-height:100vh; padding-top:env(safe-area-inset-top); padding-bottom:max(60px,env(safe-area-inset-bottom))}
+  body{background:var(--bg); color:var(--txt); font-family:"Segoe UI",Tahoma,Arial,sans-serif; min-height:100vh; padding-top:env(safe-area-inset-top); padding-right:env(safe-area-inset-right); padding-bottom:max(60px,env(safe-area-inset-bottom)); padding-left:env(safe-area-inset-left)}
   .wrap{max-width:860px; margin:0 auto; padding:16px}
   header{text-align:center; padding:18px 0 6px}
   header h1{font-size:26px; color:var(--teal); display:inline-flex; flex-direction:column; align-items:center; gap:5px; direction:ltr}
@@ -44,7 +44,7 @@
   .kp-mini{display:none}
   .opt .kp b{font-weight:800}
   @media(max-width:640px){ .kp-full{display:none} .kp-mini{display:inline} }
-  .summary{position:sticky; top:0; z-index:5; background:var(--card2); border:1px solid var(--teal-d); border-radius:12px; padding:10px 14px; display:flex; gap:14px; justify-content:space-around; flex-wrap:wrap; margin-bottom:14px}
+  .summary{position:sticky; top:env(safe-area-inset-top); z-index:5; background:var(--card2); border:1px solid var(--teal-d); border-radius:12px; padding:10px 14px; display:flex; gap:14px; justify-content:space-around; flex-wrap:wrap; margin-bottom:14px}
   .summary div{text-align:center}
   .summary .v{font-size:18px; font-weight:700; color:var(--teal)}
   .summary .l{font-size:11px; color:var(--muted)}

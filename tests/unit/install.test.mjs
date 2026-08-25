@@ -40,7 +40,10 @@ test("every page header uses the same icon file as the iPhone Home Screen app", 
 test("installed mode keeps content clear of iPhone display cutouts", () => {
   assert.match(html, /name="viewport" content="width=device-width, initial-scale=1\.0, viewport-fit=cover"/);
   assert.match(html, /padding-top:env\(safe-area-inset-top\)/);
+  assert.match(html, /padding-right:env\(safe-area-inset-right\)/);
   assert.match(html, /padding-bottom:max\(60px,env\(safe-area-inset-bottom\)\)/);
+  assert.match(html, /padding-left:env\(safe-area-inset-left\)/);
+  assert.match(html, /\.summary\{position:sticky; top:env\(safe-area-inset-top\)/);
 });
 
 test("offline-first behavior stays explicitly unsupported", () => {

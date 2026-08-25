@@ -104,6 +104,15 @@ test("renders the runtime version and hosted-install resources", async ({ page, 
   expect(lockup.verticalGap).toBeGreaterThanOrEqual(4);
   expect(lockup.verticalGap).toBeLessThanOrEqual(6);
   expect(await page.evaluate(() => CSS.supports("padding-top", "env(safe-area-inset-top)"))).toBe(true);
+  const stickySummary = await page.locator("#sumbar").evaluate(async (summary) => {
+    window.scrollTo(0, summary.offsetTop + 120);
+    await new Promise(requestAnimationFrame);
+    return {
+      expectedTop: Number.parseFloat(getComputedStyle(summary).top),
+      renderedTop: summary.getBoundingClientRect().top,
+    };
+  });
+  expect(Math.abs(stickySummary.renderedTop - stickySummary.expectedTop)).toBeLessThanOrEqual(1);
   await page.locator("#install summary").click();
   await expect(page.locator("#install")).toContainText("فتح كتطبيق ويب");
   await expect(page.locator("#install")).toContainText("التشغيل من غير إنترنت مش مدعوم");

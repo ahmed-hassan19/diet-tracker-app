@@ -14,6 +14,13 @@ keep manual entry working, and update the fail-closed release-verification
 contract. Never commit App Check debug tokens, console evidence, completed local
 verification records, prompt/response logs, or API credentials.
 
+State or rendering changes must preserve the normalized mutation/import/remote
+boundary, IndexedDB write ordering and verified legacy migration, and literal
+DOM rendering. New dynamic UI uses DOM nodes and listeners; it must not add HTML
+sinks, generated inline handlers, or unreviewed CSP hashes. Changes to Firebase
+SDK imports require the runtime-resource manifest, CSP, release hashes, and live
+resource verification to move together.
+
 ## Publishing a release
 
 Follow [the release guide](../docs/releasing.md). Production deploys are

@@ -13,8 +13,8 @@ document per authenticated user with Firebase.
 - `public/index.html`: markup, styles, and the single modular Firebase bridge.
 - `public/data.js`: meal, extra, and calorie-reference nutrition tables.
 - `public/calc.js`: pure calorie/protein/macro functions — no state access.
-- `public/state.js`: the `S` state object, localStorage, import/export, and the
-  accessors that read state (`T`, `totals`, `project`).
+- `public/state.js`: state normalization, IndexedDB persistence, import/export,
+  and the accessors that read state (`T`, `totals`, `project`).
 - `public/render.js`: tab renderers and UI handlers.
 - `public/sync.js`: classic-script Auth/Firestore sync through the narrow bridge
   and the `initSync()` entry point. Loads last.
@@ -22,6 +22,10 @@ document per authenticated user with Firebase.
 - `firebase.json`: fixed Auth, Firestore, and Hosting emulator ports plus the
   `main` and `nice` production Hosting targets.
 - `scripts/validate.mjs`: script-tag, nutrition, and configuration assertions.
+- `runtime-resources.json`: exact URL, byte length, and SHA-256 pins for the five
+  Firebase browser SDK resources.
+- `scripts/csp.mjs`: derives and validates the inline-module and static-handler
+  CSP hashes shared by both Hosting targets.
 - `scripts/version-contract.mjs`: shared package, runtime, changelog, and release-tag version check.
 - `scripts/generate-icons.mjs`: deterministic hosted-install icon generator and byte checker.
 - `tests/`: unit, emulator-backed rules, and Playwright browser coverage.
@@ -37,7 +41,18 @@ Data model:
   updated   client timestamp
 ```
 
-The same state is cached under `diet_tracker_v1_{uid}` in localStorage.
+The same canonical state is cached in IndexedDB database `diet_tracker`, store
+`states`, keyed by authenticated UID. An older `diet_tracker_v1_{uid}`
+localStorage value is removed only after it has normalized, migrated, been read
+back, and matched byte-for-byte. The remaining localStorage marker contains no
+health data.
+
+Every local mutation, import, test assignment, and remote snapshot passes the
+same current-schema boundary before it can replace live state. Imports are
+limited to 10 MiB raw and 600 KiB canonical cloud shape; a warning begins at
+500 KiB. The boundary also caps day, custom-food, calorie-reference, note, and
+field sizes. Invalid cloud documents are quarantined so they cannot render or
+be overwritten, while raw recovery export and delete remain available.
 
 ## Setup
 
@@ -62,8 +77,9 @@ npm run check
 npx firebase-tools emulators:exec --only auth,firestore,hosting "npm run test:browser"
 ```
 
-Manually verify login/logout, profile setup, daily persistence, every available tab,
-import/export, delete-all, mobile layouts, and a clean browser console.
+Manually verify login/logout, profile setup, IndexedDB persistence and legacy
+migration, every available tab, import rollback/export, malformed-cloud
+recovery, delete-all, mobile layouts, and a clean browser console.
 
 ## Install on iPhone
 
@@ -74,7 +90,8 @@ WebKit [confirms that an iOS Home Screen web app does not require a service
 worker](https://webkit.org/blog/17333/webkit-features-in-safari-26-0/).
 This app intentionally has no service worker and does not support an
 offline-first launch; an internet connection is required. HTML and JavaScript
-keep their production `no-store` headers.
+keep their production `no-store` headers. Both hosts also ship the same strict
+CSP, frame denial, referrer, permissions, and MIME-sniffing headers.
 
 ## Deployment
 
@@ -94,8 +111,10 @@ P4SA/API-key posture. It derives the AI rollout stage from the tagged client:
 disabled releases record the current preconfiguration baseline and exact
 targets, while enabled releases additionally require the completed Auth, App
 Check, all-location quota, logging, and model spot-check evidence. It verifies
-tagged Rules, indexes, and every deployed file before printing the GitHub
-Release publication command. Do not create or upload service-account keys.
+tagged Rules, indexes, runtime-resource manifest, complete Hosting header
+configuration, every pinned Firebase SDK response, and every deployed file
+before printing the GitHub Release publication command. Do not create or upload
+service-account keys.
 
 ## Privacy and security
 

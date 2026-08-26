@@ -75,6 +75,10 @@ function createHarness(loadState = () => ({ settings: { ht: 170, name: "" }, day
     load: loadState,
     showTab() {},
     setDay() {},
+    healthNoticeAccepted: () => true,
+    showHealthGate() {},
+    clearHealthSelections() {},
+    renderFormulaReview() {},
     today: () => "2026-08-24",
     renderDay() {},
     renderProg() {},
@@ -85,6 +89,9 @@ function createHarness(loadState = () => ({ settings: { ht: 170, name: "" }, day
     validTargets() {},
     macroMismatch() {},
     totals() {},
+    project() {},
+    isoWeekYear() {},
+    formulaReviewDetails() {},
   };
   vm.createContext(context);
   vm.runInContext(fs.readFileSync("public/sync.js", "utf8"), context);

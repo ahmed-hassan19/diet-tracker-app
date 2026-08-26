@@ -1,0 +1,2651 @@
+{
+  "schemaVersion": 1,
+  "inventoryCount": 75,
+  "reviewedAt": "2026-08-26",
+  "method": "FNDDS nutrient values are scaled by exact gram bases; exact manufacturer labels take priority for branded items; the Egyptian table catalog cross-checks local identities. Three legacy-only saved options remain frozen.",
+  "sources": {
+    "fndds-download": {
+      "name": "USDA FoodData Central — FNDDS 2021–2023 dataset",
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "role": "downloaded nutrient and household-portion dataset"
+    },
+    "egypt-fct-1996": {
+      "name": "Food Composition Tables for Egypt, Nutrition Institute A.R.E. (1996)",
+      "url": "https://www.fao.org/infoods/infoods/tables-and-databases/egypt/en/",
+      "role": "local-food identity and preparation cross-check"
+    },
+    "nescafe-2in1": {
+      "name": "NESCAFÉ 2-in-1 manufacturer label",
+      "url": "https://www.nescafe.com/coffees/nescafe-2in1",
+      "role": "exact shipped branded sachet"
+    },
+    "muscletech-nitrotech": {
+      "name": "MuscleTech Nitro-Tech manufacturer label",
+      "url": "https://international.muscletech.com/products/all/protein/nitro-tech/",
+      "role": "legacy branded serving"
+    },
+    "fdc-2707154": {
+      "name": "USDA FNDDS 2707154 — Egg, whole, boiled or poached",
+      "fdcId": 2707154,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 143,
+        "p": 12.4,
+        "f": 9.96,
+        "c": 0.96
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2707710": {
+      "name": "USDA FNDDS 2707710 — Bread, whole wheat, toasted",
+      "fdcId": 2707710,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 279,
+        "p": 13.52,
+        "f": 3.9,
+        "c": 47.36
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2709784": {
+      "name": "USDA FNDDS 2709784 — Cucumber, raw",
+      "fdcId": 2709784,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 16,
+        "p": 0.62,
+        "f": 0.18,
+        "c": 2.95
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2709719": {
+      "name": "USDA FNDDS 2709719 — Tomatoes, raw",
+      "fdcId": 2709719,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 20,
+        "p": 0.82,
+        "f": 0.31,
+        "c": 4.04
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2705756": {
+      "name": "USDA FNDDS 2705756 — Cheese, cottage, low fat",
+      "fdcId": 2705756,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 82,
+        "p": 11,
+        "f": 2.3,
+        "c": 4.31
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2710186": {
+      "name": "USDA FNDDS 2710186 — Olive oil",
+      "fdcId": 2710186,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 900,
+        "p": 0,
+        "f": 100,
+        "c": 0
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2708489": {
+      "name": "USDA FNDDS 2708489 — Oats, raw",
+      "fdcId": 2708489,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 379,
+        "p": 13.15,
+        "f": 6.52,
+        "c": 67.7
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2705387": {
+      "name": "USDA FNDDS 2705387 — Milk, low fat (1%)",
+      "fdcId": 2705387,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 43,
+        "p": 3.38,
+        "f": 0.95,
+        "c": 5.18
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2710731": {
+      "name": "USDA FNDDS 2710731 — Nutritional powder mix (EAS Whey Protein Powder)",
+      "fdcId": 2710731,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 385,
+        "p": 66.67,
+        "f": 5.13,
+        "c": 17.95
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2707367": {
+      "name": "USDA FNDDS 2707367 — Fava beans, cooked",
+      "fdcId": 2707367,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 161,
+        "p": 7.06,
+        "f": 6.88,
+        "c": 18.26
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2705423": {
+      "name": "USDA FNDDS 2705423 — Yogurt, Greek, low fat milk, plain",
+      "fdcId": 2705423,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 67,
+        "p": 10.2,
+        "f": 1.36,
+        "c": 3.6
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2709215": {
+      "name": "USDA FNDDS 2709215 — Apple, raw",
+      "fdcId": 2709215,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 61,
+        "p": 0.17,
+        "f": 0.15,
+        "c": 14.8
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2707489": {
+      "name": "USDA FNDDS 2707489 — Almonds, unsalted",
+      "fdcId": 2707489,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 607,
+        "p": 20.33,
+        "f": 53.96,
+        "c": 20.38
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2705419": {
+      "name": "USDA FNDDS 2705419 — Yogurt, low fat milk, plain",
+      "fdcId": 2705419,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 63,
+        "p": 5.25,
+        "f": 1.55,
+        "c": 7.04
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2707519": {
+      "name": "USDA FNDDS 2707519 — Peanuts, dry roasted, unsalted",
+      "fdcId": 2707519,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 587,
+        "p": 24.35,
+        "f": 49.66,
+        "c": 21.26
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2705956": {
+      "name": "USDA FNDDS 2705956 — Chicken breast, baked, broiled, or roasted, skin not eaten, from raw",
+      "fdcId": 2705956,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 161,
+        "p": 30.22,
+        "f": 3.52,
+        "c": 0
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2708408": {
+      "name": "USDA FNDDS 2708408 — Rice, white, cooked, no added fat",
+      "fdcId": 2708408,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 129,
+        "p": 2.67,
+        "f": 0.28,
+        "c": 27.99
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2706325": {
+      "name": "USDA FNDDS 2706325 — Fish, white, mixed species, baked or broiled",
+      "fdcId": 2706325,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 143,
+        "p": 21.96,
+        "f": 5.85,
+        "c": 0.01
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2709388": {
+      "name": "USDA FNDDS 2709388 — Potato, boiled, from fresh, peel not eaten, no added fat",
+      "fdcId": 2709388,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 93,
+        "p": 1.95,
+        "f": 0.1,
+        "c": 21.46
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2705834": {
+      "name": "USDA FNDDS 2705834 — Beef, steak, sirloin, lean only eaten",
+      "fdcId": 2705834,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 216,
+        "p": 28.05,
+        "f": 11.32,
+        "c": 0
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2710018": {
+      "name": "USDA FNDDS 2710018 — Classic mixed vegetables, frozen, cooked with oil",
+      "fdcId": 2710018,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 89,
+        "p": 2.77,
+        "f": 3.05,
+        "c": 12.67
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2710375": {
+      "name": "USDA FNDDS 2710375 — Coffee, brewed",
+      "fdcId": 2710375,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 1,
+        "p": 0.12,
+        "f": 0.02,
+        "c": 0
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2709224": {
+      "name": "USDA FNDDS 2709224 — Banana, raw",
+      "fdcId": 2709224,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 97,
+        "p": 0.74,
+        "f": 0.28,
+        "c": 22.71
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2706311": {
+      "name": "USDA FNDDS 2706311 — Fish, tuna, canned",
+      "fdcId": 2706311,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 85,
+        "p": 19,
+        "f": 0.94,
+        "c": 0.08
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2710168": {
+      "name": "USDA FNDDS 2710168 — Ghee, clarified butter",
+      "fdcId": 2710168,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 876,
+        "p": 0.28,
+        "f": 99.48,
+        "c": 0
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2710155": {
+      "name": "USDA FNDDS 2710155 — Butter, stick",
+      "fdcId": 2710155,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 743,
+        "p": 0.85,
+        "f": 82.2,
+        "c": 0.06
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2707587": {
+      "name": "USDA FNDDS 2707587 — Tahini",
+      "fdcId": 2707587,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 697,
+        "p": 19.71,
+        "f": 62.4,
+        "c": 14.18
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2707730": {
+      "name": "USDA FNDDS 2707730 — Bread, pita, whole wheat",
+      "fdcId": 2707730,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 262,
+        "p": 9.8,
+        "f": 1.71,
+        "c": 55.89
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2707654": {
+      "name": "USDA FNDDS 2707654 — Roll, white, soft",
+      "fdcId": 2707654,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 279,
+        "p": 9.77,
+        "f": 3.91,
+        "c": 50.12
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2708357": {
+      "name": "USDA FNDDS 2708357 — Pasta, cooked",
+      "fdcId": 2708357,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 157,
+        "p": 5.76,
+        "f": 0.92,
+        "c": 30.68
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2706029": {
+      "name": "USDA FNDDS 2706029 — Chicken thigh, baked, broiled, or roasted, skin eaten, from raw",
+      "fdcId": 2706029,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 231,
+        "p": 23.12,
+        "f": 14.62,
+        "c": 0
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2706153": {
+      "name": "USDA FNDDS 2706153 — Liver, beef",
+      "fdcId": 2706153,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 174,
+        "p": 26.31,
+        "f": 4.64,
+        "c": 5.12
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2707408": {
+      "name": "USDA FNDDS 2707408 — Falafel",
+      "fdcId": 2707408,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 514,
+        "p": 8.28,
+        "f": 41.19,
+        "c": 28.96
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2705714": {
+      "name": "USDA FNDDS 2705714 — Cheese, Feta",
+      "fdcId": 2705714,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 273,
+        "p": 19.71,
+        "f": 19.08,
+        "c": 5.58
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2705730": {
+      "name": "USDA FNDDS 2705730 — Cheese, Parmesan, hard",
+      "fdcId": 2705730,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 412,
+        "p": 29.87,
+        "f": 28.75,
+        "c": 8.36
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2709171": {
+      "name": "USDA FNDDS 2709171 — Orange, raw",
+      "fdcId": 2709171,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 50,
+        "p": 0.92,
+        "f": 0.14,
+        "c": 11.78
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2709203": {
+      "name": "USDA FNDDS 2709203 — Date",
+      "fdcId": 2709203,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 282,
+        "p": 2.45,
+        "f": 0.39,
+        "c": 75.03
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2710258": {
+      "name": "USDA FNDDS 2710258 — Sugar, white, granulated or lump",
+      "fdcId": 2710258,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 401,
+        "p": 0,
+        "f": 0.32,
+        "c": 99.6
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2710281": {
+      "name": "USDA FNDDS 2710281 — Honey",
+      "fdcId": 2710281,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 304,
+        "p": 0.3,
+        "f": 0,
+        "c": 82.4
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2707508": {
+      "name": "USDA FNDDS 2707508 — Mixed nuts, with peanuts, unsalted",
+      "fdcId": 2707508,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 615,
+        "p": 19.75,
+        "f": 54.25,
+        "c": 21.07
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2707425": {
+      "name": "USDA FNDDS 2707425 — Lentils, from dried, no added fat",
+      "fdcId": 2707425,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 115,
+        "p": 8.97,
+        "f": 0.38,
+        "c": 20.01
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2707416": {
+      "name": "USDA FNDDS 2707416 — Chickpeas, from dried, no added fat",
+      "fdcId": 2707416,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 163,
+        "p": 8.81,
+        "f": 2.58,
+        "c": 27.26
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2709951": {
+      "name": "USDA FNDDS 2709951 — Onions, cooked, fat added",
+      "fdcId": 2709951,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 73,
+        "p": 1.26,
+        "f": 3.11,
+        "c": 10.64
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2710247": {
+      "name": "USDA FNDDS 2710247 — Tomato sauce, for use with vegetables",
+      "fdcId": 2710247,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 104,
+        "p": 0.48,
+        "f": 6.15,
+        "c": 12.08
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2706621": {
+      "name": "USDA FNDDS 2706621 — Stuffed grape leaves with beef and rice",
+      "fdcId": 2706621,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 228,
+        "p": 8.15,
+        "f": 17.03,
+        "c": 11.3
+      },
+      "datasetSourceId": "fndds-download"
+    },
+    "fdc-2709641": {
+      "name": "USDA FNDDS 2709641 — Bitter melon, horseradish, jute, or radish leaves, cooked",
+      "fdcId": 2709641,
+      "url": "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip",
+      "basis": "per 100 g edible portion",
+      "nutrients": {
+        "k": 56,
+        "p": 3.49,
+        "f": 2.74,
+        "c": 6.47
+      },
+      "datasetSourceId": "fndds-download"
+    }
+  },
+  "entries": [
+    {
+      "id": "meals.b.0",
+      "title": "٣ بيضات + ٣ توست أسمر + خيار وطماطم",
+      "k": 527,
+      "p": 33,
+      "f": 19,
+      "c": 55,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "150 جم × Egg, whole, boiled or poached + 99 جم × Bread, whole wheat, toasted + 100 جم × Cucumber, raw + 100 جم × Tomatoes, raw",
+      "sourceIds": [
+        "fdc-2707154",
+        "fdc-2707710",
+        "fdc-2709784",
+        "fdc-2709719"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707154",
+          "amountG": 150
+        },
+        {
+          "sourceId": "fdc-2707710",
+          "amountG": 99
+        },
+        {
+          "sourceId": "fdc-2709784",
+          "amountG": 100
+        },
+        {
+          "sourceId": "fdc-2709719",
+          "amountG": 100
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 526.71/33.42/19.29/55.32؛ المعروض = 527/33/19/55.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.b.1",
+      "title": "٢٥٠ جم جبنة قريش + ٣ توست أسمر + ملعقة صغيرة زيت زيتون + خيار",
+      "k": 542,
+      "p": 42,
+      "f": 15,
+      "c": 61,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "250 جم × Cheese, cottage, low fat + 99 جم × Bread, whole wheat, toasted + 5 جم × Olive oil + 100 جم × Cucumber, raw",
+      "sourceIds": [
+        "fdc-2705756",
+        "fdc-2707710",
+        "fdc-2710186",
+        "fdc-2709784",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705756",
+          "amountG": 250
+        },
+        {
+          "sourceId": "fdc-2707710",
+          "amountG": 99
+        },
+        {
+          "sourceId": "fdc-2710186",
+          "amountG": 5
+        },
+        {
+          "sourceId": "fdc-2709784",
+          "amountG": 100
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 542.21/41.5/14.79/60.61؛ المعروض = 542/42/15/61.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.b.2",
+      "title": "٧٠ جم شوفان + ٣٠٠ مل لبن قليل الدسم + نص سكوب واي",
+      "k": 456,
+      "p": 30,
+      "f": 8,
+      "c": 66,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "70 جم × Oats, raw + 305 جم × Milk, low fat (1%) + 15.5 جم × Nutritional powder mix (EAS Whey Protein Powder)",
+      "sourceIds": [
+        "fdc-2708489",
+        "fdc-2705387",
+        "fdc-2710731"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2708489",
+          "amountG": 70
+        },
+        {
+          "sourceId": "fdc-2705387",
+          "amountG": 305
+        },
+        {
+          "sourceId": "fdc-2710731",
+          "amountG": 15.5
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 456.13/29.85/8.26/65.97؛ المعروض = 456/30/8/66.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.b.3",
+      "title": "٧ ملاعق فول + ٣ بيضات مسلوقة + ١ توست أسمر",
+      "k": 437,
+      "p": 29,
+      "f": 22,
+      "c": 32,
+      "preparation": "مسلوق من غير دهون مضافة إلا لو العنوان قال غير كده",
+      "servingBasis": "81 جم × Fava beans, cooked + 150 جم × Egg, whole, boiled or poached + 33 جم × Bread, whole wheat, toasted",
+      "sourceIds": [
+        "fdc-2707367",
+        "fdc-2707154",
+        "fdc-2707710",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707367",
+          "amountG": 81
+        },
+        {
+          "sourceId": "fdc-2707154",
+          "amountG": 150
+        },
+        {
+          "sourceId": "fdc-2707710",
+          "amountG": 33
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 436.98/28.78/21.8/31.86؛ المعروض = 437/29/22/32.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.bc.0",
+      "title": "نيسكافيه Coffee Break 2×1 (ظرف ١٢ جم) + سويتال",
+      "k": 55,
+      "p": 1,
+      "f": 3,
+      "c": 6,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "ظرف مصنع واحد 12 جم؛ المُحلي غير المغذي محسوب بصفر",
+      "sourceIds": [
+        "nescafe-2in1"
+      ],
+      "components": [],
+      "conversion": "قِيَم ملصق المصنع للحصة 12 جم: 55 سعر، 1 جم بروتين، 3 جم دهون، 6 جم كربوهيدرات.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.s.0",
+      "title": "زبادي يوناني عالي البروتين (١٧٠ جم) + تفاحة + ١٠ جم لوز",
+      "k": 297,
+      "p": 20,
+      "f": 8,
+      "c": 38,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "170 جم × Yogurt, Greek, low fat milk, plain + 200 جم × Apple, raw + 10 جم × Almonds, unsalted",
+      "sourceIds": [
+        "fdc-2705423",
+        "fdc-2709215",
+        "fdc-2707489"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705423",
+          "amountG": 170
+        },
+        {
+          "sourceId": "fdc-2709215",
+          "amountG": 200
+        },
+        {
+          "sourceId": "fdc-2707489",
+          "amountG": 10
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 296.6/19.71/8.01/37.76؛ المعروض = 297/20/8/38.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.s.1",
+      "title": "٢٠٠ جم زبادي قليل الدسم + ٢٠ جم لوز",
+      "k": 247,
+      "p": 15,
+      "f": 14,
+      "c": 18,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "200 جم × Yogurt, low fat milk, plain + 20 جم × Almonds, unsalted",
+      "sourceIds": [
+        "fdc-2705419",
+        "fdc-2707489"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705419",
+          "amountG": 200
+        },
+        {
+          "sourceId": "fdc-2707489",
+          "amountG": 20
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 247.4/14.57/13.89/18.16؛ المعروض = 247/15/14/18.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.s.2",
+      "title": "١٥٠ جم جبنة قريش + ١ توست أسمر + طماطم",
+      "k": 235,
+      "p": 22,
+      "f": 5,
+      "c": 26,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "150 جم × Cheese, cottage, low fat + 33 جم × Bread, whole wheat, toasted + 100 جم × Tomatoes, raw",
+      "sourceIds": [
+        "fdc-2705756",
+        "fdc-2707710",
+        "fdc-2709719",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705756",
+          "amountG": 150
+        },
+        {
+          "sourceId": "fdc-2707710",
+          "amountG": 33
+        },
+        {
+          "sourceId": "fdc-2709719",
+          "amountG": 100
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 235.07/21.78/5.05/26.13؛ المعروض = 235/22/5/26.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.s.3",
+      "title": "كوب لبن قليل الدسم (٢٥٠ مل) + ٢٥ جم فول سوداني",
+      "k": 256,
+      "p": 15,
+      "f": 15,
+      "c": 18,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "254 جم × Milk, low fat (1%) + 25 جم × Peanuts, dry roasted, unsalted",
+      "sourceIds": [
+        "fdc-2705387",
+        "fdc-2707519"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705387",
+          "amountG": 254
+        },
+        {
+          "sourceId": "fdc-2707519",
+          "amountG": 25
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 255.97/14.67/14.83/18.47؛ المعروض = 256/15/15/18.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.l.0",
+      "title": "٢٠٠ جم صدور فراخ مشوية + ٣٠٠ جم رز مطبوخ + سلطة + ١٠ جم زيت",
+      "k": 835,
+      "p": 70,
+      "f": 18,
+      "c": 91,
+      "preparation": "مشوي/مخبوز من غير تغطية؛ الزيت المذكور يتحسب منفصل",
+      "servingBasis": "200 جم × Chicken breast, baked, broiled, or roasted, skin not eaten, from raw + 300 جم × Rice, white, cooked, no added fat + 100 جم × Cucumber, raw + 100 جم × Tomatoes, raw + 10 جم × Olive oil",
+      "sourceIds": [
+        "fdc-2705956",
+        "fdc-2708408",
+        "fdc-2709784",
+        "fdc-2709719",
+        "fdc-2710186"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705956",
+          "amountG": 200
+        },
+        {
+          "sourceId": "fdc-2708408",
+          "amountG": 300
+        },
+        {
+          "sourceId": "fdc-2709784",
+          "amountG": 100
+        },
+        {
+          "sourceId": "fdc-2709719",
+          "amountG": 100
+        },
+        {
+          "sourceId": "fdc-2710186",
+          "amountG": 10
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 835/69.89/18.37/90.96؛ المعروض = 835/70/18/91.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.l.1",
+      "title": "٢٢٠ جم سمك مشوي + ٤٠٠ جم بطاطس مسلوقة + سلطة + ١٠ جم زيت",
+      "k": 813,
+      "p": 58,
+      "f": 24,
+      "c": 93,
+      "preparation": "مسلوق من غير دهون مضافة إلا لو العنوان قال غير كده",
+      "servingBasis": "220 جم × Fish, white, mixed species, baked or broiled + 400 جم × Potato, boiled, from fresh, peel not eaten, no added fat + 100 جم × Cucumber, raw + 100 جم × Tomatoes, raw + 10 جم × Olive oil",
+      "sourceIds": [
+        "fdc-2706325",
+        "fdc-2709388",
+        "fdc-2709784",
+        "fdc-2709719",
+        "fdc-2710186"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2706325",
+          "amountG": 220
+        },
+        {
+          "sourceId": "fdc-2709388",
+          "amountG": 400
+        },
+        {
+          "sourceId": "fdc-2709784",
+          "amountG": 100
+        },
+        {
+          "sourceId": "fdc-2709719",
+          "amountG": 100
+        },
+        {
+          "sourceId": "fdc-2710186",
+          "amountG": 10
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 812.6/57.55/23.76/92.85؛ المعروض = 813/58/24/93.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.l.2",
+      "title": "٢٠٠ جم لحم أحمر قليل الدهن + ٢٥٠ جم رز مطبوخ + خضار سوتيه",
+      "k": 919,
+      "p": 68,
+      "f": 29,
+      "c": 93,
+      "preparation": "وزن مطبوخ من غير دهون مضافة إلا لو العنوان قال غير كده",
+      "servingBasis": "200 جم × Beef, steak, sirloin, lean only eaten + 250 جم × Rice, white, cooked, no added fat + 185 جم × Classic mixed vegetables, frozen, cooked with oil",
+      "sourceIds": [
+        "fdc-2705834",
+        "fdc-2708408",
+        "fdc-2710018"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705834",
+          "amountG": 200
+        },
+        {
+          "sourceId": "fdc-2708408",
+          "amountG": 250
+        },
+        {
+          "sourceId": "fdc-2710018",
+          "amountG": 185
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 919.15/67.9/28.98/93.41؛ المعروض = 919/68/29/93.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.cf.0",
+      "title": "قهوة بن أرابيكا وسط سادة + سويتال",
+      "k": 4,
+      "p": 0,
+      "f": 0,
+      "c": 1,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "240 جم × Coffee, brewed",
+      "sourceIds": [
+        "fdc-2710375"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710375",
+          "amountG": 240
+        }
+      ],
+      "conversion": "الناتج الخام k/p/f/c = 2.4/0.29/0.05/0؛ عند دقة العرض الصحيحة اتعرض أثر الكوب 4 سعر/1 جم كربوهيدرات عشان يفضل فحص 4/4/9 متسقًا بدل ادعاء دقة كسور الجرام.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.pw.0",
+      "title": "سكوب واي بروتين بالمياه + موزة",
+      "k": 222,
+      "p": 25,
+      "f": 2,
+      "c": 26,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "31 جم × Nutritional powder mix (EAS Whey Protein Powder) + 126 جم × Banana, raw",
+      "sourceIds": [
+        "fdc-2710731",
+        "fdc-2709224"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710731",
+          "amountG": 31
+        },
+        {
+          "sourceId": "fdc-2709224",
+          "amountG": 126
+        }
+      ],
+      "conversion": "الناتج المرجعي الخام k/p/f/c = 241.57/21.6/1.94/34.18، لكن القيم التاريخية مجمّدة عشان الأيام المحفوظة تفضل كما كانت.",
+      "reviewDate": "2026-08-26",
+      "legacy": true,
+      "reviewOutcome": "frozen-legacy"
+    },
+    {
+      "id": "meals.pw.1",
+      "title": "علبة تونة لايت مصفاة (~١٠٠ جم) + ١ توست أسمر",
+      "k": 177,
+      "p": 23,
+      "f": 2,
+      "c": 16,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "100 جم × Fish, tuna, canned + 33 جم × Bread, whole wheat, toasted",
+      "sourceIds": [
+        "fdc-2706311",
+        "fdc-2707710"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2706311",
+          "amountG": 100
+        },
+        {
+          "sourceId": "fdc-2707710",
+          "amountG": 33
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 177.07/23.46/2.23/15.71؛ المعروض = 177/23/2/16.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.pw.2",
+      "title": "٢٠٠ جم جبنة قريش + تفاحة",
+      "k": 286,
+      "p": 22,
+      "f": 5,
+      "c": 38,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "200 جم × Cheese, cottage, low fat + 200 جم × Apple, raw",
+      "sourceIds": [
+        "fdc-2705756",
+        "fdc-2709215",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705756",
+          "amountG": 200
+        },
+        {
+          "sourceId": "fdc-2709215",
+          "amountG": 200
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 286/22.34/4.9/38.22؛ المعروض = 286/22/5/38.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.pw.3",
+      "title": "٢٥٠ جم زبادي يوناني عالي البروتين + موزة",
+      "k": 290,
+      "p": 26,
+      "f": 4,
+      "c": 38,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "250 جم × Yogurt, Greek, low fat milk, plain + 126 جم × Banana, raw",
+      "sourceIds": [
+        "fdc-2705423",
+        "fdc-2709224"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705423",
+          "amountG": 250
+        },
+        {
+          "sourceId": "fdc-2709224",
+          "amountG": 126
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 289.72/26.43/3.75/37.61؛ المعروض = 290/26/4/38.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.nt.0",
+      "title": "سكوب Nitro-Tech (٤٤ جم) بالمياه + موزة",
+      "k": 246,
+      "p": 31,
+      "f": 2.5,
+      "c": 26,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "سكوب Nitro-Tech تاريخي 44 جم + موزة FNDDS 126 جم",
+      "sourceIds": [
+        "muscletech-nitrotech",
+        "fdc-2709224"
+      ],
+      "components": [
+        {
+          "sourceId": "muscletech-nitrotech",
+          "amountG": 44
+        },
+        {
+          "sourceId": "fdc-2709224",
+          "amountG": 126
+        }
+      ],
+      "conversion": "القيم التاريخية مجمّدة عشان الأيام المحفوظة تفضل كما كانت؛ المصادر توثّق الحصة فقط ومش بتعيد حسابها.",
+      "reviewDate": "2026-08-26",
+      "legacy": true,
+      "reviewOutcome": "frozen-legacy"
+    },
+    {
+      "id": "meals.nt.1",
+      "title": "سكوب Nitro-Tech (٤٤ جم) + ٢٥٠ مل لبن قليل الدسم",
+      "k": 270,
+      "p": 38,
+      "f": 6.5,
+      "c": 15,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "سكوب Nitro-Tech تاريخي 44 جم + لبن قليل الدسم FNDDS 254 جم",
+      "sourceIds": [
+        "muscletech-nitrotech",
+        "fdc-2705387"
+      ],
+      "components": [
+        {
+          "sourceId": "muscletech-nitrotech",
+          "amountG": 44
+        },
+        {
+          "sourceId": "fdc-2705387",
+          "amountG": 254
+        }
+      ],
+      "conversion": "القيم التاريخية مجمّدة عشان الأيام المحفوظة تفضل كما كانت؛ المصادر توثّق الحصة فقط ومش بتعيد حسابها.",
+      "reviewDate": "2026-08-26",
+      "legacy": true,
+      "reviewOutcome": "frozen-legacy"
+    },
+    {
+      "id": "meals.d.0",
+      "title": "٢٥٠ جم جبنة قريش + سلطة + ملعقة صغيرة زيت زيتون + ٢ توست أسمر",
+      "k": 470,
+      "p": 38,
+      "f": 14,
+      "c": 49,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "250 جم × Cheese, cottage, low fat + 100 جم × Cucumber, raw + 100 جم × Tomatoes, raw + 5 جم × Olive oil + 66 جم × Bread, whole wheat, toasted",
+      "sourceIds": [
+        "fdc-2705756",
+        "fdc-2709784",
+        "fdc-2709719",
+        "fdc-2710186",
+        "fdc-2707710",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705756",
+          "amountG": 250
+        },
+        {
+          "sourceId": "fdc-2709784",
+          "amountG": 100
+        },
+        {
+          "sourceId": "fdc-2709719",
+          "amountG": 100
+        },
+        {
+          "sourceId": "fdc-2710186",
+          "amountG": 5
+        },
+        {
+          "sourceId": "fdc-2707710",
+          "amountG": 66
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 470.14/37.86/13.81/49.02؛ المعروض = 470/38/14/49.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.d.1",
+      "title": "٣ بيضات + ١٥٠ جم جبنة قريش + خضار + ١ توست أسمر",
+      "k": 466,
+      "p": 41,
+      "f": 20,
+      "c": 31,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "150 جم × Egg, whole, boiled or poached + 150 جم × Cheese, cottage, low fat + 100 جم × Cucumber, raw + 100 جم × Tomatoes, raw + 33 جم × Bread, whole wheat, toasted",
+      "sourceIds": [
+        "fdc-2707154",
+        "fdc-2705756",
+        "fdc-2709784",
+        "fdc-2709719",
+        "fdc-2707710",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707154",
+          "amountG": 150
+        },
+        {
+          "sourceId": "fdc-2705756",
+          "amountG": 150
+        },
+        {
+          "sourceId": "fdc-2709784",
+          "amountG": 100
+        },
+        {
+          "sourceId": "fdc-2709719",
+          "amountG": 100
+        },
+        {
+          "sourceId": "fdc-2707710",
+          "amountG": 33
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 465.57/41/20.17/30.52؛ المعروض = 466/41/20/31.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.d.2",
+      "title": "علبة تونة مصفاة + ٢٥٠ جم بطاطس مسلوقة + ٢ توست + سلطة بملعقة صغيرة زيت",
+      "k": 595,
+      "p": 37,
+      "f": 9,
+      "c": 92,
+      "preparation": "مسلوق من غير دهون مضافة إلا لو العنوان قال غير كده",
+      "servingBasis": "115 جم × Fish, tuna, canned + 250 جم × Potato, boiled, from fresh, peel not eaten, no added fat + 66 جم × Bread, whole wheat, toasted + 100 جم × Cucumber, raw + 100 جم × Tomatoes, raw + 5 جم × Olive oil",
+      "sourceIds": [
+        "fdc-2706311",
+        "fdc-2709388",
+        "fdc-2707710",
+        "fdc-2709784",
+        "fdc-2709719",
+        "fdc-2710186"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2706311",
+          "amountG": 115
+        },
+        {
+          "sourceId": "fdc-2709388",
+          "amountG": 250
+        },
+        {
+          "sourceId": "fdc-2707710",
+          "amountG": 66
+        },
+        {
+          "sourceId": "fdc-2709784",
+          "amountG": 100
+        },
+        {
+          "sourceId": "fdc-2709719",
+          "amountG": 100
+        },
+        {
+          "sourceId": "fdc-2710186",
+          "amountG": 5
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 595.39/37.09/9.39/91.99؛ المعروض = 595/37/9/92.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "meals.d.3",
+      "title": "٢٥٠ جم زبادي يوناني عالي البروتين + ٣٠ جم لوز + ٤٠ جم شوفان",
+      "k": 501,
+      "p": 37,
+      "f": 22,
+      "c": 42,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "250 جم × Yogurt, Greek, low fat milk, plain + 30 جم × Almonds, unsalted + 40 جم × Oats, raw",
+      "sourceIds": [
+        "fdc-2705423",
+        "fdc-2707489",
+        "fdc-2708489"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705423",
+          "amountG": 250
+        },
+        {
+          "sourceId": "fdc-2707489",
+          "amountG": 30
+        },
+        {
+          "sourceId": "fdc-2708489",
+          "amountG": 40
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 501.2/36.86/22.2/42.19؛ المعروض = 501/37/22/42.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "extras.0",
+      "title": "موزة",
+      "k": 122,
+      "p": 1,
+      "f": 0,
+      "c": 29,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "126 جم × Banana, raw",
+      "sourceIds": [
+        "fdc-2709224"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2709224",
+          "amountG": 126
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 122.22/0.93/0.35/28.61؛ المعروض = 122/1/0/29.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "extras.1",
+      "title": "رغيف بلدي صغير",
+      "k": 149,
+      "p": 6,
+      "f": 1,
+      "c": 32,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "57 جم × Bread, pita, whole wheat",
+      "sourceIds": [
+        "fdc-2707730",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707730",
+          "amountG": 57
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 149.34/5.59/0.97/31.86؛ المعروض = 149/6/1/32.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "extras.2",
+      "title": "١٥٠ جم رز مطبوخ زيادة",
+      "k": 194,
+      "p": 4,
+      "f": 0,
+      "c": 42,
+      "preparation": "وزن مطبوخ من غير دهون مضافة إلا لو العنوان قال غير كده",
+      "servingBasis": "150 جم × Rice, white, cooked, no added fat",
+      "sourceIds": [
+        "fdc-2708408"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2708408",
+          "amountG": 150
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 193.5/4/0.42/41.98؛ المعروض = 194/4/0/42.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "extras.3",
+      "title": "فاكهة إضافية",
+      "k": 77,
+      "p": 1,
+      "f": 0,
+      "c": 18,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "154 جم × Orange, raw",
+      "sourceIds": [
+        "fdc-2709171"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2709171",
+          "amountG": 154
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 77/1.42/0.22/18.14؛ المعروض = 77/1/0/18.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "extras.4",
+      "title": "٣٠ جم مكسرات",
+      "k": 185,
+      "p": 6,
+      "f": 16,
+      "c": 6,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "30 جم × Mixed nuts, with peanuts, unsalted",
+      "sourceIds": [
+        "fdc-2707508"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707508",
+          "amountG": 30
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 184.5/5.92/16.27/6.32؛ المعروض = 185/6/16/6.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "extras.5",
+      "title": "١٤ جم زيت في الطبيخ فوق المحسوب",
+      "k": 126,
+      "p": 0,
+      "f": 14,
+      "c": 0,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "14 جم × Olive oil",
+      "sourceIds": [
+        "fdc-2710186"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710186",
+          "amountG": 14
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 126/0/14/0؛ المعروض = 126/0/14/0.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "extras.6",
+      "title": "ملعقة صغيرة عسل نحل (٧ جم)",
+      "k": 21,
+      "p": 0,
+      "f": 0,
+      "c": 5,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "7 جم × Honey",
+      "sourceIds": [
+        "fdc-2710281"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710281",
+          "amountG": 7
+        }
+      ],
+      "conversion": "الناتج الخام k/p/f/c = 21.28/0.02/0/5.77؛ عُرضت الكربوهيدرات 5 جم بوحدة صحيحة محافظة عشان يفضل فحص 4/4/9 داخل 10%.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "extras.7",
+      "title": "ملعقة كبيرة عسل نحل (٢١ جم)",
+      "k": 64,
+      "p": 0,
+      "f": 0,
+      "c": 17,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "21 جم × Honey",
+      "sourceIds": [
+        "fdc-2710281"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710281",
+          "amountG": 21
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 63.84/0.06/0/17.3؛ المعروض = 64/0/0/17.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "extras.8",
+      "title": "وحدة طاقة: موزة + ٤٠ جم شوفان + ٢٥٠ مل لبن قليل الدسم",
+      "k": 383,
+      "p": 15,
+      "f": 5,
+      "c": 69,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "126 جم × Banana, raw + 40 جم × Oats, raw + 254 جم × Milk, low fat (1%)",
+      "sourceIds": [
+        "fdc-2709224",
+        "fdc-2708489",
+        "fdc-2705387"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2709224",
+          "amountG": 126
+        },
+        {
+          "sourceId": "fdc-2708489",
+          "amountG": 40
+        },
+        {
+          "sourceId": "fdc-2705387",
+          "amountG": 254
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 383.04/14.78/5.37/68.85؛ المعروض = 383/15/5/69.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.0.0",
+      "title": "ملعقة كبيرة زيت (١٤ جم)",
+      "k": 126,
+      "p": 0,
+      "f": 14,
+      "c": 0,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "14 جم × Olive oil",
+      "sourceIds": [
+        "fdc-2710186"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710186",
+          "amountG": 14
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 126/0/14/0؛ المعروض = 126/0/14/0.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.0.1",
+      "title": "ملعقة صغيرة زيت (٥ جم)",
+      "k": 45,
+      "p": 0,
+      "f": 5,
+      "c": 0,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "5 جم × Olive oil",
+      "sourceIds": [
+        "fdc-2710186"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710186",
+          "amountG": 5
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 45/0/5/0؛ المعروض = 45/0/5/0.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.0.2",
+      "title": "ملعقة كبيرة زيت زيتون",
+      "k": 126,
+      "p": 0,
+      "f": 14,
+      "c": 0,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "14 جم × Olive oil",
+      "sourceIds": [
+        "fdc-2710186"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710186",
+          "amountG": 14
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 126/0/14/0؛ المعروض = 126/0/14/0.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.0.3",
+      "title": "ملعقة كبيرة سمنة بلدي",
+      "k": 123,
+      "p": 0,
+      "f": 14,
+      "c": 0,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "14 جم × Ghee, clarified butter",
+      "sourceIds": [
+        "fdc-2710168"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710168",
+          "amountG": 14
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 122.64/0.04/13.93/0؛ المعروض = 123/0/14/0.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.0.4",
+      "title": "ملعقة كبيرة زبدة",
+      "k": 104,
+      "p": 0,
+      "f": 12,
+      "c": 0,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "14 جم × Butter, stick",
+      "sourceIds": [
+        "fdc-2710155"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710155",
+          "amountG": 14
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 104.02/0.12/11.51/0.01؛ المعروض = 104/0/12/0.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.0.5",
+      "title": "ملعقة كبيرة طحينة",
+      "k": 105,
+      "p": 3,
+      "f": 9,
+      "c": 2,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "15 جم × Tahini",
+      "sourceIds": [
+        "fdc-2707587"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707587",
+          "amountG": 15
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 104.55/2.96/9.36/2.13؛ المعروض = 105/3/9/2.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.1.0",
+      "title": "رغيف عيش بلدي صغير",
+      "k": 149,
+      "p": 6,
+      "f": 1,
+      "c": 32,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "57 جم × Bread, pita, whole wheat",
+      "sourceIds": [
+        "fdc-2707730",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707730",
+          "amountG": 57
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 149.34/5.59/0.97/31.86؛ المعروض = 149/6/1/32.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.1.1",
+      "title": "توست أسمر (شريحة)",
+      "k": 92,
+      "p": 4,
+      "f": 1,
+      "c": 16,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "33 جم × Bread, whole wheat, toasted",
+      "sourceIds": [
+        "fdc-2707710"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707710",
+          "amountG": 33
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 92.07/4.46/1.29/15.63؛ المعروض = 92/4/1/16.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.1.2",
+      "title": "عيش فينو (رغيف)",
+      "k": 120,
+      "p": 4,
+      "f": 2,
+      "c": 22,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "43 جم × Roll, white, soft",
+      "sourceIds": [
+        "fdc-2707654"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707654",
+          "amountG": 43
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 119.97/4.2/1.68/21.55؛ المعروض = 120/4/2/22.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.1.3",
+      "title": "رز مطبوخ (١٠٠ جم)",
+      "k": 129,
+      "p": 3,
+      "f": 0,
+      "c": 28,
+      "preparation": "وزن مطبوخ من غير دهون مضافة إلا لو العنوان قال غير كده",
+      "servingBasis": "100 جم × Rice, white, cooked, no added fat",
+      "sourceIds": [
+        "fdc-2708408"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2708408",
+          "amountG": 100
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 129/2.67/0.28/27.99؛ المعروض = 129/3/0/28.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.1.4",
+      "title": "مكرونة مطبوخة (١٠٠ جم)",
+      "k": 157,
+      "p": 6,
+      "f": 1,
+      "c": 31,
+      "preparation": "وزن مطبوخ من غير دهون مضافة إلا لو العنوان قال غير كده",
+      "servingBasis": "100 جم × Pasta, cooked",
+      "sourceIds": [
+        "fdc-2708357"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2708357",
+          "amountG": 100
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 157/5.76/0.92/30.68؛ المعروض = 157/6/1/31.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.1.5",
+      "title": "بطاطس مسلوقة (١٠٠ جم)",
+      "k": 93,
+      "p": 2,
+      "f": 0,
+      "c": 21,
+      "preparation": "مسلوق من غير دهون مضافة إلا لو العنوان قال غير كده",
+      "servingBasis": "100 جم × Potato, boiled, from fresh, peel not eaten, no added fat",
+      "sourceIds": [
+        "fdc-2709388"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2709388",
+          "amountG": 100
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 93/1.95/0.1/21.46؛ المعروض = 93/2/0/21.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.1.6",
+      "title": "شوفان (٥٠ جم)",
+      "k": 190,
+      "p": 7,
+      "f": 3,
+      "c": 34,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "50 جم × Oats, raw",
+      "sourceIds": [
+        "fdc-2708489"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2708489",
+          "amountG": 50
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 189.5/6.58/3.26/33.85؛ المعروض = 190/7/3/34.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.2.0",
+      "title": "بيضة مسلوقة",
+      "k": 72,
+      "p": 6,
+      "f": 5,
+      "c": 0,
+      "preparation": "مسلوق من غير دهون مضافة إلا لو العنوان قال غير كده",
+      "servingBasis": "50 جم × Egg, whole, boiled or poached",
+      "sourceIds": [
+        "fdc-2707154"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707154",
+          "amountG": 50
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 71.5/6.2/4.98/0.48؛ المعروض = 72/6/5/0.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.2.1",
+      "title": "صدور فراخ مشوية (١٠٠ جم)",
+      "k": 161,
+      "p": 30,
+      "f": 4,
+      "c": 0,
+      "preparation": "مشوي/مخبوز من غير تغطية؛ الزيت المذكور يتحسب منفصل",
+      "servingBasis": "100 جم × Chicken breast, baked, broiled, or roasted, skin not eaten, from raw",
+      "sourceIds": [
+        "fdc-2705956"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705956",
+          "amountG": 100
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 161/30.22/3.52/0؛ المعروض = 161/30/4/0.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.2.2",
+      "title": "وراك فراخ بالجلد (١٠٠ جم)",
+      "k": 231,
+      "p": 23,
+      "f": 15,
+      "c": 0,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "100 جم × Chicken thigh, baked, broiled, or roasted, skin eaten, from raw",
+      "sourceIds": [
+        "fdc-2706029"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2706029",
+          "amountG": 100
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 231/23.12/14.62/0؛ المعروض = 231/23/15/0.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.2.3",
+      "title": "لحم أحمر قليل الدهن (١٠٠ جم)",
+      "k": 216,
+      "p": 28,
+      "f": 11,
+      "c": 0,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "100 جم × Beef, steak, sirloin, lean only eaten",
+      "sourceIds": [
+        "fdc-2705834"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705834",
+          "amountG": 100
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 216/28.05/11.32/0؛ المعروض = 216/28/11/0.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.2.4",
+      "title": "كبدة (١٠٠ جم)",
+      "k": 174,
+      "p": 26,
+      "f": 5,
+      "c": 5,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "100 جم × Liver, beef",
+      "sourceIds": [
+        "fdc-2706153"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2706153",
+          "amountG": 100
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 174/26.31/4.64/5.12؛ المعروض = 174/26/5/5.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.2.5",
+      "title": "سمك مشوي (١٠٠ جم)",
+      "k": 143,
+      "p": 22,
+      "f": 6,
+      "c": 0,
+      "preparation": "مشوي/مخبوز من غير تغطية؛ الزيت المذكور يتحسب منفصل",
+      "servingBasis": "100 جم × Fish, white, mixed species, baked or broiled",
+      "sourceIds": [
+        "fdc-2706325"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2706325",
+          "amountG": 100
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 143/21.96/5.85/0.01؛ المعروض = 143/22/6/0.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.2.6",
+      "title": "علبة تونة لايت مصفاة",
+      "k": 98,
+      "p": 22,
+      "f": 1,
+      "c": 0,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "115 جم × Fish, tuna, canned",
+      "sourceIds": [
+        "fdc-2706311"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2706311",
+          "amountG": 115
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 97.75/21.85/1.08/0.09؛ المعروض = 98/22/1/0.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.2.7",
+      "title": "سكوب واي بروتين",
+      "k": 119,
+      "p": 21,
+      "f": 2,
+      "c": 6,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "31 جم × Nutritional powder mix (EAS Whey Protein Powder)",
+      "sourceIds": [
+        "fdc-2710731"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710731",
+          "amountG": 31
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 119.35/20.67/1.59/5.56؛ المعروض = 119/21/2/6.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.2.8",
+      "title": "فول مدمس (٥ ملاعق)",
+      "k": 93,
+      "p": 4,
+      "f": 4,
+      "c": 11,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "58 جم × Fava beans, cooked",
+      "sourceIds": [
+        "fdc-2707367",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707367",
+          "amountG": 58
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 93.38/4.09/3.99/10.59؛ المعروض = 93/4/4/11.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.2.9",
+      "title": "قرص طعمية",
+      "k": 87,
+      "p": 1,
+      "f": 7,
+      "c": 5,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "17 جم × Falafel",
+      "sourceIds": [
+        "fdc-2707408",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707408",
+          "amountG": 17
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 87.38/1.41/7/4.92؛ المعروض = 87/1/7/5.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.3.0",
+      "title": "جبنة قريش (١٠٠ جم)",
+      "k": 82,
+      "p": 11,
+      "f": 2,
+      "c": 4,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "100 جم × Cheese, cottage, low fat",
+      "sourceIds": [
+        "fdc-2705756",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705756",
+          "amountG": 100
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 82/11/2.3/4.31؛ المعروض = 82/11/2/4.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.3.1",
+      "title": "جبنة بيضاء (٥٠ جم)",
+      "k": 137,
+      "p": 10,
+      "f": 10,
+      "c": 3,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "50 جم × Cheese, Feta",
+      "sourceIds": [
+        "fdc-2705714",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705714",
+          "amountG": 50
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 136.5/9.86/9.54/2.79؛ المعروض = 137/10/10/3.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.3.2",
+      "title": "جبنة رومي (٣٠ جم)",
+      "k": 124,
+      "p": 9,
+      "f": 9,
+      "c": 3,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "30 جم × Cheese, Parmesan, hard",
+      "sourceIds": [
+        "fdc-2705730",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705730",
+          "amountG": 30
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 123.6/8.96/8.63/2.51؛ المعروض = 124/9/9/3.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.3.3",
+      "title": "زبادي يوناني (١٧٠ جم)",
+      "k": 114,
+      "p": 17,
+      "f": 2,
+      "c": 6,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "170 جم × Yogurt, Greek, low fat milk, plain",
+      "sourceIds": [
+        "fdc-2705423"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705423",
+          "amountG": 170
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 113.9/17.34/2.31/6.12؛ المعروض = 114/17/2/6.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.3.4",
+      "title": "زبادي قليل الدسم (٢٠٠ جم)",
+      "k": 126,
+      "p": 11,
+      "f": 3,
+      "c": 14,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "200 جم × Yogurt, low fat milk, plain",
+      "sourceIds": [
+        "fdc-2705419"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705419",
+          "amountG": 200
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 126/10.5/3.1/14.08؛ المعروض = 126/11/3/14.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.3.5",
+      "title": "كوب لبن قليل الدسم (٢٥٠ مل)",
+      "k": 109,
+      "p": 9,
+      "f": 2,
+      "c": 13,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "254 جم × Milk, low fat (1%)",
+      "sourceIds": [
+        "fdc-2705387"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2705387",
+          "amountG": 254
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 109.22/8.59/2.41/13.16؛ المعروض = 109/9/2/13.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.4.0",
+      "title": "موزة وسط",
+      "k": 122,
+      "p": 1,
+      "f": 0,
+      "c": 29,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "126 جم × Banana, raw",
+      "sourceIds": [
+        "fdc-2709224"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2709224",
+          "amountG": 126
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 122.22/0.93/0.35/28.61؛ المعروض = 122/1/0/29.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.4.1",
+      "title": "تفاحة وسط",
+      "k": 122,
+      "p": 0,
+      "f": 0,
+      "c": 30,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "200 جم × Apple, raw",
+      "sourceIds": [
+        "fdc-2709215"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2709215",
+          "amountG": 200
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 122/0.34/0.3/29.6؛ المعروض = 122/0/0/30.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.4.2",
+      "title": "برتقالة",
+      "k": 77,
+      "p": 1,
+      "f": 0,
+      "c": 18,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "154 جم × Orange, raw",
+      "sourceIds": [
+        "fdc-2709171"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2709171",
+          "amountG": 154
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 77/1.42/0.22/18.14؛ المعروض = 77/1/0/18.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.4.3",
+      "title": "تمرة",
+      "k": 23,
+      "p": 0,
+      "f": 0,
+      "c": 6,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "8 جم × Date",
+      "sourceIds": [
+        "fdc-2709203"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2709203",
+          "amountG": 8
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 22.56/0.2/0.03/6؛ المعروض = 23/0/0/6.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.4.4",
+      "title": "ملعقة صغيرة سكر",
+      "k": 17,
+      "p": 0,
+      "f": 0,
+      "c": 4,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "4.2 جم × Sugar, white, granulated or lump",
+      "sourceIds": [
+        "fdc-2710258"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710258",
+          "amountG": 4.2
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 16.84/0/0.01/4.18؛ المعروض = 17/0/0/4.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.4.5",
+      "title": "ملعقة صغيرة عسل نحل (٧ جم)",
+      "k": 21,
+      "p": 0,
+      "f": 0,
+      "c": 5,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "7 جم × Honey",
+      "sourceIds": [
+        "fdc-2710281"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710281",
+          "amountG": 7
+        }
+      ],
+      "conversion": "الناتج الخام k/p/f/c = 21.28/0.02/0/5.77؛ عُرضت الكربوهيدرات 5 جم بوحدة صحيحة محافظة عشان يفضل فحص 4/4/9 داخل 10%.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.4.6",
+      "title": "ملعقة كبيرة عسل نحل (٢١ جم)",
+      "k": 64,
+      "p": 0,
+      "f": 0,
+      "c": 17,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "21 جم × Honey",
+      "sourceIds": [
+        "fdc-2710281"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2710281",
+          "amountG": 21
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 63.84/0.06/0/17.3؛ المعروض = 64/0/0/17.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.4.7",
+      "title": "حلاوة طحينية (٣٠ جم)",
+      "k": 165,
+      "p": 3,
+      "f": 9,
+      "c": 17,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "15 جم × Tahini + 15 جم × Sugar, white, granulated or lump",
+      "sourceIds": [
+        "fdc-2707587",
+        "fdc-2710258",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707587",
+          "amountG": 15
+        },
+        {
+          "sourceId": "fdc-2710258",
+          "amountG": 15
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 164.7/2.96/9.41/17.07؛ المعروض = 165/3/9/17.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.4.8",
+      "title": "لوز (١٠ جم)",
+      "k": 61,
+      "p": 2,
+      "f": 5,
+      "c": 2,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "10 جم × Almonds, unsalted",
+      "sourceIds": [
+        "fdc-2707489"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707489",
+          "amountG": 10
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 60.7/2.03/5.4/2.04؛ المعروض = 61/2/5/2.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.4.9",
+      "title": "مكسرات مشكلة (٣٠ جم)",
+      "k": 185,
+      "p": 6,
+      "f": 16,
+      "c": 6,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "30 جم × Mixed nuts, with peanuts, unsalted",
+      "sourceIds": [
+        "fdc-2707508"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707508",
+          "amountG": 30
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 184.5/5.92/16.27/6.32؛ المعروض = 185/6/16/6.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.5.0",
+      "title": "طبق كشري وسط",
+      "k": 553,
+      "p": 21,
+      "f": 7,
+      "c": 102,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "120 جم × Rice, white, cooked, no added fat + 100 جم × Pasta, cooked + 75 جم × Lentils, from dried, no added fat + 50 جم × Chickpeas, from dried, no added fat + 50 جم × Tomato sauce, for use with vegetables + 30 جم × Onions, cooked, fat added",
+      "sourceIds": [
+        "fdc-2708408",
+        "fdc-2708357",
+        "fdc-2707425",
+        "fdc-2707416",
+        "fdc-2710247",
+        "fdc-2709951",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2708408",
+          "amountG": 120
+        },
+        {
+          "sourceId": "fdc-2708357",
+          "amountG": 100
+        },
+        {
+          "sourceId": "fdc-2707425",
+          "amountG": 75
+        },
+        {
+          "sourceId": "fdc-2707416",
+          "amountG": 50
+        },
+        {
+          "sourceId": "fdc-2710247",
+          "amountG": 50
+        },
+        {
+          "sourceId": "fdc-2709951",
+          "amountG": 30
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 553.45/20.71/6.84/102.14؛ المعروض = 553/21/7/102.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.5.1",
+      "title": "حبة محشي وسط",
+      "k": 48,
+      "p": 2,
+      "f": 4,
+      "c": 2,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "21 جم × Stuffed grape leaves with beef and rice",
+      "sourceIds": [
+        "fdc-2706621",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2706621",
+          "amountG": 21
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 47.88/1.71/3.58/2.37؛ المعروض = 48/2/4/2.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.5.2",
+      "title": "طبق ملوخية بالتقلية",
+      "k": 156,
+      "p": 7,
+      "f": 10,
+      "c": 13,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "200 جم × Bitter melon, horseradish, jute, or radish leaves, cooked + 5 جم × Ghee, clarified butter",
+      "sourceIds": [
+        "fdc-2709641",
+        "fdc-2710168",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2709641",
+          "amountG": 200
+        },
+        {
+          "sourceId": "fdc-2710168",
+          "amountG": 5
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 155.8/6.99/10.45/12.94؛ المعروض = 156/7/10/13.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    },
+    {
+      "id": "calref.5.3",
+      "title": "طبق فول بالزيت",
+      "k": 287,
+      "p": 11,
+      "f": 15,
+      "c": 27,
+      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
+      "servingBasis": "150 جم × Fava beans, cooked + 5 جم × Olive oil",
+      "sourceIds": [
+        "fdc-2707367",
+        "fdc-2710186",
+        "egypt-fct-1996"
+      ],
+      "components": [
+        {
+          "sourceId": "fdc-2707367",
+          "amountG": 150
+        },
+        {
+          "sourceId": "fdc-2710186",
+          "amountG": 5
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 286.5/10.59/15.32/27.39؛ المعروض = 287/11/15/27.",
+      "reviewDate": "2026-08-26",
+      "legacy": false,
+      "reviewOutcome": "recalculated"
+    }
+  ]
+}

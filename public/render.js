@@ -60,6 +60,87 @@ function makeInput({id="",type="text",value="",placeholder="",list="",maxLength=
   return input;
 }
 
+/* ================= بوابة التنبيه الصحي ================= */
+const HEALTH_CONDITION_COPY={
+  pregnant:"الحمل له احتياجات خاصة للزيادة في الوزن والطاقة والعناصر الغذائية؛ متستخدميش أهداف التطبيق لتغيير الوزن من غير متابعة طبيب/ة النساء أو أخصائي/ة مؤهل/ة.",
+  trying:"لو بتحاولي تحملي، راجعي هدف الوزن والطاقة والمكملات مع طبيب/ة قبل أي عجز سعرات.",
+  breastfeeding:"الرضاعة ممكن تزود احتياج الطاقة وبعض العناصر الغذائية؛ تجنبي التغيير الحاد وراجعي مختص/ة لو عندك قلق على التغذية أو إدرار اللبن.",
+  eating:"اضطرابات الأكل حالات صحية خطيرة، وتتبع الأرقام ممكن يكون غير مناسب أو مؤذٍ؛ استخدمي دعم فريق متخصص بدل أهداف التطبيق.",
+  kidney:"مرض الكلى ممكن يحتاج ضبط فردي للبروتين والصوديوم والبوتاسيوم والسوائل؛ هدف البروتين المحسوب هنا مش مناسب للاعتماد عليه.",
+  diabetes:"السكري وأدويته محتاجين تنسيق الأكل والكربوهيدرات والنشاط مع متابعة سكر الدم وخطة الفريق المعالج.",
+  clinician:"أي نظام حدده طبيب/ة أو أخصائي/ة لحالتك له الأولوية الكاملة على أرقام التطبيق."
+};
+let healthGateStep=1,healthSelections=[];
+function healthNoticeAccepted(){
+  const settings=(S&&S.settings)||{},at=settings.healthNoticeAcceptedAt;
+  return settings.healthNoticeVersion===HEALTH_NOTICE_VERSION&&validIsoTime(at)&&Date.parse(at)<=Date.now();
+}
+function clearHealthSelections(){
+  healthSelections=[];
+  document.querySelectorAll("#health-options input[type=checkbox]").forEach(input=>{ input.checked=false; });
+}
+function renderHealthGate(step=healthGateStep){
+  healthGateStep=step;
+  ["health-step-1","health-step-2","health-refusal"].forEach((id,index)=>{ const el=document.getElementById(id); if(el) el.style.display=index===step-1?"":"none"; });
+  if(step===2){
+    const list=document.getElementById("health-tailored"),fragment=document.createDocumentFragment();
+    healthSelections.forEach(key=>{ const copy=HEALTH_CONDITION_COPY[key]; if(copy) fragment.append(node("li",{text:copy})); });
+    if(!healthSelections.length) fragment.append(node("li",{text:"حتى من غير حالة مختارة، الأرقام حدود تشغيل عامة ومش تقييم فردي للأمان أو الملاءمة."}));
+    list.replaceChildren(fragment);
+  }
+}
+function showHealthGate(){
+  document.getElementById("app").style.display="none";
+  document.getElementById("setup").style.display="none";
+  document.getElementById("login").style.display="none";
+  document.getElementById("health-gate").style.display="";
+  clearHealthSelections(); renderHealthGate(1);
+}
+function healthGateNext(){
+  healthSelections=[...document.querySelectorAll("#health-options input[type=checkbox]:checked")].map(input=>input.value);
+  renderHealthGate(2);
+}
+function healthGateBack(){ clearHealthSelections(); renderHealthGate(1); }
+function healthGateDecline(){ clearHealthSelections(); renderHealthGate(3); }
+function acceptHealthNotice(){
+  const accepted=commitMutation((candidate,now)=>{ candidate.settings={...candidate.settings,healthNoticeVersion:HEALTH_NOTICE_VERSION,healthNoticeAcceptedAt:new Date(now).toISOString()}; },{touchSections:["settings"]});
+  if(!accepted) return;
+  clearHealthSelections(); document.getElementById("health-gate").style.display="none";
+  if(typeof routeSignedIn==="function") routeSignedIn(window.firebaseBridge&&window.firebaseBridge.currentUser());
+}
+
+/* ================= مراجعة معادلة الأهداف ================= */
+function formulaReviewDetails(g,weights,asOf){
+  if(!g||!g.ht||g.targetFormulaVersion===TARGET_FORMULA_VERSION) return null;
+  const weight=basisWeight(weights,asOf)||g.sw;
+  if(!Number.isFinite(weight)||weight<=0) return null;
+  const suggestion=calcTargets({sex:g.sex,age:g.age,ht:g.ht,w:weight,act:g.act,gw:g.gw});
+  return {weight,suggestion,applyable:validTargets(suggestion)};
+}
+function renderFormulaReview(){
+  const box=document.getElementById("formula-note"); if(!box||!S) return;
+  const g=T(),review=formulaReviewDetails(g,weightSeries(),today());
+  if(!review){ box.style.display="none"; box.replaceChildren(); return; }
+  const copy=node("p");
+  add(copy,document.createTextNode("🧮 معادلة الأهداف اتراجعت. أهدافك الحالية محفوظة لحد ما تختار. على وزن أساس "+review.weight.toFixed(1)+" كجم، المسار الحسابي الجديد "),node("b",{text:review.suggestion.klo+"–"+review.suggestion.khi+" سعر · "+review.suggestion.plo+"–"+review.suggestion.phi+" جم بروتين"}),document.createTextNode(". دي حدود حسابية بيدعمها التطبيق ومش إثبات أمان أو ملاءمة فردية."));
+  const actions=node("div",{className:"row"}); actions.style.marginTop="8px";
+  if(review.applyable) add(actions,button("تطبيق الحساب الجديد",applyFormulaReview));
+  add(actions,button("الاحتفاظ بأهدافي",keepFormulaReview,"btn ghost"));
+  if(!review.applyable) add(actions,muted("الحساب خارج حدود التطبيق، فالتطبيق متاح للاحتفاظ بأهدافك فقط ومراجعتها مع مختص/ة."));
+  box.replaceChildren(copy,actions); box.style.display="";
+}
+function finishFormulaReview(apply){
+  const g=T(),review=formulaReviewDetails(g,weightSeries(),today()); if(!review) return;
+  if(apply&&!review.applyable) return;
+  commitMutation(candidate=>{
+    if(apply) Object.assign(candidate.settings,{klo:review.suggestion.klo,khi:review.suggestion.khi,plo:review.suggestion.plo,phi:review.suggestion.phi});
+    Object.assign(candidate.settings,{tw:review.weight,targetFormulaVersion:TARGET_FORMULA_VERSION});
+  },{touchSections:["settings"]});
+  renderFormulaReview(); renderDay(); if(curTab==="prog") renderProg(); if(curTab==="examples") renderExamples();
+}
+function applyFormulaReview(){ finishFormulaReview(true); }
+function keepFormulaReview(){ finishFormulaReview(false); }
+
 /* ================= تبويبات ================= */
 let curTab="day";
 function showTab(t){
@@ -100,7 +181,7 @@ function renderExamples(){
 function setDay(v){ cur=validDayKey(v)?v:today(); renderDay(); }
 function shiftDay(n){ const d=new Date(cur+"T12:00:00"); d.setDate(d.getDate()+n); setDay(d.toISOString().slice(0,10)); }
 function renderDay(){
-  renderAppVersion(); document.getElementById("dpick").value=cur;
+  renderAppVersion(); renderFormulaReview(); document.getElementById("dpick").value=cur;
   const d=day(),meals=document.createDocumentFragment();
   for(const key in MEALS){
     const meal=MEALS[key];
@@ -307,7 +388,7 @@ function setT(key,raw){
   if(limit&&(!Number.isFinite(value)||value<limit[0]||value>limit[1])){ alert(limit[2]); renderProg(); return; }
   if(key==="gw"){
     const g=T(),bmi=value/(g.ht/100)**2;
-    if(!Number.isFinite(value)||value<30||value>300||bmi<18.5||bmi>40){ alert("هدف الوزن خارج النطاق الآمن للتطبيق؛ راجع مختص."); renderProg(); return; }
+    if(!Number.isFinite(value)||value<30||value>300||bmi<18.5||bmi>40){ alert("هدف الوزن خارج الحدود اللي التطبيق بيدعمها؛ ده مش حكم على الأمان. راجع مختص/ة."); renderProg(); return; }
   }
   if(["klo","khi","plo","phi"].includes(key)){
     const next={...T(),[key]:value};
@@ -320,7 +401,7 @@ function recalcTargets(){
   const g=T(); if(!g.ht){ alert("كمّل بيانات الطول والسن الأول"); return; }
   const weight=basisWeight(weightSeries(),today())||g.sw,target=calcTargets({sex:g.sex,age:g.age,ht:g.ht,w:weight,act:g.act,gw:g.gw});
   if(!validTargets(target)){ alert("احتياجك المقدّر ("+target.klo+"–"+target.khi+" سعر) خارج النطاق اللي التطبيق بيدعمه (1200–6000). حط هدفك يدويًا من الخانات فوق وراجع مختص تغذية."); return; }
-  commitMutation(candidate=>Object.assign(candidate.settings,{klo:target.klo,khi:target.khi,plo:target.plo,phi:target.phi,tw:weight}),{touchSections:["settings"]}); renderProg();
+  commitMutation(candidate=>Object.assign(candidate.settings,{klo:target.klo,khi:target.khi,plo:target.plo,phi:target.phi,tw:weight,targetFormulaVersion:TARGET_FORMULA_VERSION}),{touchSections:["settings"]}); renderFormulaReview(); renderProg();
 }
 function keepTargets(){
   const weight=basisWeight(weightSeries(),today()); if(!weight) return;
@@ -408,15 +489,16 @@ function labeledInput(label,key,value,{type="number",width="90px",step=""}={}){
 function renderProg(){
   const g=T(),gw=g.gw,weights=weightSeries(),last=weights.length?weights[weights.length-1]:{date:today(),w:g.sw};
   const bmiNow=g.ht?last.w/(g.ht/100)**2:null,bmiGoal=g.ht?gw/(g.ht/100)**2:null,projection=project(last.w,last.date);
-  const base=Number(g.sw)||(weights[0]||{}).w,lost=weights.length?base-last.w:0,goalDate=projection.length?projection[projection.length-1].date:"—";
+  const projected=projection.points,arrivalCopy={"already-at-goal":"متحقق بالفعل",reached:projected.length?projected[projected.length-1].date:"—",equilibrium:"المسار يتوازن قبل الهدف","wrong-direction":"السعرات تحرّك الوزن عكس الهدف",limit:"أبعد من ٦٠ أسبوع",invalid:"بيانات غير مكتملة"};
+  const base=Number(g.sw)||(weights[0]||{}).w,lost=weights.length?base-last.w:0,goalDate=arrivalCopy[projection.reason]||"—";
   const {lo:rateLo,hi:rateHi}=rateBand(last.w),basis=basisWeight(weights,today()); let stale=null;
-  if(g.ht&&basis){
+  if(g.targetFormulaVersion===TARGET_FORMULA_VERSION&&g.ht&&basis){
     const at=weight=>calcTargets({sex:g.sex,age:g.age,ht:g.ht,w:weight,act:g.act,gw:g.gw}),reviewWeight=Number(g.tw)||basis,suggestion=at(basis);
     if(targetsMoved(at(reviewWeight),suggestion)&&validTargets(suggestion)) stale={tw:reviewWeight,sug:suggestion};
   }
   const weekly={};
   weights.forEach(point=>{
-    const date=new Date(point.date+"T12:00:00"),onejan=new Date(date.getFullYear(),0,1),week=date.getFullYear()+"-W"+String(Math.ceil((((date-onejan)/864e5)+onejan.getDay()+1)/7)).padStart(2,"0");
+    const week=isoWeekYear(point.date); if(!week) return;
     (weekly[week]=weekly[week]||[]).push(point.w);
   });
   const weekRows=[]; let previous=null;
@@ -428,9 +510,9 @@ function renderProg(){
   if(down?milestone>=g.sw:milestone<=g.sw) milestone+=down?-5:5;
   const milestones=[]; for(let value=milestone;down?value>gw:value<gw;value+=down?-5:5) milestones.push(value); milestones.push(gw);
   const milestoneRows=milestones.map(value=>{
-    const hit=weights.find(point=>down?point.w<=value:point.w>=value),predicted=projection.find(point=>down?point.w<=value:point.w>=value);
-    return [value+" كجم",hit?"✅ "+hit.date:predicted?"~ "+predicted.date:"—"];
-  });
+    const hit=weights.find(point=>down?point.w<=value:point.w>=value),crossed=projected.find(point=>down?point.w<=value:point.w>=value);
+    return hit?[value+" كجم","✅ "+hit.date]:crossed?[value+" كجم","≈ مسار حسابي "+crossed.date]:null;
+  }).filter(Boolean);
   const tracked=Object.keys(S.days).filter(date=>{ const d=S.days[date]; return totals(d).k>0||d.water||d.workout; }).length;
   const root=document.getElementById("pg-prog"),fragment=document.createDocumentFragment();
   if(stale){
@@ -439,15 +521,15 @@ function renderProg(){
     const actions=node("div",{className:"row"}); actions.style.marginTop="8px"; add(actions,button("تطبيق المقترح",recalcTargets),button("الاحتفاظ بالهدف الحالي",keepTargets,"btn ghost")); add(note,actions); fragment.append(note);
   }
   const overview=card(),grid=node("div",{className:"grid2"});
-  add(grid,stat(last.w.toFixed(1),"آخر وزن (كجم)"),stat((lost>=0?"−":"+")+Math.abs(lost).toFixed(1),"التغيير من البداية","var(--green)"),stat(Math.abs(last.w-gw).toFixed(1),"فاضل للهدف ("+gw+")","var(--orange)"),stat(goalDate,"الوصول المتوقع")); add(overview,grid);
-  if(bmiNow) add(overview,setStyle(muted("BMI الحالي "+bmiNow.toFixed(1)+" · عند الهدف "+bmiGoal.toFixed(1)+". ده مؤشر فحص فقط؛ قيّم الهدف كمان بمقاس الوسط والقوة والحالة الصحية."),{marginTop:"10px"})); fragment.append(overview);
-  const chart=card("📈 منحنى الوزن"),chartBox=node("div",{id:"chart-box"}); add(chartBox,drawChart(weights,projection));
-  const legend=node("div",{className:"legend"}); add(legend,node("span",{className:"lg-a",text:"وزنك الفعلي"}),node("span",{className:"lg-p",text:"المسار المتوقع (~"+(g.klo+g.khi)/2+" سعر/يوم)"}),node("span",{className:"lg-g",text:"الهدف "+gw+" كجم"}));
-  add(chart,chartBox,legend,muted("المسار والتاريخ تقدير رياضي فقط؛ الحرق بيتغير والنتيجة الفعلية تعتمد على متوسط الوزن والتسجيل.")); fragment.append(chart);
-  const milestonesCard=card("🚩 المحطات"); add(milestonesCard,tableNode(["الوزن","وصلت / متوقع"],milestoneRows)); fragment.append(milestonesCard);
+  add(grid,stat(last.w.toFixed(1),"آخر وزن (كجم)"),stat((lost>=0?"−":"+")+Math.abs(lost).toFixed(1),"التغيير من البداية","var(--green)"),stat(Math.abs(last.w-gw).toFixed(1),"فاضل للهدف ("+gw+")","var(--orange)"),stat(goalDate,"نهاية المسار الحسابي")); add(overview,grid);
+  if(bmiNow) add(overview,setStyle(muted("BMI الحالي "+bmiNow.toFixed(1)+" · عند الهدف "+bmiGoal.toFixed(1)+". ده مؤشر فحص داخل حدود التطبيق، مش دليل أمان أو تشخيص؛ قيّم الهدف مع مختص/ة حسب حالتك."),{marginTop:"10px"})); fragment.append(overview);
+  const chart=card("📈 منحنى الوزن"),chartBox=node("div",{id:"chart-box"}); add(chartBox,drawChart(weights,projected));
+  const legend=node("div",{className:"legend"}); add(legend,node("span",{className:"lg-a",text:"وزنك المسجّل"}),node("span",{className:"lg-p",text:"المسار الحسابي الثابت (~"+(g.klo+g.khi)/2+" سعر/يوم)"}),node("span",{className:"lg-g",text:"الهدف "+gw+" كجم"}));
+  add(chart,chartBox,legend,muted("ده مسار رياضي خطي باستخدام 7700 سعر/كجم لمدة أقصاها 60 أسبوع، مش تنبؤ ولا قياس. الجسم بيتكيف واحتياج الطاقة بيتغير، فالنتيجة الفعلية ممكن تختلف.")); fragment.append(chart);
+  const milestonesCard=card("🚩 المحطات"); if(milestoneRows.length) add(milestonesCard,tableNode(["الوزن","وصلت / المسار الحسابي"],milestoneRows)); else add(milestonesCard,muted("مفيش محطة فعلية أو محطة عبرها المسار الحسابي المتاح.")); fragment.append(milestonesCard);
   const weeklyCard=card("📅 متوسط أسبوعي");
   if(weekRows.length) add(weeklyCard,tableNode(["الأسبوع","المتوسط","التغيير"],weekRows)); else add(weeklyCard,muted("سجّل وزنك يوميًا وهتلاقي المتوسطات هنا."));
-  add(weeklyCard,setStyle(muted("الهدف الحالي: "+rateLo+"–"+rateHi+" كجم في الأسبوع بعد أول أسبوعين. بص على متوسط 3 أسابيع لأن المياه ممكن تخفي الاتجاه الحقيقي."),{marginTop:"8px"}),muted("أيام متسجلة: "+tracked+" يوم")); fragment.append(weeklyCard);
+  add(weeklyCard,setStyle(muted("لخسارة الوزن، نطاق المتابعة الحسابي في المنتج "+rateLo+"–"+rateHi+" كجم/أسبوع بعد أول أسبوعين؛ ده مش قياس ولا توصية مصدرية. بص على متوسط 3 أسابيع لأن السوائل ممكن تخفي الاتجاه."),{marginTop:"8px"}),muted("أيام متسجلة: "+tracked+" يوم")); fragment.append(weeklyCard);
   const history=card(),historyTitle=node("h2",{text:"🗓️ سجل الأيام "}); add(historyTitle,node("span",{className:"muted",text:"(دوس على أي يوم يفتحلك)"})); history.append(historyTitle);
   Object.keys(S.days).sort().reverse().forEach(date=>{
     const d=S.days[date],total=totals(d),bits=[];
@@ -480,7 +562,7 @@ function svgElement(tag,attrs={}){
 function drawChart(weights,projection){
   const gw=T().gw,W=780,H=300,PL=42,PR=12,PT=14,PB=34,all=weights.concat(projection.map(point=>({date:point.date,w:point.w})));
   if(!all.length) return muted("مفيش بيانات لسه.");
-  const t0=new Date(all[0].date+"T12:00:00").getTime()-5*864e5,t1=new Date(all[all.length-1].date+"T12:00:00").getTime()+5*864e5;
+  const t0=Date.parse(all[0].date+"T00:00:00.000Z")-5*864e5,t1=Date.parse(all[all.length-1].date+"T00:00:00.000Z")+5*864e5;
   const wmin=Math.min(gw,...all.map(point=>point.w))-2,wmax=Math.max(...all.map(point=>point.w))+2;
   const X=time=>PL+(time-t0)/(t1-t0)*(W-PL-PR),Y=weight=>PT+(wmax-weight)/(wmax-wmin)*(H-PT-PB);
   const svg=svgElement("svg",{viewBox:"0 0 "+W+" "+H,xmlns:SVG_NS}); svg.style.minWidth="600px"; svg.style.width="100%";
@@ -488,18 +570,18 @@ function drawChart(weights,projection){
     svg.append(svgElement("line",{x1:PL,y1:Y(weight),x2:W-PR,y2:Y(weight),stroke:"#2a3948","stroke-width":1}));
     const label=svgElement("text",{x:PL-6,y:Y(weight)+4,fill:"#8ba0b5","font-size":11,"text-anchor":"end"}); label.textContent=String(weight); svg.append(label);
   }
-  const end=new Date(t1),months=["ينا","فبر","مار","أبر","ماي","يون","يول","أغس","سبت","أكت","نوف","ديس"]; let month=new Date(new Date(t0).getFullYear(),new Date(t0).getMonth()+1,1);
+  const end=new Date(t1),months=["ينا","فبر","مار","أبر","ماي","يون","يول","أغس","سبت","أكت","نوف","ديس"],start=new Date(t0); let month=new Date(Date.UTC(start.getUTCFullYear(),start.getUTCMonth()+1,1));
   while(month<end){
     const x=X(month.getTime()); svg.append(svgElement("line",{x1:x,y1:PT,x2:x,y2:H-PB,stroke:"#22303e","stroke-width":1}));
-    const label=svgElement("text",{x,y:H-14,fill:"#8ba0b5","font-size":10,"text-anchor":"middle"}); label.textContent=months[month.getMonth()]+" "+String(month.getFullYear()).slice(2); svg.append(label); month=new Date(month.getFullYear(),month.getMonth()+1,1);
+    const label=svgElement("text",{x,y:H-14,fill:"#8ba0b5","font-size":10,"text-anchor":"middle"}); label.textContent=months[month.getUTCMonth()]+" "+String(month.getUTCFullYear()).slice(2); svg.append(label); month=new Date(Date.UTC(month.getUTCFullYear(),month.getUTCMonth()+1,1));
   }
   svg.append(svgElement("line",{x1:PL,y1:Y(gw),x2:W-PR,y2:Y(gw),stroke:"#8ba0b5","stroke-width":1.5,"stroke-dasharray":"2,4"}));
   if(weights.length||projection.length){
-    const start=weights.length?weights[weights.length-1]:projection[0],coords=[[X(new Date(start.date+"T12:00:00").getTime()),Y(start.w)],...projection.map(point=>[X(new Date(point.date+"T12:00:00").getTime()),Y(point.w)])];
+    const start=weights.length?weights[weights.length-1]:projection[0],coords=[[X(Date.parse(start.date+"T00:00:00.000Z")),Y(start.w)],...projection.map(point=>[X(Date.parse(point.date+"T00:00:00.000Z")),Y(point.w)])];
     const path=coords.map((pair,index)=>(index?"L ":"M ")+pair[0]+" "+pair[1]).join(" "); svg.append(svgElement("path",{d:path,fill:"none",stroke:"#fb923c","stroke-width":2,"stroke-dasharray":"6,5",opacity:0.85}));
   }
   if(weights.length){
-    const coords=weights.map(point=>[X(new Date(point.date+"T12:00:00").getTime()),Y(point.w)]),path=coords.map((pair,index)=>(index?"L ":"M ")+pair[0]+" "+pair[1]).join(" ");
+    const coords=weights.map(point=>[X(Date.parse(point.date+"T00:00:00.000Z")),Y(point.w)]),path=coords.map((pair,index)=>(index?"L ":"M ")+pair[0]+" "+pair[1]).join(" ");
     svg.append(svgElement("path",{d:path,fill:"none",stroke:"#2dd4bf","stroke-width":2.5}));
     weights.forEach((point,index)=>{ const circle=svgElement("circle",{cx:coords[index][0],cy:coords[index][1],r:3.5,fill:"#2dd4bf"}),title=svgElement("title"); title.textContent=point.date+": "+point.w+" كجم"; circle.append(title); svg.append(circle); });
   }

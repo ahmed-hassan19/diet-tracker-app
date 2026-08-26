@@ -71,6 +71,7 @@ test("settings enforce known keys, types, ranges, order, enums, and disclosure p
   await assertSucceeds(setDoc(ref, tracker({ settings: {
     name: "اسم", sex: "m", age: 18, ht: 120, act: 1.2, klo: 1200, khi: 6000,
     plo: 40, phi: 300, sw: 30, gw: 300, tw: 0, _ts: Date.now(),
+    targetFormulaVersion: 1, healthNoticeVersion: 1, healthNoticeAcceptedAt: "2026-08-25T00:00:00.000Z",
     aiDisclosureVersion: 1, aiDisclosureAcceptedAt: "2026-08-25T00:00:00.000Z",
   } })));
   const invalidSettings = [
@@ -78,10 +79,17 @@ test("settings enforce known keys, types, ranges, order, enums, and disclosure p
     { ht: 231 }, { act: 1.3 }, { klo: 1199 }, { khi: 6001 }, { plo: 39 }, { phi: 301 },
     { sw: 29 }, { gw: 301 }, { tw: 1 }, { klo: 2000, khi: 1900 }, { plo: 100, phi: 90 },
     { _ts: 1 }, { aiDisclosureVersion: 1 }, { aiDisclosureAcceptedAt: "time" },
+    { targetFormulaVersion: 0 }, { targetFormulaVersion: 2 }, { targetFormulaVersion: 1.5 },
+    { healthNoticeVersion: 1 }, { healthNoticeAcceptedAt: "2026-08-25T00:00:00.000Z" },
+    { healthNoticeVersion: 2, healthNoticeAcceptedAt: "2026-08-25T00:00:00.000Z" },
+    { healthNoticeVersion: 1, healthNoticeAcceptedAt: "2026-08-25T00:00:00Z" },
+    { healthNoticeVersion: 1, healthNoticeAcceptedAt: "2026-02-30T00:00:00.000Z" },
+    { healthNoticeVersion: 1, healthNoticeAcceptedAt: "2999-01-01T00:00:00.000Z" },
     { aiDisclosureVersion: 2, aiDisclosureAcceptedAt: "2026-08-25T00:00:00.000Z" },
     { aiDisclosureVersion: 1, aiDisclosureAcceptedAt: "2026/08/25T00:00:00.000Z" },
   ];
   for (const settings of invalidSettings) await assertFails(setDoc(ref, tracker({ settings })));
+  await assertFails(updateDoc(ref, { settings: { healthNoticeVersion: 1, healthNoticeAcceptedAt: "2999-01-01T00:00:00.000Z" }, updated: Date.now() }));
 });
 
 test("day, custom-catalog, and calorie-reference count boundaries are enforced", async () => {

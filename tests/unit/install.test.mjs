@@ -32,7 +32,7 @@ test("all icon files are exact deterministic PNG outputs with declared dimension
 
 test("every page header uses the same icon file as the iPhone Home Screen app", () => {
   const headerLogos = html.match(/<h1><img class="brand-icon" src="\/icons\/icon-180\.png" width="32" height="32" alt=""><span>Diet Tracker<\/span><\/h1>/g) || [];
-  assert.equal(headerLogos.length, 3);
+  assert.equal(headerLogos.length, 4);
   assert.doesNotMatch(html, /🥗 Diet Tracker/);
   assert.match(html, /header h1\{[^}]*display:inline-flex; flex-direction:column; align-items:center; gap:5px/);
 });

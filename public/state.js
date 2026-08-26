@@ -9,7 +9,7 @@ const IDB_VERSION=1;
 const IDB_STORE="states";
 const DAY_KEYS=new Set([...Object.keys(MEALS),"extras","water","workout","steps","cardio","weight","sleep","notes","_ts"]);
 const FOOD_KEYS=new Set([...Object.keys(MEALS),"extras","_ts"]);
-const SETTINGS_KEYS=new Set([...Object.keys(DEF),"_ts","aiDisclosureVersion","aiDisclosureAcceptedAt"]);
+const SETTINGS_KEYS=new Set([...Object.keys(DEF),"_ts","targetFormulaVersion","healthNoticeVersion","healthNoticeAcceptedAt","aiDisclosureVersion","aiDisclosureAcceptedAt"]);
 const ACTIVITY_VALUES=new Set([1.2,1.375,1.55,1.725]);
 const LEGACY_SOURCES=new Set(["legacy","import","remote"]);
 const OBJECT_PROTO_KEYS=new Set(["constructor","__defineGetter__","__defineSetter__","hasOwnProperty","__lookupGetter__","__lookupSetter__","isPrototypeOf","propertyIsEnumerable","toString","valueOf","__proto__","toLocaleString"]);
@@ -73,6 +73,7 @@ function validIsoTime(value){
   return typeof value==="string"&&/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(value)
     &&Number.isFinite(Date.parse(value))&&new Date(value).toISOString()===value;
 }
+function validPastIsoTime(value){ return validIsoTime(value)&&Date.parse(value)<=Date.now(); }
 function validDayKey(value){
   const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if(!m) return false;
@@ -170,6 +171,19 @@ function normalizeSettings(raw,coerce,importedAt){
   }
   if(value.klo!==undefined&&value.khi!==undefined&&value.klo>value.khi) return normalizationFailure("settings");
   if(value.plo!==undefined&&value.phi!==undefined&&value.plo>value.phi) return normalizationFailure("settings");
+  if(raw.targetFormulaVersion!==undefined){
+    const version=boundedNumber(raw.targetFormulaVersion,1,TARGET_FORMULA_VERSION,{coerce,integer:true});
+    if(version!==TARGET_FORMULA_VERSION) return normalizationFailure("settings");
+    value.targetFormulaVersion=TARGET_FORMULA_VERSION;
+  }
+  const hasHealthVersion=raw.healthNoticeVersion!==undefined;
+  const hasHealthTime=raw.healthNoticeAcceptedAt!==undefined;
+  if(hasHealthVersion!==hasHealthTime) return normalizationFailure("settings");
+  if(hasHealthVersion){
+    const version=boundedNumber(raw.healthNoticeVersion,1,HEALTH_NOTICE_VERSION,{coerce,integer:true});
+    if(version!==HEALTH_NOTICE_VERSION||!validPastIsoTime(raw.healthNoticeAcceptedAt)) return normalizationFailure("settings");
+    value.healthNoticeVersion=HEALTH_NOTICE_VERSION; value.healthNoticeAcceptedAt=raw.healthNoticeAcceptedAt;
+  }
   const hasDisclosureVersion=raw.aiDisclosureVersion!==undefined;
   const hasDisclosureTime=raw.aiDisclosureAcceptedAt!==undefined;
   if(hasDisclosureVersion!==hasDisclosureTime) return normalizationFailure("settings");
@@ -463,10 +477,14 @@ async function importData(inp){
   if(!sessionCurrent()) return;
   applyNormalizedState(normalized,{persist:false,push:true});
   if(typeof setWho==="function") setWho();
-  renderDay();
-  if(curTab==="prog") renderProg();
-  if(curTab==="examples") renderExamples();
-  if(curTab==="cal") renderCalRef();
+  const user=window.firebaseBridge&&window.firebaseBridge.currentUser();
+  if(!healthNoticeAccepted()&&typeof routeSignedIn==="function") routeSignedIn(user);
+  else{
+    renderFormulaReview(); renderDay();
+    if(curTab==="prog") renderProg();
+    if(curTab==="examples") renderExamples();
+    if(curTab==="cal") renderCalRef();
+  }
   alert(normalized.sizeClass==="warning"?"تم الاسترجاع ✅ — حجم البيانات قرب من حد المزامنة.":"تم الاسترجاع ✅");
 }
 
@@ -495,12 +513,23 @@ function totals(d){
   return {k,p,f,c};
 }
 function project(fromW,fromDate){
-  const g=T(),gw=g.gw,intake=(g.klo+g.khi)/2,dir=gw<fromW?-1:1;
-  const pts=[]; let w=fromW,d=new Date(fromDate+"T12:00:00");
-  for(let i=0;i<60&&(gw-w)*dir>0;i++){
-    const tdee=g.ht?calcTargets({sex:g.sex,age:g.age,ht:g.ht,act:g.act,w,gw}).tdee:27.4*w;
-    w-=(tdee-intake)*7/7700; d=new Date(d.getTime()+7*864e5);
-    pts.push({date:d.toISOString().slice(0,10),w:dir<0?Math.max(w,gw):Math.min(w,gw)});
+  const g=T(),gw=g.gw,intake=(g.klo+g.khi)/2;
+  if(!Number.isFinite(fromW)||fromW<30||fromW>300||!validDayKey(fromDate)
+    ||!validProfile({sex:g.sex,age:g.age,ht:g.ht,act:g.act,w:fromW,gw})||!validTargets(g)) return {points:[],reached:false,reason:"invalid"};
+  if(fromW===gw) return {points:[],reached:true,reason:"already-at-goal"};
+  const dir=gw<fromW?-1:1,points=[];
+  let w=fromW,time=Date.parse(fromDate+"T00:00:00.000Z");
+  for(let i=0;i<60;i++){
+    const tdee=calcTargets({sex:g.sex,age:g.age,ht:g.ht,act:g.act,w,gw}).tdee,balance=tdee-intake;
+    if(Math.abs(balance)<1) return {points,reached:false,reason:"equilibrium"};
+    const next=w-balance*7/7700;
+    if((next-w)*dir<=0) return {points,reached:false,reason:"wrong-direction"};
+    time+=7*864e5;
+    if((gw-next)*dir<=0){
+      points.push({date:new Date(time).toISOString().slice(0,10),w:gw});
+      return {points,reached:true,reason:"reached"};
+    }
+    w=next; points.push({date:new Date(time).toISOString().slice(0,10),w});
   }
-  return pts;
+  return {points,reached:false,reason:"limit"};
 }

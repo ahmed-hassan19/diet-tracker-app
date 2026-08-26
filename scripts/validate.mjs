@@ -104,6 +104,29 @@ if (foods.length !== 75) {
   throw new Error(`Expected 75 built-in nutrition entries, found ${foods.length}`);
 }
 
+const ledger = JSON.parse(fs.readFileSync("public/nutrition-sources.json", "utf8"));
+const runtimeEntries = [];
+for (const [key, meal] of Object.entries(nutrition.MEALS)) meal.opts.forEach((food, index) => runtimeEntries.push({ id: `meals.${key}.${index}`, food }));
+nutrition.EXTRAS.forEach((food, index) => runtimeEntries.push({ id: `extras.${index}`, food }));
+nutrition.CALREF.forEach((group, groupIndex) => group.items.forEach((food, index) => runtimeEntries.push({ id: `calref.${groupIndex}.${index}`, food })));
+if (ledger.schemaVersion !== 1 || ledger.inventoryCount !== 75 || ledger.entries?.length !== 75) throw new Error("Nutrition ledger must declare schema 1 and exactly 75 entries");
+if (new Set(ledger.entries.map((entry) => entry.id)).size !== 75) throw new Error("Nutrition ledger path IDs must be unique");
+for (let index = 0; index < runtimeEntries.length; index++) {
+  const { id, food } = runtimeEntries[index], entry = ledger.entries[index];
+  if (entry.id !== id || entry.title !== food.t || ["k", "p", "f", "c"].some((key) => entry[key] !== food[key])) throw new Error(`Nutrition ledger drifted from runtime at ${id}`);
+  if (!entry.preparation || !entry.servingBasis || !entry.conversion || !/^\d{4}-\d{2}-\d{2}$/.test(entry.reviewDate) || !entry.sourceIds?.length) throw new Error(`Nutrition ledger evidence is incomplete at ${id}`);
+  for (const sourceId of entry.sourceIds) if (!ledger.sources?.[sourceId] || !/^https:\/\//.test(ledger.sources[sourceId].url)) throw new Error(`Nutrition ledger source is missing at ${id}`);
+  for (const component of entry.components || []) {
+    if (!(component.amountG > 0) || !entry.sourceIds.includes(component.sourceId) || !ledger.sources[component.sourceId]) throw new Error(`Nutrition ledger component is incomplete at ${id}`);
+  }
+}
+const legacyPaths = ledger.entries.filter((entry) => entry.legacy).map((entry) => entry.id);
+if (JSON.stringify(legacyPaths) !== JSON.stringify(["meals.pw.0", "meals.nt.0", "meals.nt.1"])) throw new Error("Nutrition ledger legacy paths drifted");
+if (ledger.entries.filter((entry) => !entry.legacy && entry.reviewOutcome === "recalculated").length !== 72) throw new Error("Nutrition ledger must mark all 72 current entries as recalculated");
+if (Object.keys(ledger.sources).some((id) => id.includes("method"))) throw new Error("Nutrition ledger cannot use a methodology page as a food source");
+const fnddsUrl = "https://fdc.nal.usda.gov/fdc-datasets/FoodData_Central_survey_food_csv_2024-10-31.zip";
+for (const [id, source] of Object.entries(ledger.sources)) if (source.fdcId !== undefined && (id !== `fdc-${source.fdcId}` || source.url !== fnddsUrl || source.datasetSourceId !== "fndds-download")) throw new Error(`Nutrition ledger FNDDS binding is invalid at ${id}`);
+
 const mismatches = foods.filter((food) => {
   const macroCalories = food.p * 4 + food.f * 9 + food.c * 4;
   return food.k > 0 && Math.abs(food.k - macroCalories) / food.k > 0.1;

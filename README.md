@@ -12,6 +12,8 @@ document per authenticated user with Firebase.
 
 - `public/index.html`: markup, styles, and the single modular Firebase bridge.
 - `public/data.js`: meal, extra, and calorie-reference nutrition tables.
+- `public/evidence.html`: public Arabic evidence and calculation-limits page.
+- `public/nutrition-sources.json`: machine-readable 75-entry nutrition-source ledger.
 - `public/calc.js`: pure calorie/protein/macro functions — no state access.
 - `public/state.js`: state normalization, IndexedDB persistence, import/export,
   and the accessors that read state (`T`, `totals`, `project`).
@@ -46,6 +48,17 @@ The same canonical state is cached in IndexedDB database `diet_tracker`, store
 localStorage value is removed only after it has normalized, migrated, been read
 back, and matched byte-for-byte. The remaining localStorage marker contains no
 health data.
+
+The two-step health notice keeps condition selections only in transient UI
+memory. State, IndexedDB, Firestore, exports, logs, and network requests retain
+only the current notice version and canonical acceptance time. Declining never
+strands data: export, delete, and logout remain available.
+
+The nutrition ledger binds every current item to exact FNDDS record IDs or an
+exact manufacturer label and publishes the gram-scaled recipe calculation.
+The Egyptian food-table catalog is retained as a local-food identity and
+preparation cross-check. Only the three legacy-only saved options keep their
+historical macros; all 72 current entries use the reviewed values.
 
 Every local mutation, import, test assignment, and remote snapshot passes the
 same current-schema boundary before it can replace live state. Imports are
@@ -119,6 +132,9 @@ service-account keys.
 ## Privacy and security
 
 See [public/privacy.html](public/privacy.html) for data handling and deletion.
+See [public/evidence.html](public/evidence.html) for the health-math source notes
+and [public/nutrition-sources.json](public/nutrition-sources.json) for the exact
+runtime nutrition inventory and source ledger.
 Never commit service-account keys, debug tokens, completed release records, or
 console captures. The one modular Firebase app uses invisible reCAPTCHA v3 for
 App Check. AI is disabled in v3.7.0; manual macro entry remains available.

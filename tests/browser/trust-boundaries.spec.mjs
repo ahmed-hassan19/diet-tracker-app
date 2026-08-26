@@ -2,6 +2,9 @@ import { expect, test } from "@playwright/test";
 
 async function completeSetup(page) {
   await page.goto("/?test=1");
+  await expect(page.locator("#health-gate")).toBeVisible();
+  await page.locator("#health-step-1 .btn", { hasText: "التالي" }).click();
+  await page.locator("#health-step-2 .btn", { hasText: "قرأت وفهمت" }).click();
   await expect(page.locator("#setup")).toBeVisible();
   await page.locator("#su-name").fill("اختبار الحدود");
   await page.locator("#su-sex").selectOption("m");

@@ -28,7 +28,7 @@ test("CSP is derived from the one inline module and every remaining static handl
   assert.doesNotMatch(csp, /unsafe-eval|https:\/\/www\.gstatic\.com(?:\s|;)/);
   assert.doesNotMatch(csp, /https:\/\/www\.googleapis\.com(?:\s|;)/);
   assert.match(csp, /https:\/\/www\.googleapis\.com\/identitytoolkit\//);
-  assert.equal(staticHandlerSources(html).length, 25);
+  assert.equal(staticHandlerSources(html).length, 29);
   const mutated = structuredClone(config);
   mutated.hosting[0].headers.find((entry) => entry.source === "**").headers[0].value += " 'unsafe-eval'";
   assert.ok(securityHeaderProblems({ config: mutated, html, manifest }).length);

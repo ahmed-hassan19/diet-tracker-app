@@ -6,13 +6,14 @@ function calcTargets(p){
   /* عجز مربوط بوزن الجسم (~0.75% من الوزن/أسبوع = 8.25 سعر/كجم/يوم) مش بنسبة من TDEE:
      النسبة من TDEE كانت بتكبّر العجز مع النشاط، والنشاط مش بيزود مخزون الدهون */
   const delta=p.gw<p.w?-Math.min(1100,Math.max(300,8.25*p.w)):p.gw>p.w?300:0;
-  /* أرضية BMR: التطبيق ميقترحش أقل من حرق الراحة. 1250 يخلي الحد الأدنى 1200، نفس اللي بيرفضه التحقق عند الحفظ */
+  /* أرضية BMR: الحد الأدنى المدعوم 1200، مع التقريب لأعلى عشان الاقتراح مينزلش تحت حرق الراحة */
   /* مفيش سقف سعرات هنا: القص لـ6000 كان بيقلب العجز المقصود لعجز أكبر بكتير، والرفض أأمن من رقم غلط */
-  const floor=Math.max(1250,Math.ceil(bmr/50)*50);
-  const mid=Math.max(floor,Math.round((tdee+delta)/50)*50);
+  const floor=Math.max(1200,Math.ceil(bmr/50)*50);
+  const desiredLow=Math.round((tdee+delta)/50)*50-50;
+  const klo=Math.max(floor,desiredLow);
   const proteinWeight=p.gw<p.w?p.gw:p.w;
   const phi=Math.min(300,Math.round(2.2*proteinWeight));
-  return {klo:mid-50,khi:mid+50,plo:Math.min(phi,Math.round(2.0*proteinWeight)),phi,tdee};
+  return {klo,khi:klo+100,plo:Math.min(phi,Math.round(2.0*proteinWeight)),phi,tdee};
 }
 /* شباك قبول معدل النزول: 0.5–1.0% من الوزن/أسبوع، حاضن هدف الـ0.75% اللي العجز مبني عليه */
 function rateBand(w){ return {lo:(0.005*w).toFixed(1),hi:(0.01*w).toFixed(1)}; }
@@ -27,6 +28,17 @@ function basisWeight(ws,asOf,days=14){
 }
 /* الأهداف بتتقرب لأقرب 50 سعر، فأي فرق أصغر من خطوة كاملة مش تغيير حقيقي */
 function targetsMoved(a,b){ return Math.abs(a.klo-b.klo)>=50; }
+/* ISO week-year نقي وبحساب UTC؛ الأسبوع بيبدأ الاثنين وW01 فيه أول خميس. */
+function isoWeekYear(day){
+  if(typeof day!=="string"||!/^\d{4}-\d{2}-\d{2}$/.test(day)) return null;
+  const [year,month,date]=day.split("-").map(Number),utc=new Date(Date.UTC(year,month-1,date));
+  if(utc.toISOString().slice(0,10)!==day) return null;
+  const weekday=utc.getUTCDay()||7;
+  utc.setUTCDate(utc.getUTCDate()+4-weekday);
+  const weekYear=utc.getUTCFullYear(),yearStart=new Date(Date.UTC(weekYear,0,1));
+  const week=Math.ceil((((utc-yearStart)/864e5)+1)/7);
+  return weekYear+"-W"+String(week).padStart(2,"0");
+}
 function validProfile(p){
   const goalBmi=p.gw/(p.ht/100)**2;
   return (p.sex==="m"||p.sex==="f")&&p.act>=1.2&&p.act<=1.9
@@ -50,8 +62,8 @@ function macroMismatch(o){
 function macroValues(o){ return {k:o.k,p:o.p,f:o.f||0,c:o.c||0}; }
 
 /* نفس حدود suRead/suSave عشان لوحة التقدم متقبلش قيم بترفضها صفحة الإعداد */
-const KMSG="السعرات لازم تكون بين 1200 و6000، وأي هدف شديد الانخفاض يحتاج إشراف طبي.";
-const PMSG="راجع هدف البروتين (40–300 جم).";
+const KMSG="السعرات لازم تكون بين 1200 و6000؛ دي حدود التطبيق المدعومة ومش دليل إن الرقم آمن أو مناسب ليك.";
+const PMSG="راجع هدف البروتين (40–300 جم)؛ دي حدود التطبيق المدعومة ومش توصية أمان.";
 const TLIMITS={
   klo:[1200,6000,KMSG], khi:[1200,6000,KMSG], plo:[40,300,PMSG], phi:[40,300,PMSG],
   age:[18,100,"التطبيق للبالغين فقط: السن لازم يكون بين 18 و100 سنة."],

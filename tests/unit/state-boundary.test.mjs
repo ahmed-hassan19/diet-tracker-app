@@ -116,10 +116,10 @@ test("custom-food, per-list, calorie-reference, label, nutrition, and macro boun
   assert.equal(normalize({...base(),calref:{items:[calref({k:500,p:1,f:1,c:1})]}}).ok,false,"calorie references require macro agreement");
 });
 
-test("settings retain profile, target, enum, name, and disclosure boundaries", () => {
-  const valid={name:"ن".repeat(40),sex:"f",age:100,ht:230,act:1.725,klo:1200,khi:6000,plo:40,phi:300,sw:30,gw:300,tw:0,aiDisclosureVersion:1,aiDisclosureAcceptedAt:"2026-08-25T00:00:00.000Z"};
+test("settings retain profile, target, enum, name, formula, health notice, and disclosure boundaries", () => {
+  const valid={name:"ن".repeat(40),sex:"f",age:100,ht:230,act:1.725,klo:1200,khi:6000,plo:40,phi:300,sw:30,gw:300,tw:0,targetFormulaVersion:1,healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z",aiDisclosureVersion:1,aiDisclosureAcceptedAt:"2026-08-25T00:00:00.000Z"};
   assert.equal(normalize({...base(),settings:valid}).ok,true);
-  for(const settings of [{name:"x".repeat(41)},{sex:"x"},{age:17},{age:18.5},{ht:231},{act:1.3},{klo:1199},{klo:2000,khi:1900},{plo:100,phi:90},{sw:29},{gw:301},{tw:1},{aiDisclosureVersion:1},{aiDisclosureAcceptedAt:"0"}]) assert.equal(normalize({...base(),settings}).ok,false,JSON.stringify(settings));
+  for(const settings of [{name:"x".repeat(41)},{sex:"x"},{age:17},{age:18.5},{ht:231},{act:1.3},{klo:1199},{klo:2000,khi:1900},{plo:100,phi:90},{sw:29},{gw:301},{tw:1},{targetFormulaVersion:0},{targetFormulaVersion:2},{targetFormulaVersion:1.5},{healthNoticeVersion:1},{healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z"},{healthNoticeVersion:2,healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z"},{healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-08-25T00:00:00Z"},{healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-02-30T00:00:00.000Z"},{healthNoticeVersion:1,healthNoticeAcceptedAt:"2999-01-01T00:00:00.000Z"},{aiDisclosureVersion:1},{aiDisclosureAcceptedAt:"0"}]) assert.equal(normalize({...base(),settings}).ok,false,JSON.stringify(settings));
 });
 
 test("UTF-8 cloud sizing warns at 500 KiB and rejects imports or writes above 600 KiB", () => {

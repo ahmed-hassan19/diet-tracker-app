@@ -26,7 +26,7 @@ test("representative profiles retain formula outputs", () => {
   );
   assert.deepEqual(
     { ...context.calcTargets({ sex: "f", age: 30, ht: 165, w: 70, act: 1.375, gw: 60 }) },
-    { tdee: 1953, klo: 1400, khi: 1500, plo: 120, phi: 132 },
+    { tdee: 1953, klo: 1450, khi: 1550, plo: 120, phi: 132 },
   );
 });
 
@@ -48,8 +48,8 @@ test("cut target never drops below resting metabolism", () => {
   const bmr = 10 * p.w + 6.25 * p.ht - 5 * p.age + 5;
   const t = context.calcTargets(p);
   // the bodyweight-anchored deficit alone would prescribe 2376 - 825 = 1550
-  assert.equal(t.klo, 1950);
-  assert.equal(t.khi, 2050);
+  assert.equal(t.klo, 2000);
+  assert.equal(t.khi, 2100);
   assert.ok((t.klo + t.khi) / 2 >= bmr);
 });
 
@@ -65,6 +65,31 @@ test("cut deficit tracks bodyweight, not activity", () => {
   // act 1.2 is excluded on purpose: 0.75%/week is unreachable below BMR for any
   // real body, so the floor binds there and shrinks the deficit by design.
   assert.ok(deficit(1.2) < deficit(1.55));
+});
+
+test("BMR floor is 1200 or BMR rounded upward and every band is exactly 100 kcal", () => {
+  const profiles = [
+    { sex: "f", age: 100, ht: 120, w: 30, act: 1.2, gw: 25 },
+    { sex: "f", age: 45, ht: 160, w: 75, act: 1.2, gw: 65 },
+    { sex: "m", age: 30, ht: 180, w: 100, act: 1.2, gw: 90 },
+    { sex: "m", age: 25, ht: 190, w: 130, act: 1.725, gw: 115 },
+  ];
+  for (const p of profiles) {
+    const bmr = 10 * p.w + 6.25 * p.ht - 5 * p.age + (p.sex === "m" ? 5 : -161);
+    const target = context.calcTargets(p);
+    assert.ok(target.klo >= Math.max(1200, Math.ceil(bmr / 50) * 50));
+    assert.equal(target.khi - target.klo, 100);
+  }
+});
+
+test("maintenance, gain, and cut preserve the product energy adaptations", () => {
+  const base = { sex: "m", age: 32, ht: 178, w: 82, act: 1.55 };
+  const maintain = context.calcTargets({ ...base, gw: 82 });
+  const gain = context.calcTargets({ ...base, gw: 90 });
+  const cut = context.calcTargets({ ...base, gw: 72 });
+  assert.ok(Math.abs((maintain.klo + maintain.khi) / 2 - maintain.tdee) <= 25);
+  assert.ok(Math.abs((gain.klo + gain.khi) / 2 - (gain.tdee + 300)) <= 25);
+  assert.ok(Math.abs((cut.tdee - (cut.klo + cut.khi) / 2) - 8.25 * base.w) <= 25);
 });
 
 test("rate band brackets the target rate", () => {
@@ -152,4 +177,12 @@ test("custom targets enforce safe ranges and ordering", () => {
 test("macro mismatch warns beyond ten percent", () => {
   assert.equal(context.macroMismatch({ k: 100, p: 10, f: 4, c: 6 }), false);
   assert.equal(context.macroMismatch({ k: 300, p: 10, f: 4, c: 6 }), true);
+});
+
+test("ISO week-year helper handles year boundaries in UTC", () => {
+  assert.equal(context.isoWeekYear("2020-12-31"), "2020-W53");
+  assert.equal(context.isoWeekYear("2021-01-01"), "2020-W53");
+  assert.equal(context.isoWeekYear("2024-12-30"), "2025-W01");
+  assert.equal(context.isoWeekYear("2025-01-01"), "2025-W01");
+  assert.equal(context.isoWeekYear("2025-02-30"), null);
 });

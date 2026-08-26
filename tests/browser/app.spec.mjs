@@ -80,7 +80,7 @@ test("is RTL, responsive, and persists meal totals after reload", async ({
 });
 
 test("renders the runtime version and hosted-install resources", async ({ page, request }) => {
-  await expect(page.locator("#app-version")).toHaveText("v3.11.0");
+  await expect(page.locator("#app-version")).toHaveText("v3.11.1");
   const link = page.locator('link[rel="manifest"]');
   await expect(link).toHaveAttribute("href", "/manifest.webmanifest");
   const manifestResponse = await request.get("/manifest.webmanifest");
@@ -310,6 +310,24 @@ test("progress tab offers a stale-target note that dismisses without changing ta
   expect(settings.klo).toBe(1950);
   expect(settings.khi).toBe(2050);
   expect(settings.tw).toBeCloseTo(78, 5);
+});
+
+test("progress rate follows the current calorie deficit and hides without one", async ({
+  page,
+}) => {
+  await page.locator("#tab-prog").click();
+  const progress = page.locator("#pg-prog");
+  await expect(progress).toContainText("0.59–0.68 كجم/أسبوع");
+  await page.evaluate(() => {
+    const state = window.__dietTest.getState();
+    window.__dietTest.setState({
+      ...state,
+      settings: { ...state.settings, klo: 2800, khi: 2900 },
+    });
+  });
+  await page.locator("#tab-day").click();
+  await page.locator("#tab-prog").click();
+  await expect(progress).not.toContainText("كجم/أسبوع");
 });
 
 test("change-from-start measures from the declared start weight, not the first log", async ({

@@ -92,8 +92,27 @@ test("maintenance, gain, and cut preserve the product energy adaptations", () =>
   assert.ok(Math.abs((cut.tdee - (cut.klo + cut.khi) / 2) - 8.25 * base.w) <= 25);
 });
 
-test("rate band brackets the target rate", () => {
-  assert.deepEqual({ ...context.rateBand(80) }, { lo: "0.4", hi: "0.8" });
+test("rate band follows the effective calorie target including the BMR floor", () => {
+  const floorBound = context.calcTargets({
+    sex: "m", age: 30, ht: 180, w: 100, act: 1.2, gw: 90,
+  });
+  assert.deepEqual(
+    { ...context.rateBand(floorBound.tdee, floorBound.klo, floorBound.khi) },
+    { lo: "0.25", hi: "0.34" },
+  );
+
+  const capped = context.calcTargets({
+    sex: "m", age: 30, ht: 230, w: 300, act: 1.55, gw: 200,
+  });
+  assert.deepEqual(
+    { ...context.rateBand(capped.tdee, capped.klo, capped.khi) },
+    { lo: "0.96", hi: "1.05" },
+  );
+});
+
+test("rate band rejects invalid inputs and does not label a surplus as loss", () => {
+  assert.equal(context.rateBand(2000, 2100, 2200), null);
+  assert.equal(context.rateBand(NaN, 1800, 1900), null);
 });
 
 test("calculated targets keep supported profiles valid and reject out-of-band energy", () => {

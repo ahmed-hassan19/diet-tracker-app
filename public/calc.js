@@ -15,8 +15,13 @@ function calcTargets(p){
   const phi=Math.min(300,Math.round(2.2*proteinWeight));
   return {klo,khi:klo+100,plo:Math.min(phi,Math.round(2.0*proteinWeight)),phi,tdee};
 }
-/* شباك قبول معدل النزول: 0.5–1.0% من الوزن/أسبوع، حاضن هدف الـ0.75% اللي العجز مبني عليه */
-function rateBand(w){ return {lo:(0.005*w).toFixed(1),hi:(0.01*w).toFixed(1)}; }
+/* نطاق النزول اللي ينتجه هدف السعرات الحالي: طرف السعرات الأعلى أبطأ، والأقل أسرع.
+   نفس تقريب 7700 سعر/كجم المستخدم في المسار؛ لو النطاق مفيهوش عجز مش بنعرضه كنزول. */
+function rateBand(tdee,klo,khi){
+  if(![tdee,klo,khi].every(Number.isFinite)||tdee<=0||klo<=0||khi<klo) return null;
+  const lo=Math.max(0,(tdee-khi)*7/7700),hi=(tdee-klo)*7/7700;
+  return hi>0?{lo:lo.toFixed(2),hi:hi.toFixed(2)}:null;
+}
 /* وزن الأساس: متوسط أوزان آخر 14 يوم — الوزن اليومي فيه مياه بتلعب،
    والمتوسط بيمنع المقترح إنه يروح ويجي حوالين حدود التقريب */
 function basisWeight(ws,asOf,days=14){

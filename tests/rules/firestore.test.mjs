@@ -96,8 +96,14 @@ test("day, custom-catalog, and calorie-reference count boundaries are enforced",
   const db = await context("counts"),ref = doc(db, "trackers/counts");
   await assertSucceeds(setDoc(ref, tracker({ days: days(1095) })));
   await assertFails(setDoc(ref, tracker({ days: days(1096) })));
+  await assertFails(setDoc(ref, tracker({ days: { "not-a-date": {} } })));
+  await assertFails(setDoc(ref, tracker({ days: { "2026-13-01": {} } })));
+  await assertFails(setDoc(ref, tracker({ days: { "2026-01-32": {} } })));
+  await assertFails(setDoc(ref, tracker({ days: { "2026-01-01,2026-01-02": {} } })));
   await assertSucceeds(setDoc(ref, tracker({ foods: { b: Array(200).fill(null) } })));
   await assertFails(setDoc(ref, tracker({ foods: { b: Array(201).fill(null) } })));
+  await assertSucceeds(setDoc(ref, tracker({ foods: { b: Array(100).fill(null), s: Array(100).fill(null) } })));
+  await assertFails(setDoc(ref, tracker({ foods: { b: Array(101).fill(null), s: Array(100).fill(null) } })));
   await assertSucceeds(setDoc(ref, tracker({ calref: { items: Array(500).fill(null) } })));
   await assertFails(setDoc(ref, tracker({ calref: { items: Array(501).fill(null) } })));
   await assertFails(setDoc(ref, tracker({ foods: { unknown: [] } })));

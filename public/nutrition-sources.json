@@ -14,15 +14,12 @@
       "url": "https://www.fao.org/infoods/infoods/tables-and-databases/egypt/en/",
       "role": "local-food identity and preparation cross-check"
     },
-    "nescafe-2in1": {
-      "name": "NESCAFÉ 2-in-1 manufacturer label",
-      "url": "https://www.nescafe.com/coffees/nescafe-2in1",
-      "role": "exact shipped branded sachet"
-    },
-    "muscletech-nitrotech": {
-      "name": "MuscleTech Nitro-Tech manufacturer label",
-      "url": "https://international.muscletech.com/products/all/protein/nitro-tech/",
-      "role": "legacy branded serving"
+    "nih-dsld-63629": {
+      "name": "NIH ODS DSLD 63629 — MuscleTech Nitro Tech Milk Chocolate label",
+      "dsldId": 63629,
+      "url": "https://api.ods.od.nih.gov/dsld/v9/label/63629",
+      "basis": "archived manufacturer label entered 2016-08-24; serving range starts at 44 g (1 scoop)",
+      "role": "exact frozen-legacy branded serving evidence"
     },
     "fdc-2707154": {
       "name": "USDA FNDDS 2707154 — Egg, whole, boiled or poached",
@@ -770,18 +767,33 @@
     },
     {
       "id": "meals.bc.0",
-      "title": "نيسكافيه Coffee Break 2×1 (ظرف ١٢ جم) + سويتال",
-      "k": 55,
-      "p": 1,
-      "f": 3,
-      "c": 6,
-      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
-      "servingBasis": "ظرف مصنع واحد 12 جم؛ المُحلي غير المغذي محسوب بصفر",
+      "title": "قهوة سادة + ١٠٠ مل لبن قليل الدسم + ملعقة صغيرة سكر",
+      "k": 63,
+      "p": 4,
+      "f": 1,
+      "c": 9,
+      "preparation": "قهوة سادة محضرة بالمياه، مضاف لها ١٠٠ مل لبن قليل الدسم و٤٫٢ جم سكر",
+      "servingBasis": "240 جم × Coffee, brewed + 102 جم × Milk, low fat (1%) + 4.2 جم × Sugar, white",
       "sourceIds": [
-        "nescafe-2in1"
+        "fdc-2710375",
+        "fdc-2705387",
+        "fdc-2710258"
       ],
-      "components": [],
-      "conversion": "قِيَم ملصق المصنع للحصة 12 جم: 55 سعر، 1 جم بروتين، 3 جم دهون، 6 جم كربوهيدرات.",
+      "components": [
+        {
+          "sourceId": "fdc-2710375",
+          "amountG": 240
+        },
+        {
+          "sourceId": "fdc-2705387",
+          "amountG": 102
+        },
+        {
+          "sourceId": "fdc-2710258",
+          "amountG": 4.2
+        }
+      ],
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 63.102/3.7356/1.03044/9.4668؛ المعروض = 63/4/1/9.",
       "reviewDate": "2026-08-26",
       "legacy": false,
       "reviewOutcome": "recalculated"
@@ -1030,23 +1042,28 @@
     },
     {
       "id": "meals.cf.0",
-      "title": "قهوة بن أرابيكا وسط سادة + سويتال",
-      "k": 4,
+      "title": "قهوة سادة + ملعقة صغيرة عسل نحل (٧ جم)",
+      "k": 24,
       "p": 0,
       "f": 0,
-      "c": 1,
-      "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
-      "servingBasis": "240 جم × Coffee, brewed",
+      "c": 6,
+      "preparation": "قهوة سادة محضرة بالمياه، مضاف لها ٧ جم عسل نحل",
+      "servingBasis": "240 جم × Coffee, brewed + 7 جم × Honey",
       "sourceIds": [
-        "fdc-2710375"
+        "fdc-2710375",
+        "fdc-2710281"
       ],
       "components": [
         {
           "sourceId": "fdc-2710375",
           "amountG": 240
+        },
+        {
+          "sourceId": "fdc-2710281",
+          "amountG": 7
         }
       ],
-      "conversion": "الناتج الخام k/p/f/c = 2.4/0.29/0.05/0؛ عند دقة العرض الصحيحة اتعرض أثر الكوب 4 سعر/1 جم كربوهيدرات عشان يفضل فحص 4/4/9 متسقًا بدل ادعاء دقة كسور الجرام.",
+      "conversion": "جمع (قيمة كل مصدر لكل 100 جم × وزن المكوّن ÷ 100)، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 23.68/0.309/0.048/5.768؛ المعروض = 24/0/0/6.",
       "reviewDate": "2026-08-26",
       "legacy": false,
       "reviewOutcome": "recalculated"
@@ -1174,12 +1191,12 @@
       "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
       "servingBasis": "سكوب Nitro-Tech تاريخي 44 جم + موزة FNDDS 126 جم",
       "sourceIds": [
-        "muscletech-nitrotech",
+        "nih-dsld-63629",
         "fdc-2709224"
       ],
       "components": [
         {
-          "sourceId": "muscletech-nitrotech",
+          "sourceId": "nih-dsld-63629",
           "amountG": 44
         },
         {
@@ -1202,12 +1219,12 @@
       "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
       "servingBasis": "سكوب Nitro-Tech تاريخي 44 جم + لبن قليل الدسم FNDDS 254 جم",
       "sourceIds": [
-        "muscletech-nitrotech",
+        "nih-dsld-63629",
         "fdc-2705387"
       ],
       "components": [
         {
-          "sourceId": "muscletech-nitrotech",
+          "sourceId": "nih-dsld-63629",
           "amountG": 44
         },
         {
@@ -1530,23 +1547,23 @@
     },
     {
       "id": "extras.6",
-      "title": "ملعقة صغيرة عسل نحل (٧ جم)",
-      "k": 21,
+      "title": "ملعقة صغيرة ممتلئة عسل نحل (١٠ جم)",
+      "k": 30,
       "p": 0,
       "f": 0,
-      "c": 5,
+      "c": 8,
       "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
-      "servingBasis": "7 جم × Honey",
+      "servingBasis": "10 جم × Honey",
       "sourceIds": [
         "fdc-2710281"
       ],
       "components": [
         {
           "sourceId": "fdc-2710281",
-          "amountG": 7
+          "amountG": 10
         }
       ],
-      "conversion": "الناتج الخام k/p/f/c = 21.28/0.02/0/5.77؛ عُرضت الكربوهيدرات 5 جم بوحدة صحيحة محافظة عشان يفضل فحص 4/4/9 داخل 10%.",
+      "conversion": "قيمة المصدر لكل 100 جم × 10 جم ÷ 100، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 30.4/0.03/0/8.24؛ المعروض = 30/0/0/8.",
       "reviewDate": "2026-08-26",
       "legacy": false,
       "reviewOutcome": "recalculated"
@@ -2397,23 +2414,23 @@
     },
     {
       "id": "calref.4.5",
-      "title": "ملعقة صغيرة عسل نحل (٧ جم)",
-      "k": 21,
+      "title": "ملعقة صغيرة ممتلئة عسل نحل (١٠ جم)",
+      "k": 30,
       "p": 0,
       "f": 0,
-      "c": 5,
+      "c": 8,
       "preparation": "كما هو مذكور في العنوان، مع وزن الجزء الصالح للأكل",
-      "servingBasis": "7 جم × Honey",
+      "servingBasis": "10 جم × Honey",
       "sourceIds": [
         "fdc-2710281"
       ],
       "components": [
         {
           "sourceId": "fdc-2710281",
-          "amountG": 7
+          "amountG": 10
         }
       ],
-      "conversion": "الناتج الخام k/p/f/c = 21.28/0.02/0/5.77؛ عُرضت الكربوهيدرات 5 جم بوحدة صحيحة محافظة عشان يفضل فحص 4/4/9 داخل 10%.",
+      "conversion": "قيمة المصدر لكل 100 جم × 10 جم ÷ 100، ثم التقريب لوحدات العرض الصحيحة: خام k/p/f/c = 30.4/0.03/0/8.24؛ المعروض = 30/0/0/8.",
       "reviewDate": "2026-08-26",
       "legacy": false,
       "reviewOutcome": "recalculated"

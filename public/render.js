@@ -491,7 +491,8 @@ function renderProg(){
   const bmiNow=g.ht?last.w/(g.ht/100)**2:null,bmiGoal=g.ht?gw/(g.ht/100)**2:null,projection=project(last.w,last.date);
   const projected=projection.points,arrivalCopy={"already-at-goal":"متحقق بالفعل",reached:projected.length?projected[projected.length-1].date:"—",equilibrium:"المسار يتوازن قبل الهدف","wrong-direction":"السعرات تحرّك الوزن عكس الهدف",limit:"أبعد من ٦٠ أسبوع",invalid:"بيانات غير مكتملة"};
   const base=Number(g.sw)||(weights[0]||{}).w,lost=weights.length?base-last.w:0,goalDate=arrivalCopy[projection.reason]||"—";
-  const {lo:rateLo,hi:rateHi}=rateBand(last.w),basis=basisWeight(weights,today()); let stale=null;
+  const currentTdee=validProfile({sex:g.sex,age:g.age,ht:g.ht,act:g.act,w:last.w,gw})?calcTargets({sex:g.sex,age:g.age,ht:g.ht,act:g.act,w:last.w,gw}).tdee:null;
+  const rate=gw<last.w?rateBand(currentTdee,g.klo,g.khi):null,basis=basisWeight(weights,today()); let stale=null;
   if(g.targetFormulaVersion===TARGET_FORMULA_VERSION&&g.ht&&basis){
     const at=weight=>calcTargets({sex:g.sex,age:g.age,ht:g.ht,w:weight,act:g.act,gw:g.gw}),reviewWeight=Number(g.tw)||basis,suggestion=at(basis);
     if(targetsMoved(at(reviewWeight),suggestion)&&validTargets(suggestion)) stale={tw:reviewWeight,sug:suggestion};
@@ -529,7 +530,8 @@ function renderProg(){
   const milestonesCard=card("🚩 المحطات"); if(milestoneRows.length) add(milestonesCard,tableNode(["الوزن","وصلت / المسار الحسابي"],milestoneRows)); else add(milestonesCard,muted("مفيش محطة فعلية أو محطة عبرها المسار الحسابي المتاح.")); fragment.append(milestonesCard);
   const weeklyCard=card("📅 متوسط أسبوعي");
   if(weekRows.length) add(weeklyCard,tableNode(["الأسبوع","المتوسط","التغيير"],weekRows)); else add(weeklyCard,muted("سجّل وزنك يوميًا وهتلاقي المتوسطات هنا."));
-  add(weeklyCard,setStyle(muted("لخسارة الوزن، نطاق المتابعة الحسابي في المنتج "+rateLo+"–"+rateHi+" كجم/أسبوع بعد أول أسبوعين؛ ده مش قياس ولا توصية مصدرية. بص على متوسط 3 أسابيع لأن السوائل ممكن تخفي الاتجاه."),{marginTop:"8px"}),muted("أيام متسجلة: "+tracked+" يوم")); fragment.append(weeklyCard);
+  if(rate) add(weeklyCard,setStyle(muted("هدف السعرات الحالي ينتج نطاق حسابي تقريبي "+rate.lo+"–"+rate.hi+" كجم/أسبوع عند احتياج الطاقة الحالي؛ ده مش قياس ولا تنبؤ ولا توصية مصدرية. بص على متوسط 3 أسابيع لأن السوائل ممكن تخفي الاتجاه."),{marginTop:"8px"}));
+  add(weeklyCard,muted("أيام متسجلة: "+tracked+" يوم")); fragment.append(weeklyCard);
   const history=card(),historyTitle=node("h2",{text:"🗓️ سجل الأيام "}); add(historyTitle,node("span",{className:"muted",text:"(دوس على أي يوم يفتحلك)"})); history.append(historyTitle);
   Object.keys(S.days).sort().reverse().forEach(date=>{
     const d=S.days[date],total=totals(d),bits=[];

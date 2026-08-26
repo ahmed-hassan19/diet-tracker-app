@@ -28,7 +28,7 @@ test("every ledger value agrees with runtime and has complete review evidence",(
     for(const sourceId of entry.sourceIds){ const source=ledger.sources[sourceId]; assert.ok(source); assert.match(source.url,/^https:\/\//); }
     for(const component of entry.components){
       assert.ok(entry.sourceIds.includes(component.sourceId)); assert.ok(component.amountG>0);
-      const source=ledger.sources[component.sourceId]; assert.ok(source.fdcId||component.sourceId==="muscletech-nitrotech");
+      const source=ledger.sources[component.sourceId]; assert.ok(source.fdcId||component.sourceId==="nih-dsld-63629");
     }
     assert.ok(food.k===0||Math.abs(food.k-(food.p*4+food.f*9+food.c*4))/food.k<=0.1);
   }
@@ -38,11 +38,7 @@ test("all 72 current entries use exact sources and source-scaled rounded values"
   const current=ledger.entries.filter(entry=>!entry.legacy);
   assert.equal(current.length,72); assert.ok(current.every(entry=>entry.reviewOutcome==="recalculated"));
   assert.ok(!Object.keys(ledger.sources).some(id=>id.includes("method")));
-  const displayExceptions=new Set(["meals.bc.0","meals.cf.0","extras.6","calref.4.5"]);
   for(const entry of current){
-    if(entry.id==="meals.bc.0"){
-      assert.deepEqual(entry.sourceIds,["nescafe-2in1"]); continue;
-    }
     assert.ok(entry.components.length);
     const raw={k:0,p:0,f:0,c:0};
     for(const component of entry.components){
@@ -51,7 +47,6 @@ test("all 72 current entries use exact sources and source-scaled rounded values"
       assert.equal(source.url,fnddsUrl); assert.equal(source.datasetSourceId,"fndds-download"); assert.ok(Number.isInteger(source.fdcId));
       for(const key of Object.keys(raw)) raw[key]+=source.nutrients[key]*component.amountG/100;
     }
-    if(displayExceptions.has(entry.id)) continue;
     for(const key of Object.keys(raw)) assert.equal(entry[key],Math.round(raw[key]),`${entry.id} ${key}`);
   }
 });
@@ -64,4 +59,13 @@ test("three historical options are frozen and example inventory remains 192",()=
     {k:222,p:25,f:2,c:26},{k:246,p:31,f:2.5,c:26},{k:270,p:38,f:6.5,c:15}
   ]);
   assert.equal(context.rankedExampleDays({klo:1,khi:10000,plo:1,phi:1000},1000).length,192);
+});
+
+test("frozen Nitro-Tech entries use the exact archived 44 g label record",()=>{
+  const source=ledger.sources["nih-dsld-63629"];
+  assert.equal(source.dsldId,63629);
+  assert.equal(source.url,"https://api.ods.od.nih.gov/dsld/v9/label/63629");
+  assert.deepEqual(ledger.entries.filter(entry=>entry.id.startsWith("meals.nt.")).map(entry=>entry.sourceIds[0]),[
+    "nih-dsld-63629","nih-dsld-63629"
+  ]);
 });

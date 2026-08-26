@@ -603,6 +603,22 @@ test("release script validates before deploy and publish verifies all tagged has
   assert.ok(!deploy.includes("docs/releases"));
 });
 
+test("publication records the verified commit as the current production deployment", () => {
+  const workflow = fs.readFileSync(".github/workflows/release.yml", "utf8");
+  const publish = workflow.indexOf("Publish GitHub Release with the deployment summary");
+  const deployment = workflow.indexOf("Record verified production deployment");
+  assert.ok(publish >= 0 && deployment > publish);
+  for (const marker of [
+    "deployments: write",
+    'select(.sha == $commit and .environment == "production")',
+    'environment:"production"',
+    'production_environment:true',
+    'state:"success"',
+    'auto_inactive:true',
+    "https://diet-tracker-372ca.web.app",
+  ]) assert.ok(workflow.includes(marker), marker);
+});
+
 test("activeFirebaseProject parses the labelled firebase use formats", () => {
   assert.equal(activeFirebaseProject("Active Project: diet-tracker-372ca\n"), PROJECT_ID);
   assert.equal(activeFirebaseProject("Now using project diet-tracker-372ca\n"), PROJECT_ID);

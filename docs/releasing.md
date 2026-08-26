@@ -1,8 +1,9 @@
 # Releasing
 
 Production releases are deployed from the owner's workstation with human
-Firebase and Google Cloud authentication. GitHub validates tagged revisions and
-publishes Releases, but it has no Google or Firebase deployment credential.
+Firebase and Google Cloud authentication. GitHub validates tagged revisions,
+publishes Releases, and records verified production deployment metadata, but it
+has no Google or Firebase deployment credential.
 
 ## Prepare the release
 
@@ -192,7 +193,10 @@ revision; do not calculate or substitute them manually.
 Run the command printed by the deployment script. The workflow rechecks the tag,
 successful validation run, all tagged hashes, every live runtime dependency,
 both hosts' response headers, and every live public file before it creates or
-updates the GitHub Release.
+updates the GitHub Release. It then creates or reuses an exact-commit GitHub
+`production` deployment and marks it successful with the primary Hosting URL.
+This final metadata step is idempotent on workflow reruns and does not deploy or
+authenticate to Firebase.
 
 If deployment or verification fails, fix the problem through a new branch and
 pull request, then release a new Semantic Version. Never move or reuse a release

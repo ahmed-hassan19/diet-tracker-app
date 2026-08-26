@@ -109,6 +109,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      deployments: write
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
@@ -228,3 +229,61 @@ jobs:
           fi
           gh release create "$TAG" --repo "$GITHUB_REPOSITORY" --verify-tag --latest \
             --title "$title" --notes "$notes" "${previous_args[@]}"
+      - name: Record verified production deployment
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+          COMMIT: ${{ inputs.commit }}
+          DEPLOYED_AT: ${{ inputs.deployed_at }}
+        run: |
+          description="${TAG} verified on both Firebase hosts."
+          environment_url="https://diet-tracker-372ca.web.app"
+          log_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          deployments="$(gh api --method GET \
+            "repos/${GITHUB_REPOSITORY}/deployments" \
+            -f environment=production -f per_page=100)"
+          deployment_id="$(jq -r --arg commit "$COMMIT" \
+            '[.[] | select(.sha == $commit and .environment == "production")] |
+             sort_by(.created_at, .id) | last | .id // empty' <<<"$deployments")"
+          latest_id="$(jq -r \
+            'sort_by(.created_at, .id) | last | .id // empty' <<<"$deployments")"
+
+          if [[ -z "$deployment_id" ]]; then
+            if jq -e --arg deployed_at "$DEPLOYED_AT" \
+              'sort_by(.created_at, .id) | last | .created_at > $deployed_at' \
+              <<<"$deployments" >/dev/null; then
+              echo "A newer production deployment is already recorded; leaving it current."
+              exit 0
+            fi
+            payload="$(jq -n --arg ref "$COMMIT" --arg description "$description" \
+              '{ref:$ref,task:"deploy",auto_merge:false,required_contexts:[],
+                environment:"production",description:$description,
+                transient_environment:false,production_environment:true}')"
+            deployment_id="$(gh api --method POST \
+              "repos/${GITHUB_REPOSITORY}/deployments" --input - \
+              <<<"$payload" --jq .id)"
+            latest_id="$deployment_id"
+          fi
+
+          if [[ "$deployment_id" != "$latest_id" ]]; then
+            echo "This release already has historical deployment metadata; leaving the newer production deployment current."
+            exit 0
+          fi
+
+          statuses="$(gh api --method GET \
+            "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" \
+            -f per_page=100)"
+          if jq -e --arg environment_url "$environment_url" \
+            '.[0].state == "success" and .[0].environment == "production" and
+             .[0].environment_url == $environment_url' <<<"$statuses" >/dev/null; then
+            echo "Production deployment ${deployment_id} is already current and successful."
+            exit 0
+          fi
+
+          payload="$(jq -n --arg description "$description" \
+            --arg environment_url "$environment_url" --arg log_url "$log_url" \
+            '{state:"success",environment:"production",description:$description,
+              environment_url:$environment_url,log_url:$log_url,auto_inactive:true}')"
+          gh api --method POST \
+            "repos/${GITHUB_REPOSITORY}/deployments/${deployment_id}/statuses" \
+            --input - <<<"$payload" --jq '{state,environment_url,log_url}'

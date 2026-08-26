@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- نشر الإصدار الموثق بقى يحدّث حالة `production` في GitHub على نفس الـ commit
+  بعد نجاح فحص الموقعين، من غير إعادة نشر Firebase عند تكرار workflow النشر.
+
 ## [3.11.0] - 2026-08-26
 
 ### Added

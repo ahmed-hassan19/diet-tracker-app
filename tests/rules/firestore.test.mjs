@@ -4,7 +4,8 @@ import { collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from "
 import test, { after, before } from "node:test";
 
 let env;
-const tracker = (overrides = {}) => ({ days: {}, settings: {}, foods: {}, calref: {}, updated: Date.now(), ...overrides });
+const tracker = (overrides = {}) => ({ days: {}, settings: { builtinSelectionVersion: 1 }, foods: {}, calref: {}, updated: Date.now(), ...overrides });
+const storedFood = (label = "أكلة") => ({ t: label, k: 100, p: 10, f: 4, c: 6 });
 const days = (count) => Object.fromEntries(Array.from({ length: count }, (_, index) => {
   const date = new Date(Date.UTC(2020, 0, 1 + index)).toISOString().slice(0, 10);
   return [date, {}];
@@ -71,7 +72,7 @@ test("settings enforce known keys, types, ranges, order, enums, and disclosure p
   await assertSucceeds(setDoc(ref, tracker({ settings: {
     name: "اسم", sex: "m", age: 18, ht: 120, act: 1.2, klo: 1200, khi: 6000,
     plo: 40, phi: 300, sw: 30, gw: 300, tw: 0, _ts: Date.now(),
-    targetFormulaVersion: 1, healthNoticeVersion: 1, healthNoticeAcceptedAt: "2026-08-25T00:00:00.000Z",
+    targetFormulaVersion: 1, builtinSelectionVersion: 1, healthNoticeVersion: 1, healthNoticeAcceptedAt: "2026-08-25T00:00:00.000Z",
     aiDisclosureVersion: 1, aiDisclosureAcceptedAt: "2026-08-25T00:00:00.000Z",
   } })));
   const invalidSettings = [
@@ -80,6 +81,7 @@ test("settings enforce known keys, types, ranges, order, enums, and disclosure p
     { sw: 29 }, { gw: 301 }, { tw: 1 }, { klo: 2000, khi: 1900 }, { plo: 100, phi: 90 },
     { _ts: 1 }, { aiDisclosureVersion: 1 }, { aiDisclosureAcceptedAt: "time" },
     { targetFormulaVersion: 0 }, { targetFormulaVersion: 2 }, { targetFormulaVersion: 1.5 },
+    { builtinSelectionVersion: 0 }, { builtinSelectionVersion: 2 }, { builtinSelectionVersion: 1.5 },
     { healthNoticeVersion: 1 }, { healthNoticeAcceptedAt: "2026-08-25T00:00:00.000Z" },
     { healthNoticeVersion: 2, healthNoticeAcceptedAt: "2026-08-25T00:00:00.000Z" },
     { healthNoticeVersion: 1, healthNoticeAcceptedAt: "2026-08-25T00:00:00Z" },
@@ -92,22 +94,35 @@ test("settings enforce known keys, types, ranges, order, enums, and disclosure p
   await assertFails(updateDoc(ref, { settings: { healthNoticeVersion: 1, healthNoticeAcceptedAt: "2999-01-01T00:00:00.000Z" }, updated: Date.now() }));
 });
 
-test("day, custom-catalog, and calorie-reference count boundaries are enforced", async () => {
+test("day, per-list, tombstone, and calorie-reference count boundaries match canonical client state", async () => {
   const db = await context("counts"),ref = doc(db, "trackers/counts");
   await assertSucceeds(setDoc(ref, tracker({ days: days(1095) })));
   await assertFails(setDoc(ref, tracker({ days: days(1096) })));
-  await assertFails(setDoc(ref, tracker({ days: { "not-a-date": {} } })));
-  await assertFails(setDoc(ref, tracker({ days: { "2026-13-01": {} } })));
-  await assertFails(setDoc(ref, tracker({ days: { "2026-01-32": {} } })));
-  await assertFails(setDoc(ref, tracker({ days: { "2026-01-01,2026-01-02": {} } })));
+  await assertSucceeds(setDoc(ref, tracker({ days: { "client-validates-dynamic-key": {} } })));
   await assertSucceeds(setDoc(ref, tracker({ foods: { b: Array(200).fill(null) } })));
   await assertFails(setDoc(ref, tracker({ foods: { b: Array(201).fill(null) } })));
   await assertSucceeds(setDoc(ref, tracker({ foods: { b: Array(100).fill(null), s: Array(100).fill(null) } })));
-  await assertFails(setDoc(ref, tracker({ foods: { b: Array(101).fill(null), s: Array(100).fill(null) } })));
+  await assertSucceeds(setDoc(ref, tracker({ foods: { b: Array(101).fill(null), s: Array(100).fill(null) } })));
   await assertSucceeds(setDoc(ref, tracker({ calref: { items: Array(500).fill(null) } })));
   await assertFails(setDoc(ref, tracker({ calref: { items: Array(501).fill(null) } })));
   await assertFails(setDoc(ref, tracker({ foods: { unknown: [] } })));
   await assertFails(setDoc(ref, tracker({ calref: { unknown: [] } })));
+});
+
+test("combined client maxima can be created and updated without exhausting Rules expressions", async () => {
+  const db=await context("combined-max"),ref=doc(db,"trackers/combined-max"),now=Date.now();
+  const settings={
+    name:"ن".repeat(40),sex:"f",age:100,ht:230,act:1.725,klo:1200,khi:6000,
+    plo:40,phi:300,sw:30,gw:300,tw:0,_ts:now,targetFormulaVersion:1,builtinSelectionVersion:1,
+    healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z",
+    aiDisclosureVersion:1,aiDisclosureAcceptedAt:"2026-08-25T00:00:00.000Z",
+  };
+  const maximum=tracker({
+    days:days(1095),settings,foods:{b:Array.from({length:200},(_,index)=>storedFood("أكلة "+index),),_ts:now},
+    calref:{items:Array.from({length:500},(_,index)=>storedFood("مرجع "+index)),_ts:now},updated:now,
+  });
+  await assertSucceeds(setDoc(ref,maximum));
+  await assertSucceeds(updateDoc(ref,{updated:Date.now()}));
 });
 
 test("the same validator prevents update bypass on valid and admin-seeded invalid roots", async () => {

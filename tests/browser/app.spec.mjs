@@ -242,6 +242,34 @@ test("legacy generic whey stays hidden unless it was saved", async ({
   await expect(page.locator("#sumbar .v").nth(0)).toHaveText("0");
 });
 
+test("pre-3.11.1 coffee and honey selections retain their historical labels and totals", async ({ page }) => {
+  const state=await page.evaluate(() => {
+    const settings={...S.settings}; delete settings.builtinSelectionVersion;
+    window.__dietTest.setState({days:{[today()]:{bc:0,cf:0,extras:[6]}},settings,foods:{},calref:{}});
+    renderDay();
+    return window.__dietTest.getState();
+  });
+  expect(state.settings.builtinSelectionVersion).toBe(1);
+  expect(state.days[Object.keys(state.days)[0]]).toEqual({
+    bc:"legacy-v310-bc0",cf:"legacy-v310-cf0",extras:["legacy-v310-extras6"],
+  });
+  const legacyRows=page.locator(".opt",{hasText:"اختيار محفوظ قديم"});
+  await expect(legacyRows).toHaveCount(3);
+  await expect(page.locator("#meals-box")).toContainText("نيسكافيه Coffee Break 2×1 (ظرف ١٢ جم) + سويتال");
+  await expect(page.locator("#meals-box")).toContainText("قهوة بن أرابيكا وسط سادة + سويتال");
+  await expect(page.locator("#extras-box")).toContainText("ملعقة صغيرة عسل نحل (٧ جم)");
+  await expect(page.locator("#meals-box")).toContainText("قهوة سادة + ١٠٠ مل لبن قليل الدسم + ملعقة صغيرة سكر");
+  await expect(page.locator("#meals-box")).toContainText("قهوة سادة + ملعقة صغيرة عسل نحل (٧ جم)");
+  await expect(page.locator("#extras-box")).toContainText("ملعقة صغيرة ممتلئة عسل نحل (١٠ جم)");
+  const summaryValues=page.locator("#sumbar .v");
+  await expect(summaryValues.nth(0)).toHaveText("80");
+  await expect(summaryValues.nth(1)).toHaveText("1 جم");
+  await expect(summaryValues.nth(2)).toHaveText("3 جم");
+  await expect(summaryValues.nth(3)).toHaveText("12 جم");
+  for(let remaining=2;remaining>=0;remaining--){ await legacyRows.first().click(); await expect(legacyRows).toHaveCount(remaining); }
+  await expect(summaryValues.nth(0)).toHaveText("0");
+});
+
 test("shows custom macro warnings and supports export/import", async ({
   page,
 }) => {

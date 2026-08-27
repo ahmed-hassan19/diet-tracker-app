@@ -192,6 +192,8 @@ function renderDay(){
     }
     meals.append(node("h3",{text:meal.name}));
     if(meal.dayNote) meals.append(setStyle(muted(meal.dayNote),{margin:"-4px 0 8px"}));
+    const legacy=legacyBuiltinSelection(key,d[key]);
+    if(legacy) meals.append(optionRow(legacy.food.t,{selected:true,legacy:true,food:legacy.food,onPick:()=>pick(key,d[key])}));
     meal.opts.forEach((food,index)=>{
       const selected=d[key]===index;
       if(food.legacyOnly&&!selected) return;
@@ -206,6 +208,10 @@ function renderDay(){
   }
   document.getElementById("meals-box").replaceChildren(meals);
   const extras=document.createDocumentFragment(),selectedExtras=d.extras||[];
+  selectedExtras.forEach(selection=>{
+    const legacy=legacyBuiltinSelection("extras",selection);
+    if(legacy) extras.append(optionRow(legacy.food.t,{selected:true,legacy:true,food:legacy.food,caloriesOnly:true,onPick:()=>pickExtra(selection)}));
+  });
   EXTRAS.forEach((food,index)=>extras.append(optionRow(food.t,{selected:selectedExtras.includes(index),food,caloriesOnly:true,onPick:()=>pickExtra(index)})));
   ((S.foods&&S.foods.extras)||[]).forEach((food,index)=>{
     if(!food) return;

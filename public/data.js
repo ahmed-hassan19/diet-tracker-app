@@ -2,6 +2,17 @@
 const APP_VERSION="3.11.1";
 const TARGET_FORMULA_VERSION=1;
 const HEALTH_NOTICE_VERSION=1;
+const BUILTIN_SELECTION_VERSION=1;
+const LEGACY_BUILTIN_SELECTIONS=Object.freeze({
+  "legacy-v310-bc0":Object.freeze({key:"bc",food:Object.freeze({t:"نيسكافيه Coffee Break 2×1 (ظرف ١٢ جم) + سويتال",k:55,p:1,f:3,c:6})}),
+  "legacy-v310-cf0":Object.freeze({key:"cf",food:Object.freeze({t:"قهوة بن أرابيكا وسط سادة + سويتال",k:4,p:0,f:0,c:1})}),
+  "legacy-v310-extras6":Object.freeze({key:"extras",food:Object.freeze({t:"ملعقة صغيرة عسل نحل (٧ جم)",k:21,p:0,f:0,c:5})})
+});
+const LEGACY_BUILTIN_MIGRATIONS=Object.freeze({
+  bc:Object.freeze({0:"legacy-v310-bc0"}),
+  cf:Object.freeze({0:"legacy-v310-cf0"}),
+  extras:Object.freeze({6:"legacy-v310-extras6"})
+});
 /* ================= بيانات الوجبات المدمجة ================= */
 const MEALS = {
   b:{name:"🌅 الفطار", examples:true, note:"اختار وجبة وسجّل اختلافات العبوة أو الكمية: ≈ 435–545 سعر · 29–42 جم بروتين", opts:[

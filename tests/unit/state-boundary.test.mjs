@@ -8,7 +8,8 @@ vm.createContext(context);
 vm.runInContext(`${fs.readFileSync("public/data.js", "utf8")}
 ${fs.readFileSync("public/calc.js", "utf8")}
 ${fs.readFileSync("public/state.js", "utf8")}
-Object.assign(globalThis,{normalizeState,canonicalJson,validDayKey,STATE_WARN_BYTES,STATE_MAX_CLOUD_BYTES,IMPORT_MAX_BYTES});`, context);
+Object.assign(globalThis,{normalizeState,canonicalJson,validDayKey,STATE_WARN_BYTES,STATE_MAX_CLOUD_BYTES,IMPORT_MAX_BYTES,
+  totals,getOpt,getExtra,setStateForTest:value=>{S=value;},BUILTIN_SELECTION_VERSION});`, context);
 const normalize = (value, source = "mutation") => context.normalizeState(value, source);
 const base = () => ({ days: {}, settings: {}, foods: {}, calref: {} });
 const food = (overrides = {}) => ({ t: "أكلة", k: 100, p: 10, f: 4, c: 6, ...overrides });
@@ -76,6 +77,27 @@ test("legacy cleared inputs and tombstoned selections become safe canonical abse
   }
 });
 
+test("unversioned coffee and honey indexes migrate without changing historical labels or totals", () => {
+  const raw={...base(),days:{"2026-08-25":{bc:0,cf:0,extras:[6]}}};
+  const migrated=normalize(raw);
+  assert.equal(migrated.ok,true);
+  assert.equal(migrated.value.settings.builtinSelectionVersion,context.BUILTIN_SELECTION_VERSION);
+  assert.deepEqual(JSON.parse(JSON.stringify(migrated.value.days["2026-08-25"])),{
+    bc:"legacy-v310-bc0",cf:"legacy-v310-cf0",extras:["legacy-v310-extras6"],
+  });
+  context.setStateForTest(migrated.value);
+  assert.equal(context.getOpt("bc",migrated.value.days["2026-08-25"].bc).t,"نيسكافيه Coffee Break 2×1 (ظرف ١٢ جم) + سويتال");
+  assert.equal(context.getOpt("cf",migrated.value.days["2026-08-25"].cf).t,"قهوة بن أرابيكا وسط سادة + سويتال");
+  assert.equal(context.getExtra(migrated.value.days["2026-08-25"].extras[0]).t,"ملعقة صغيرة عسل نحل (٧ جم)");
+  assert.deepEqual(JSON.parse(JSON.stringify(context.totals(migrated.value.days["2026-08-25"]))),{k:80,p:1,f:3,c:12});
+
+  const current=normalize({...raw,settings:{builtinSelectionVersion:1}});
+  assert.equal(current.ok,true);
+  context.setStateForTest(current.value);
+  assert.deepEqual(JSON.parse(JSON.stringify(current.value.days["2026-08-25"])),{bc:0,cf:0,extras:[6]});
+  assert.deepEqual(JSON.parse(JSON.stringify(context.totals(current.value.days["2026-08-25"]))),{k:117,p:4,f:1,c:23});
+});
+
 test("imports ignore every stored timestamp and regenerate one current timestamp", () => {
   const raw={
     days:{"2026-08-25":{water:1,_ts:1}},settings:{name:"اسم",_ts:2},
@@ -116,10 +138,10 @@ test("custom-food, per-list, calorie-reference, label, nutrition, and macro boun
   assert.equal(normalize({...base(),calref:{items:[calref({k:500,p:1,f:1,c:1})]}}).ok,false,"calorie references require macro agreement");
 });
 
-test("settings retain profile, target, enum, name, formula, health notice, and disclosure boundaries", () => {
-  const valid={name:"ن".repeat(40),sex:"f",age:100,ht:230,act:1.725,klo:1200,khi:6000,plo:40,phi:300,sw:30,gw:300,tw:0,targetFormulaVersion:1,healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z",aiDisclosureVersion:1,aiDisclosureAcceptedAt:"2026-08-25T00:00:00.000Z"};
+test("settings retain profile, target, enum, name, formula, selection, health notice, and disclosure boundaries", () => {
+  const valid={name:"ن".repeat(40),sex:"f",age:100,ht:230,act:1.725,klo:1200,khi:6000,plo:40,phi:300,sw:30,gw:300,tw:0,targetFormulaVersion:1,builtinSelectionVersion:1,healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z",aiDisclosureVersion:1,aiDisclosureAcceptedAt:"2026-08-25T00:00:00.000Z"};
   assert.equal(normalize({...base(),settings:valid}).ok,true);
-  for(const settings of [{name:"x".repeat(41)},{sex:"x"},{age:17},{age:18.5},{ht:231},{act:1.3},{klo:1199},{klo:2000,khi:1900},{plo:100,phi:90},{sw:29},{gw:301},{tw:1},{targetFormulaVersion:0},{targetFormulaVersion:2},{targetFormulaVersion:1.5},{healthNoticeVersion:1},{healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z"},{healthNoticeVersion:2,healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z"},{healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-08-25T00:00:00Z"},{healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-02-30T00:00:00.000Z"},{healthNoticeVersion:1,healthNoticeAcceptedAt:"2999-01-01T00:00:00.000Z"},{aiDisclosureVersion:1},{aiDisclosureAcceptedAt:"0"}]) assert.equal(normalize({...base(),settings}).ok,false,JSON.stringify(settings));
+  for(const settings of [{name:"x".repeat(41)},{sex:"x"},{age:17},{age:18.5},{ht:231},{act:1.3},{klo:1199},{klo:2000,khi:1900},{plo:100,phi:90},{sw:29},{gw:301},{tw:1},{targetFormulaVersion:0},{targetFormulaVersion:2},{targetFormulaVersion:1.5},{builtinSelectionVersion:0},{builtinSelectionVersion:2},{builtinSelectionVersion:1.5},{healthNoticeVersion:1},{healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z"},{healthNoticeVersion:2,healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z"},{healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-08-25T00:00:00Z"},{healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-02-30T00:00:00.000Z"},{healthNoticeVersion:1,healthNoticeAcceptedAt:"2999-01-01T00:00:00.000Z"},{aiDisclosureVersion:1},{aiDisclosureAcceptedAt:"0"}]) assert.equal(normalize({...base(),settings}).ok,false,JSON.stringify(settings));
 });
 
 test("UTF-8 cloud sizing warns at 500 KiB and rejects imports or writes above 600 KiB", () => {

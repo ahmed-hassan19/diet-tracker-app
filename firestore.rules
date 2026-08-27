@@ -36,14 +36,6 @@ service cloud.firestore {
     function optionalMillis(data, key) {
       return !(key in data) || validMillis(data[key]);
     }
-    function validDayKeys(data) {
-      let keys = data.keys();
-      let joined = keys.join(',');
-      return keys.size() == 0 || (
-        joined.size() == keys.size() * 11 - 1
-        && joined.matches('^([0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01]))(,([0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])))*$')
-      );
-    }
     function validCanonicalPastTime(value) {
       return value is string
         && value.matches('^[0-9]{4}-(0[1-9]|1[0-2])-(0[1-9]|[12][0-9]|3[01])T([01][0-9]|2[0-3]):[0-5][0-9]:[0-5][0-9][.][0-9]{3}Z$')
@@ -55,7 +47,7 @@ service cloud.firestore {
       return data is map
         && data.keys().hasOnly([
           'name', 'sex', 'age', 'ht', 'act', 'klo', 'khi', 'plo', 'phi',
-          'sw', 'gw', 'tw', '_ts', 'targetFormulaVersion',
+          'sw', 'gw', 'tw', '_ts', 'targetFormulaVersion', 'builtinSelectionVersion',
           'healthNoticeVersion', 'healthNoticeAcceptedAt',
           'aiDisclosureVersion', 'aiDisclosureAcceptedAt'
         ])
@@ -76,6 +68,7 @@ service cloud.firestore {
         && (!('plo' in data) || !('phi' in data) || data.plo <= data.phi)
         && optionalMillis(data, '_ts')
         && (!('targetFormulaVersion' in data) || (data.targetFormulaVersion is int && data.targetFormulaVersion == 1))
+        && (!('builtinSelectionVersion' in data) || (data.builtinSelectionVersion is int && data.builtinSelectionVersion == 1))
         && (('healthNoticeVersion' in data) == ('healthNoticeAcceptedAt' in data))
         && (!('healthNoticeVersion' in data) || (
           data.healthNoticeVersion is int
@@ -102,11 +95,6 @@ service cloud.firestore {
         && optionalList(data, 'nt', 200)
         && optionalList(data, 'd', 200)
         && optionalList(data, 'extras', 200)
-        && data.get('b', []).size() + data.get('bc', []).size()
-          + data.get('s', []).size() + data.get('l', []).size()
-          + data.get('cf', []).size() + data.get('pw', []).size()
-          + data.get('nt', []).size() + data.get('d', []).size()
-          + data.get('extras', []).size() <= 200
         && optionalMillis(data, '_ts');
     }
     function validCalref(data) {
@@ -121,7 +109,6 @@ service cloud.firestore {
         && data.keys().hasOnly(['days', 'settings', 'foods', 'calref', 'updated'])
         && data.days is map
         && data.days.size() <= 1095
-        && validDayKeys(data.days)
         && validSettings(data.settings)
         && validFoods(data.foods)
         && validCalref(data.calref)

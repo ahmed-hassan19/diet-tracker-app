@@ -47,7 +47,7 @@ service cloud.firestore {
       return data is map
         && data.keys().hasOnly([
           'name', 'sex', 'age', 'ht', 'act', 'klo', 'khi', 'plo', 'phi',
-          'sw', 'gw', 'tw', '_ts', 'targetFormulaVersion',
+          'sw', 'gw', 'tw', '_ts', 'targetFormulaVersion', 'builtinSelectionVersion',
           'healthNoticeVersion', 'healthNoticeAcceptedAt',
           'aiDisclosureVersion', 'aiDisclosureAcceptedAt'
         ])
@@ -68,6 +68,7 @@ service cloud.firestore {
         && (!('plo' in data) || !('phi' in data) || data.plo <= data.phi)
         && optionalMillis(data, '_ts')
         && (!('targetFormulaVersion' in data) || (data.targetFormulaVersion is int && data.targetFormulaVersion == 1))
+        && (!('builtinSelectionVersion' in data) || (data.builtinSelectionVersion is int && data.builtinSelectionVersion == 1))
         && (('healthNoticeVersion' in data) == ('healthNoticeAcceptedAt' in data))
         && (!('healthNoticeVersion' in data) || (
           data.healthNoticeVersion is int

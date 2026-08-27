@@ -9,7 +9,7 @@ const IDB_VERSION=1;
 const IDB_STORE="states";
 const DAY_KEYS=new Set([...Object.keys(MEALS),"extras","water","workout","steps","cardio","weight","sleep","notes","_ts"]);
 const FOOD_KEYS=new Set([...Object.keys(MEALS),"extras","_ts"]);
-const SETTINGS_KEYS=new Set([...Object.keys(DEF),"_ts","targetFormulaVersion","healthNoticeVersion","healthNoticeAcceptedAt","aiDisclosureVersion","aiDisclosureAcceptedAt"]);
+const SETTINGS_KEYS=new Set([...Object.keys(DEF),"_ts","targetFormulaVersion","builtinSelectionVersion","healthNoticeVersion","healthNoticeAcceptedAt","aiDisclosureVersion","aiDisclosureAcceptedAt"]);
 const ACTIVITY_VALUES=new Set([1.2,1.375,1.55,1.725]);
 const LEGACY_SOURCES=new Set(["legacy","import","remote"]);
 const OBJECT_PROTO_KEYS=new Set(["constructor","__defineGetter__","__defineSetter__","hasOwnProperty","__lookupGetter__","__lookupSetter__","isPrototypeOf","propertyIsEnumerable","toString","valueOf","__proto__","toLocaleString"]);
@@ -144,9 +144,9 @@ function normalizeCalref(raw,coerce,importedAt){
   return {ok:true,value};
 }
 function normalizeSettings(raw,coerce,importedAt){
-  if(raw===undefined) return {ok:true,value:{}};
+  if(raw===undefined) return {ok:true,value:{builtinSelectionVersion:BUILTIN_SELECTION_VERSION}};
   if(!knownObject(raw,SETTINGS_KEYS)) return normalizationFailure("settings");
-  const value={};
+  const value={builtinSelectionVersion:BUILTIN_SELECTION_VERSION};
   if(raw.name!==undefined){
     if(typeof raw.name!=="string"||charLength(raw.name)>40) return normalizationFailure("settings");
     value.name=raw.name;
@@ -176,6 +176,10 @@ function normalizeSettings(raw,coerce,importedAt){
     if(version!==TARGET_FORMULA_VERSION) return normalizationFailure("settings");
     value.targetFormulaVersion=TARGET_FORMULA_VERSION;
   }
+  if(raw.builtinSelectionVersion!==undefined){
+    const version=boundedNumber(raw.builtinSelectionVersion,1,BUILTIN_SELECTION_VERSION,{coerce,integer:true});
+    if(version!==BUILTIN_SELECTION_VERSION) return normalizationFailure("settings");
+  }
   const hasHealthVersion=raw.healthNoticeVersion!==undefined;
   const hasHealthTime=raw.healthNoticeAcceptedAt!==undefined;
   if(hasHealthVersion!==hasHealthTime) return normalizationFailure("settings");
@@ -200,10 +204,19 @@ function normalizeSettings(raw,coerce,importedAt){
   }
   return {ok:true,value};
 }
-function normalizeSelection(raw,key,foods,coerce){
+function legacyBuiltinSelection(key,selection){
+  const legacy=typeof selection==="string"?LEGACY_BUILTIN_SELECTIONS[selection]:null;
+  return legacy&&legacy.key===key?legacy:null;
+}
+function migratedBuiltinSelection(key,index){
+  const migrations=LEGACY_BUILTIN_MIGRATIONS[key];
+  return migrations&&Object.prototype.hasOwnProperty.call(migrations,index)?migrations[index]:null;
+}
+function normalizeSelection(raw,key,foods,coerce,migrateBuiltins){
   if(raw===null) return {ok:true,value:null};
+  if(legacyBuiltinSelection(key,raw)) return {ok:true,value:raw};
   const n=boundedNumber(raw,0,MEALS[key].opts.length-1,{coerce,integer:true});
-  if(n!==null) return {ok:true,value:n};
+  if(n!==null) return {ok:true,value:migrateBuiltins?(migratedBuiltinSelection(key,n)??n):n};
   if(typeof raw!=="string") return normalizationFailure("selection");
   const m=/^c(0|[1-9]\d*)$/.exec(raw),list=foods[key]||[];
   const index=m?Number(m[1]):-1;
@@ -213,7 +226,7 @@ function normalizeSelection(raw,key,foods,coerce){
   }
   return normalizationFailure("selection");
 }
-function normalizeDays(raw,foods,coerce,importedAt){
+function normalizeDays(raw,foods,coerce,importedAt,migrateBuiltins){
   if(raw===undefined) return {ok:true,value:{}};
   if(!plainDataObject(raw)) return normalizationFailure("days");
   const keys=Object.keys(raw);
@@ -225,7 +238,7 @@ function normalizeDays(raw,foods,coerce,importedAt){
     const d={};
     for(const key of Object.keys(MEALS)){
       if(sourceDay[key]===undefined) continue;
-      const selected=normalizeSelection(sourceDay[key],key,foods,coerce);
+      const selected=normalizeSelection(sourceDay[key],key,foods,coerce,migrateBuiltins);
       if(!selected.ok) return selected;
       d[key]=selected.value;
     }
@@ -234,14 +247,17 @@ function normalizeDays(raw,foods,coerce,importedAt){
       const seen=new Set(); d.extras=[];
       for(const rawItem of sourceDay.extras){
         let item;
-        const builtin=boundedNumber(rawItem,0,EXTRAS.length-1,{coerce,integer:true});
-        if(builtin!==null) item=builtin;
-        else if(typeof rawItem==="string"&&/^c(0|[1-9]\d*)$/.test(rawItem)){
-          const index=Number(rawItem.slice(1)),list=foods.extras||[];
-          if(index>=list.length) return normalizationFailure("selection");
-          if(list[index]===null){ if(coerce) continue; return normalizationFailure("selection"); }
-          item="c"+index;
-        }else return normalizationFailure("selection");
+        if(legacyBuiltinSelection("extras",rawItem)) item=rawItem;
+        else {
+          const builtin=boundedNumber(rawItem,0,EXTRAS.length-1,{coerce,integer:true});
+          if(builtin!==null) item=migrateBuiltins?(migratedBuiltinSelection("extras",builtin)??builtin):builtin;
+          else if(typeof rawItem==="string"&&/^c(0|[1-9]\d*)$/.test(rawItem)){
+            const index=Number(rawItem.slice(1)),list=foods.extras||[];
+            if(index>=list.length) return normalizationFailure("selection");
+            if(list[index]===null){ if(coerce) continue; return normalizationFailure("selection"); }
+            item="c"+index;
+          }else return normalizationFailure("selection");
+        }
         const marker=typeof item+":"+item;
         if(seen.has(marker)) return normalizationFailure("extras-duplicate");
         seen.add(marker); d.extras.push(item);
@@ -303,8 +319,9 @@ function normalizeState(raw,source){
     if(source==="remote"&&!Object.prototype.hasOwnProperty.call(raw,"updated")) return normalizationFailure("shape");
     const importedAt=source==="import"?Date.now():null;
     const foods=normalizeFoods(raw.foods,coerce,importedAt); if(!foods.ok) return foods;
-    const days=normalizeDays(raw.days,foods.value,coerce,importedAt); if(!days.ok) return days;
     const settings=normalizeSettings(raw.settings,coerce,importedAt); if(!settings.ok) return settings;
+    const migrateBuiltins=raw.settings===undefined||!Object.prototype.hasOwnProperty.call(raw.settings,"builtinSelectionVersion");
+    const days=normalizeDays(raw.days,foods.value,coerce,importedAt,migrateBuiltins); if(!days.ok) return days;
     const calref=normalizeCalref(raw.calref,coerce,importedAt); if(!calref.ok) return calref;
     if(source==="remote"&&normalizeTimestamp(raw.updated,true)===null) return normalizationFailure("timestamp");
     const value={days:days.value,settings:settings.value,foods:foods.value,calref:calref.value};
@@ -435,6 +452,7 @@ function ensureDay(candidate,date=cur){ return candidate.days[date]||(candidate.
 
 function getOpt(key,sel){
   if(typeof sel==="string"&&sel[0]==="c"){ const a=(S.foods&&S.foods[key])||[]; return a[+sel.slice(1)]||null; }
+  const legacy=legacyBuiltinSelection(key,sel); if(legacy) return legacy.food;
   return MEALS[key].opts[sel];
 }
 
@@ -490,7 +508,10 @@ async function importData(inp){
 
 /* ================= قراءات اعتمادها على الحالة ================= */
 function T(){ return Object.assign({},DEF,S.settings||{}); }
-function getExtra(i){ return (typeof i==="string"&&i[0]==="c")?((S.foods&&S.foods.extras)||[])[+i.slice(1)]:EXTRAS[i]; }
+function getExtra(i){
+  if(typeof i==="string"&&i[0]==="c") return ((S.foods&&S.foods.extras)||[])[+i.slice(1)];
+  const legacy=legacyBuiltinSelection("extras",i); return legacy?legacy.food:EXTRAS[i];
+}
 console.assert(getExtra(0)===EXTRAS[0],"getExtra predefined");
 function foodNames(){
   const f=S.foods||{};

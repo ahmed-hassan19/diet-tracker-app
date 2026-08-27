@@ -30,7 +30,7 @@ test("fallback settings use neutral validation boundaries", () => {
   });
 });
 
-test("existing meal option indexes retain the same foods", () => {
+test("meal option indexes retain the reviewed food identities", () => {
   const expected = {
     b: [
       "٣ بيضات + ٣ توست أسمر + خيار وطماطم",
@@ -38,7 +38,7 @@ test("existing meal option indexes retain the same foods", () => {
       "٧٠ جم شوفان + ٣٠٠ مل لبن قليل الدسم + نص سكوب واي",
       "٧ ملاعق فول + ٣ بيضات مسلوقة + ١ توست أسمر",
     ],
-    bc: ["نيسكافيه Coffee Break 2×1 (ظرف ١٢ جم) + سويتال"],
+    bc: ["قهوة سادة + ١٠٠ مل لبن قليل الدسم + ملعقة صغيرة سكر"],
     s: [
       "زبادي يوناني عالي البروتين (١٧٠ جم) + تفاحة + ١٠ جم لوز",
       "٢٠٠ جم زبادي قليل الدسم + ٢٠ جم لوز",
@@ -50,7 +50,7 @@ test("existing meal option indexes retain the same foods", () => {
       "٢٢٠ جم سمك مشوي + ٤٠٠ جم بطاطس مسلوقة + سلطة + ١٠ جم زيت",
       "٢٠٠ جم لحم أحمر قليل الدهن + ٢٥٠ جم رز مطبوخ + خضار سوتيه",
     ],
-    cf: ["قهوة بن أرابيكا وسط سادة + سويتال"],
+    cf: ["قهوة سادة + ملعقة صغيرة عسل نحل (٧ جم)"],
     pw: [
       "سكوب واي بروتين بالمياه + موزة",
       "علبة تونة لايت مصفاة (~١٠٠ جم) + ١ توست أسمر",

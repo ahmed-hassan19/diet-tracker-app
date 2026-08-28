@@ -1,5 +1,5 @@
 "use strict";
-const APP_VERSION="3.11.1";
+const APP_VERSION="3.12.0";
 const TARGET_FORMULA_VERSION=1;
 const BUILTIN_SELECTION_VERSION=1;
 const LEGACY_BUILTIN_SELECTIONS=Object.freeze({

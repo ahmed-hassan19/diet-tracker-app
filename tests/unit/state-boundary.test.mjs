@@ -77,6 +77,31 @@ test("legacy cleared inputs and tombstoned selections become safe canonical abse
   }
 });
 
+test("valid legacy notice pairs are accepted and stripped while malformed pairs fail", () => {
+  const accepted={...base(),settings:{healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z"}};
+  for(const source of ["idb","legacy","import","mutation","remote"]){
+    const raw=source==="remote"?{...accepted,updated:Date.now()}:accepted;
+    const result=normalize(raw,source);
+    assert.equal(result.ok,true,source);
+    assert.equal(Object.hasOwn(result.value.settings,"healthNoticeVersion"),false,source);
+    assert.equal(Object.hasOwn(result.value.settings,"healthNoticeAcceptedAt"),false,source);
+  }
+  const malformed=[
+    {healthNoticeVersion:1},
+    {healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z"},
+    {healthNoticeVersion:2,healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z"},
+    {healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-08-25T00:00:00Z"},
+    {healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-02-30T00:00:00.000Z"},
+    {healthNoticeVersion:1,healthNoticeAcceptedAt:"2999-01-01T00:00:00.000Z"},
+  ];
+  for(const settings of malformed){
+    for(const source of ["idb","legacy","import","mutation","remote"]){
+      const raw={...base(),settings,...(source==="remote"?{updated:Date.now()}:{})};
+      assert.equal(normalize(raw,source).ok,false,source+":"+JSON.stringify(settings));
+    }
+  }
+});
+
 test("unversioned coffee and honey indexes migrate without changing historical labels or totals", () => {
   const raw={...base(),days:{"2026-08-25":{bc:0,cf:0,extras:[6]}}};
   const migrated=normalize(raw);
@@ -138,10 +163,10 @@ test("custom-food, per-list, calorie-reference, label, nutrition, and macro boun
   assert.equal(normalize({...base(),calref:{items:[calref({k:500,p:1,f:1,c:1})]}}).ok,false,"calorie references require macro agreement");
 });
 
-test("settings retain profile, target, enum, name, formula, selection, health notice, and disclosure boundaries", () => {
-  const valid={name:"ن".repeat(40),sex:"f",age:100,ht:230,act:1.725,klo:1200,khi:6000,plo:40,phi:300,sw:30,gw:300,tw:0,targetFormulaVersion:1,builtinSelectionVersion:1,healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z",aiDisclosureVersion:1,aiDisclosureAcceptedAt:"2026-08-25T00:00:00.000Z"};
+test("settings retain profile, target, enum, name, formula, selection, and disclosure boundaries", () => {
+  const valid={name:"ن".repeat(40),sex:"f",age:100,ht:230,act:1.725,klo:1200,khi:6000,plo:40,phi:300,sw:30,gw:300,tw:0,targetFormulaVersion:1,builtinSelectionVersion:1,aiDisclosureVersion:1,aiDisclosureAcceptedAt:"2026-08-25T00:00:00.000Z"};
   assert.equal(normalize({...base(),settings:valid}).ok,true);
-  for(const settings of [{name:"x".repeat(41)},{sex:"x"},{age:17},{age:18.5},{ht:231},{act:1.3},{klo:1199},{klo:2000,khi:1900},{plo:100,phi:90},{sw:29},{gw:301},{tw:1},{targetFormulaVersion:0},{targetFormulaVersion:2},{targetFormulaVersion:1.5},{builtinSelectionVersion:0},{builtinSelectionVersion:2},{builtinSelectionVersion:1.5},{healthNoticeVersion:1},{healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z"},{healthNoticeVersion:2,healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z"},{healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-08-25T00:00:00Z"},{healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-02-30T00:00:00.000Z"},{healthNoticeVersion:1,healthNoticeAcceptedAt:"2999-01-01T00:00:00.000Z"},{aiDisclosureVersion:1},{aiDisclosureAcceptedAt:"0"}]) assert.equal(normalize({...base(),settings}).ok,false,JSON.stringify(settings));
+  for(const settings of [{name:"x".repeat(41)},{sex:"x"},{age:17},{age:18.5},{ht:231},{act:1.3},{klo:1199},{klo:2000,khi:1900},{plo:100,phi:90},{sw:29},{gw:301},{tw:1},{targetFormulaVersion:0},{targetFormulaVersion:2},{targetFormulaVersion:1.5},{builtinSelectionVersion:0},{builtinSelectionVersion:2},{builtinSelectionVersion:1.5},{aiDisclosureVersion:1},{aiDisclosureAcceptedAt:"0"}]) assert.equal(normalize({...base(),settings}).ok,false,JSON.stringify(settings));
 });
 
 test("UTF-8 cloud sizing warns at 500 KiB and rejects imports or writes above 600 KiB", () => {

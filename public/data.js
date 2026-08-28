@@ -1,7 +1,6 @@
 "use strict";
 const APP_VERSION="3.11.1";
 const TARGET_FORMULA_VERSION=1;
-const HEALTH_NOTICE_VERSION=1;
 const BUILTIN_SELECTION_VERSION=1;
 const LEGACY_BUILTIN_SELECTIONS=Object.freeze({
   "legacy-v310-bc0":Object.freeze({key:"bc",food:Object.freeze({t:"نيسكافيه Coffee Break 2×1 (ظرف ١٢ جم) + سويتال",k:55,p:1,f:3,c:6})}),

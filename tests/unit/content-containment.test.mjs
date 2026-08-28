@@ -12,8 +12,9 @@ const currentDocs = ["README.md", "AGENTS.md", "CHANGELOG.md"]
   .join("\n");
 
 test("current app ships without the retired plan and template surface", () => {
-  const currentUi = html + render;
+  const currentUi = html + render + read("public/sync.js");
   assert.doesNotMatch(currentUi, /(?:tab|pg)-plan|renderPlan|PLAN_TEMPLATES/);
+  assert.doesNotMatch(currentUi, /health-gate|healthGate|healthNoticeAccepted|healthSelections/);
   assert.doesNotMatch(data, /PLAN_TEMPLATES/);
 });
 
@@ -37,6 +38,10 @@ test("stale tracked screenshots are absent", () => {
     "docs/screenshots/authenticated-ai-calorie-reference-mobile.png",
     "docs/screenshots/desktop.png",
     "docs/screenshots/mobile.png",
+    "docs/screenshots/a5-health-step1-desktop.png",
+    "docs/screenshots/a5-health-step1-mobile.png",
+    "docs/screenshots/a5-health-step2-desktop.png",
+    "docs/screenshots/a5-health-step2-mobile.png",
   ].forEach((path) => assert.equal(fs.existsSync(path), false, path));
   [
     "docs/screenshots/content-cleanup-before-desktop.png",

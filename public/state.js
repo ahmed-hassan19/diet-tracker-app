@@ -184,9 +184,8 @@ function normalizeSettings(raw,coerce,importedAt){
   const hasHealthTime=raw.healthNoticeAcceptedAt!==undefined;
   if(hasHealthVersion!==hasHealthTime) return normalizationFailure("settings");
   if(hasHealthVersion){
-    const version=boundedNumber(raw.healthNoticeVersion,1,HEALTH_NOTICE_VERSION,{coerce,integer:true});
-    if(version!==HEALTH_NOTICE_VERSION||!validPastIsoTime(raw.healthNoticeAcceptedAt)) return normalizationFailure("settings");
-    value.healthNoticeVersion=HEALTH_NOTICE_VERSION; value.healthNoticeAcceptedAt=raw.healthNoticeAcceptedAt;
+    const version=boundedNumber(raw.healthNoticeVersion,1,1,{coerce,integer:true});
+    if(version!==1||!validPastIsoTime(raw.healthNoticeAcceptedAt)) return normalizationFailure("settings");
   }
   const hasDisclosureVersion=raw.aiDisclosureVersion!==undefined;
   const hasDisclosureTime=raw.aiDisclosureAcceptedAt!==undefined;
@@ -389,13 +388,27 @@ function deleteStateRecord(uid){ return enqueueIdbWrite(uid,()=>idbAction("readw
 function legacyKey(uid){ return "diet_tracker_v1_"+uid; }
 function migratedKey(uid){ return "diet_tracker_idb_v1_"+uid; }
 function sameCanonicalState(a,b){ return canonicalJson(a)===canonicalJson(b); }
+function hasLegacyHealthNotice(value){
+  const settings=value&&value.settings;
+  return !!settings&&(Object.prototype.hasOwnProperty.call(settings,"healthNoticeVersion")||Object.prototype.hasOwnProperty.call(settings,"healthNoticeAcceptedAt"));
+}
+async function writeVerifiedStateRecord(uid,value){
+  await writeStateRecord(uid,value);
+  const check=normalizeState(await readStateRecord(uid),"idb");
+  if(!check.ok||!sameCanonicalState(check.value,value)) throw new Error("storage verification failed");
+  return check.value;
+}
 async function load(uid=KEY){
   let cached;
   try{
     cached=await readStateRecord(uid);
     if(cached!==undefined){
       const normalized=normalizeState(cached,"idb");
-      if(normalized.ok){ stateSizeClass=normalized.sizeClass; return normalized.value; }
+      if(normalized.ok){
+        stateSizeClass=normalized.sizeClass;
+        if(hasLegacyHealthNotice(cached)) try{ await writeVerifiedStateRecord(uid,normalized.value); }catch(_error){ setStorageMessage(); }
+        return normalized.value;
+      }
       setStorageMessage();
     }
   }catch(_error){ setStorageMessage(); }
@@ -407,9 +420,7 @@ async function load(uid=KEY){
     if(legacy.ok){
       stateSizeClass=legacy.sizeClass;
       try{
-        await writeStateRecord(uid,legacy.value);
-        const check=normalizeState(await readStateRecord(uid),"idb");
-        if(!check.ok||!sameCanonicalState(check.value,legacy.value)) throw new Error("storage verification failed");
+        await writeVerifiedStateRecord(uid,legacy.value);
         localStorage.removeItem(legacyKey(uid));
         localStorage.setItem(migratedKey(uid),"migrated");
       }catch(_error){ setStorageMessage(); }
@@ -487,22 +498,16 @@ async function importData(inp){
   if(!sessionCurrent()){ alert("جلسة الدخول اتغيرت قبل ما الاسترجاع يكتمل. بياناتك الحالية متغيّرتش."); return; }
   if(!normalized.ok){ alert(normalized.reason==="size"?"النسخة أكبر من حد الاسترجاع والمزامنة (٦٠٠ كيلوبايت).":"الملف مش صالح أو فيه قيم خارج الحدود."); return; }
   try{
-    await writeStateRecord(uid,normalized.value);
+    await writeVerifiedStateRecord(uid,normalized.value);
     if(!sessionCurrent()) return;
-    const check=normalizeState(await readStateRecord(uid),"idb");
-    if(!check.ok||!sameCanonicalState(check.value,normalized.value)) throw new Error("storage verification failed");
   }catch(_error){ setStorageMessage(); alert("الاسترجاع ماكملش لأن الحفظ على الجهاز مش متاح. بياناتك الحالية متغيّرتش."); return; }
   if(!sessionCurrent()) return;
   applyNormalizedState(normalized,{persist:false,push:true});
   if(typeof setWho==="function") setWho();
-  const user=window.firebaseBridge&&window.firebaseBridge.currentUser();
-  if(!healthNoticeAccepted()&&typeof routeSignedIn==="function") routeSignedIn(user);
-  else{
-    renderFormulaReview(); renderDay();
-    if(curTab==="prog") renderProg();
-    if(curTab==="examples") renderExamples();
-    if(curTab==="cal") renderCalRef();
-  }
+  renderFormulaReview(); renderDay();
+  if(curTab==="prog") renderProg();
+  if(curTab==="examples") renderExamples();
+  if(curTab==="cal") renderCalRef();
   alert(normalized.sizeClass==="warning"?"تم الاسترجاع ✅ — حجم البيانات قرب من حد المزامنة.":"تم الاسترجاع ✅");
 }
 

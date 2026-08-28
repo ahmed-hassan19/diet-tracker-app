@@ -60,55 +60,6 @@ function makeInput({id="",type="text",value="",placeholder="",list="",maxLength=
   return input;
 }
 
-/* ================= بوابة التنبيه الصحي ================= */
-const HEALTH_CONDITION_COPY={
-  pregnant:"الحمل له احتياجات خاصة للزيادة في الوزن والطاقة والعناصر الغذائية؛ متستخدميش أهداف التطبيق لتغيير الوزن من غير متابعة طبيب/ة النساء أو أخصائي/ة مؤهل/ة.",
-  trying:"لو بتحاولي تحملي، راجعي هدف الوزن والطاقة والمكملات مع طبيب/ة قبل أي عجز سعرات.",
-  breastfeeding:"الرضاعة ممكن تزود احتياج الطاقة وبعض العناصر الغذائية؛ تجنبي التغيير الحاد وراجعي مختص/ة لو عندك قلق على التغذية أو إدرار اللبن.",
-  eating:"اضطرابات الأكل حالات صحية خطيرة، وتتبع الأرقام ممكن يكون غير مناسب أو مؤذٍ؛ استخدمي دعم فريق متخصص بدل أهداف التطبيق.",
-  kidney:"مرض الكلى ممكن يحتاج ضبط فردي للبروتين والصوديوم والبوتاسيوم والسوائل؛ هدف البروتين المحسوب هنا مش مناسب للاعتماد عليه.",
-  diabetes:"السكري وأدويته محتاجين تنسيق الأكل والكربوهيدرات والنشاط مع متابعة سكر الدم وخطة الفريق المعالج.",
-  clinician:"أي نظام حدده طبيب/ة أو أخصائي/ة لحالتك له الأولوية الكاملة على أرقام التطبيق."
-};
-let healthGateStep=1,healthSelections=[];
-function healthNoticeAccepted(){
-  const settings=(S&&S.settings)||{},at=settings.healthNoticeAcceptedAt;
-  return settings.healthNoticeVersion===HEALTH_NOTICE_VERSION&&validIsoTime(at)&&Date.parse(at)<=Date.now();
-}
-function clearHealthSelections(){
-  healthSelections=[];
-  document.querySelectorAll("#health-options input[type=checkbox]").forEach(input=>{ input.checked=false; });
-}
-function renderHealthGate(step=healthGateStep){
-  healthGateStep=step;
-  ["health-step-1","health-step-2","health-refusal"].forEach((id,index)=>{ const el=document.getElementById(id); if(el) el.style.display=index===step-1?"":"none"; });
-  if(step===2){
-    const list=document.getElementById("health-tailored"),fragment=document.createDocumentFragment();
-    healthSelections.forEach(key=>{ const copy=HEALTH_CONDITION_COPY[key]; if(copy) fragment.append(node("li",{text:copy})); });
-    if(!healthSelections.length) fragment.append(node("li",{text:"حتى من غير حالة مختارة، الأرقام حدود تشغيل عامة ومش تقييم فردي للأمان أو الملاءمة."}));
-    list.replaceChildren(fragment);
-  }
-}
-function showHealthGate(){
-  document.getElementById("app").style.display="none";
-  document.getElementById("setup").style.display="none";
-  document.getElementById("login").style.display="none";
-  document.getElementById("health-gate").style.display="";
-  clearHealthSelections(); renderHealthGate(1);
-}
-function healthGateNext(){
-  healthSelections=[...document.querySelectorAll("#health-options input[type=checkbox]:checked")].map(input=>input.value);
-  renderHealthGate(2);
-}
-function healthGateBack(){ clearHealthSelections(); renderHealthGate(1); }
-function healthGateDecline(){ clearHealthSelections(); renderHealthGate(3); }
-function acceptHealthNotice(){
-  const accepted=commitMutation((candidate,now)=>{ candidate.settings={...candidate.settings,healthNoticeVersion:HEALTH_NOTICE_VERSION,healthNoticeAcceptedAt:new Date(now).toISOString()}; },{touchSections:["settings"]});
-  if(!accepted) return;
-  clearHealthSelections(); document.getElementById("health-gate").style.display="none";
-  if(typeof routeSignedIn==="function") routeSignedIn(window.firebaseBridge&&window.firebaseBridge.currentUser());
-}
-
 /* ================= مراجعة معادلة الأهداف ================= */
 function formulaReviewDetails(g,weights,asOf){
   if(!g||!g.ht||g.targetFormulaVersion===TARGET_FORMULA_VERSION) return null;
@@ -122,11 +73,11 @@ function renderFormulaReview(){
   const g=T(),review=formulaReviewDetails(g,weightSeries(),today());
   if(!review){ box.style.display="none"; box.replaceChildren(); return; }
   const copy=node("p");
-  add(copy,document.createTextNode("🧮 معادلة الأهداف اتراجعت. أهدافك الحالية محفوظة لحد ما تختار. على وزن أساس "+review.weight.toFixed(1)+" كجم، المسار الحسابي الجديد "),node("b",{text:review.suggestion.klo+"–"+review.suggestion.khi+" سعر · "+review.suggestion.plo+"–"+review.suggestion.phi+" جم بروتين"}),document.createTextNode(". دي حدود حسابية بيدعمها التطبيق ومش إثبات أمان أو ملاءمة فردية."));
+  add(copy,document.createTextNode("🧮 معادلة الأهداف اتراجعت. أهدافك الحالية محفوظة لحد ما تختار. على وزن أساس "+review.weight.toFixed(1)+" كجم، المسار الحسابي الجديد "),node("b",{text:review.suggestion.klo+"–"+review.suggestion.khi+" سعر · "+review.suggestion.plo+"–"+review.suggestion.phi+" جم بروتين"}),document.createTextNode("."));
   const actions=node("div",{className:"row"}); actions.style.marginTop="8px";
   if(review.applyable) add(actions,button("تطبيق الحساب الجديد",applyFormulaReview));
   add(actions,button("الاحتفاظ بأهدافي",keepFormulaReview,"btn ghost"));
-  if(!review.applyable) add(actions,muted("الحساب خارج حدود التطبيق، فالتطبيق متاح للاحتفاظ بأهدافك فقط ومراجعتها مع مختص/ة."));
+  if(!review.applyable) add(actions,muted("الحساب خارج حدود التطبيق، فتقدر تحتفظ بأهدافك الحالية."));
   box.replaceChildren(copy,actions); box.style.display="";
 }
 function finishFormulaReview(apply){
@@ -394,7 +345,7 @@ function setT(key,raw){
   if(limit&&(!Number.isFinite(value)||value<limit[0]||value>limit[1])){ alert(limit[2]); renderProg(); return; }
   if(key==="gw"){
     const g=T(),bmi=value/(g.ht/100)**2;
-    if(!Number.isFinite(value)||value<30||value>300||bmi<18.5||bmi>40){ alert("هدف الوزن خارج الحدود اللي التطبيق بيدعمها؛ ده مش حكم على الأمان. راجع مختص/ة."); renderProg(); return; }
+    if(!Number.isFinite(value)||value<30||value>300||bmi<18.5||bmi>40){ alert("هدف الوزن خارج الحدود اللي التطبيق بيدعمها (BMI من 18.5 إلى 40)."); renderProg(); return; }
   }
   if(["klo","khi","plo","phi"].includes(key)){
     const next={...T(),[key]:value};
@@ -406,7 +357,7 @@ function setT(key,raw){
 function recalcTargets(){
   const g=T(); if(!g.ht){ alert("كمّل بيانات الطول والسن الأول"); return; }
   const weight=basisWeight(weightSeries(),today())||g.sw,target=calcTargets({sex:g.sex,age:g.age,ht:g.ht,w:weight,act:g.act,gw:g.gw});
-  if(!validTargets(target)){ alert("احتياجك المقدّر ("+target.klo+"–"+target.khi+" سعر) خارج النطاق اللي التطبيق بيدعمه (1200–6000). حط هدفك يدويًا من الخانات فوق وراجع مختص تغذية."); return; }
+  if(!validTargets(target)){ alert("احتياجك المقدّر ("+target.klo+"–"+target.khi+" سعر) خارج النطاق اللي التطبيق بيدعمه (1200–6000). حط هدفك يدويًا من الخانات فوق."); return; }
   commitMutation(candidate=>Object.assign(candidate.settings,{klo:target.klo,khi:target.khi,plo:target.plo,phi:target.phi,tw:weight,targetFormulaVersion:TARGET_FORMULA_VERSION}),{touchSections:["settings"]}); renderFormulaReview(); renderProg();
 }
 function keepTargets(){
@@ -529,7 +480,7 @@ function renderProg(){
   }
   const overview=card(),grid=node("div",{className:"grid2"});
   add(grid,stat(last.w.toFixed(1),"آخر وزن (كجم)"),stat((lost>=0?"−":"+")+Math.abs(lost).toFixed(1),"التغيير من البداية","var(--green)"),stat(Math.abs(last.w-gw).toFixed(1),"فاضل للهدف ("+gw+")","var(--orange)"),stat(goalDate,"نهاية المسار الحسابي")); add(overview,grid);
-  if(bmiNow) add(overview,setStyle(muted("BMI الحالي "+bmiNow.toFixed(1)+" · عند الهدف "+bmiGoal.toFixed(1)+". ده مؤشر فحص داخل حدود التطبيق، مش دليل أمان أو تشخيص؛ قيّم الهدف مع مختص/ة حسب حالتك."),{marginTop:"10px"})); fragment.append(overview);
+  if(bmiNow) add(overview,setStyle(muted("BMI الحالي "+bmiNow.toFixed(1)+" · عند الهدف "+bmiGoal.toFixed(1)+"."),{marginTop:"10px"})); fragment.append(overview);
   const chart=card("📈 منحنى الوزن"),chartBox=node("div",{id:"chart-box"}); add(chartBox,drawChart(weights,projected));
   const legend=node("div",{className:"legend"}); add(legend,node("span",{className:"lg-a",text:"وزنك المسجّل"}),node("span",{className:"lg-p",text:"المسار الحسابي الثابت (~"+(g.klo+g.khi)/2+" سعر/يوم)"}),node("span",{className:"lg-g",text:"الهدف "+gw+" كجم"}));
   add(chart,chartBox,legend,muted("ده مسار رياضي خطي باستخدام 7700 سعر/كجم لمدة أقصاها 60 أسبوع، مش تنبؤ ولا قياس. الجسم بيتكيف واحتياج الطاقة بيتغير، فالنتيجة الفعلية ممكن تختلف.")); fragment.append(chart);

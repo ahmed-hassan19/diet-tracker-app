@@ -1,7 +1,11 @@
 import { expect, test } from "@playwright/test";
+import { routePinnedRuntimeResources } from "./runtime-resources.mjs";
+
+const AUTH_READY_TIMEOUT=30000;
+test.setTimeout(60000);
 
 async function setup(page){
-  await expect(page.locator("#setup")).toBeVisible();
+  await expect(page.locator("#setup")).toBeVisible({timeout:AUTH_READY_TIMEOUT});
   await expect(page.locator("#health-gate")).toHaveCount(0);
   await page.locator("#su-name").fill("اختبار الحساب");
   await page.locator("#su-sex").selectOption("m");
@@ -13,11 +17,11 @@ async function setup(page){
   await page.locator("#su-save").click();
   await expect(page.locator("#app")).toBeVisible();
 }
-test.beforeEach(async({page})=>{ const errors=[]; page.on("console",message=>{if(message.type()==="error")errors.push(message.text());}); page.on("pageerror",error=>errors.push(error.message)); page.__consoleErrors=errors; await page.goto("/?test=1"); });
+test.beforeEach(async({page})=>{ await routePinnedRuntimeResources(page); const errors=[]; page.on("console",message=>{if(message.type()==="error")errors.push(message.text());}); page.on("pageerror",error=>errors.push(error.message)); page.__consoleErrors=errors; await page.goto("/?test=1"); });
 test.afterEach(async({page})=>expect(page.__consoleErrors).toEqual([]));
 
 test("signed-in users start directly at setup",async({page},testInfo)=>{
-  await expect(page.locator("#setup")).toBeVisible();
+  await expect(page.locator("#setup")).toBeVisible({timeout:AUTH_READY_TIMEOUT});
   await expect(page.locator("#health-gate")).toHaveCount(0);
   if(process.env.CAPTURE_GATE_REMOVAL) await page.screenshot({path:`docs/screenshots/remove-health-gate-after-${testInfo.project.name}.png`,fullPage:true});
 });

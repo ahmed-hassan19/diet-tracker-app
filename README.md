@@ -131,11 +131,13 @@ and [public/nutrition-sources.json](public/nutrition-sources.json) for the exact
 runtime nutrition inventory and source ledger.
 Never commit service-account keys, debug tokens, completed release records, or
 console captures. The one modular Firebase app uses invisible reCAPTCHA v3 for
-App Check. v3.13.0 introduced AI estimation for enabled beta members, but
-v3.13.1 pauses the live estimator after production verification found reCAPTCHA
-CSP console errors. The hardened controls and fresh membership check remain in
-place, and manual macro entry remains available to invited, pending, revoked,
-and uninvited users.
+App Check. v3.14.0 adds reCAPTCHA's required connection source, narrowly
+delegates Storage Access to the two Google reCAPTCHA origins, and restores AI
+estimation for enabled beta members. It deliberately uses the moving
+`gemini-flash-lite-latest` alias, whose target can change without an app release;
+Spark/no-billing and manual entry remain the failure boundary. The hardened
+controls and fresh membership check stay in place, and manual macro entry
+remains available to invited, pending, revoked, and uninvited users.
 
 Previously published material may remain in older commits, tags, downloaded
 archives, clones, and intermediary caches even after it is removed from the

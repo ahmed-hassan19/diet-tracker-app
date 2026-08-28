@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { routePinnedRuntimeResources } from "./runtime-resources.mjs";
 
 test.beforeEach(async ({ page }) => {
+  await routePinnedRuntimeResources(page);
   const errors = [];
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
@@ -79,7 +81,7 @@ test("is RTL, responsive, and persists meal totals after reload", async ({
 });
 
 test("renders the runtime version and hosted-install resources", async ({ page, request }) => {
-  await expect(page.locator("#app-version")).toHaveText("v3.13.1");
+  await expect(page.locator("#app-version")).toHaveText("v3.14.0");
   const link = page.locator('link[rel="manifest"]');
   await expect(link).toHaveAttribute("href", "/manifest.webmanifest");
   const manifestResponse = await request.get("/manifest.webmanifest");

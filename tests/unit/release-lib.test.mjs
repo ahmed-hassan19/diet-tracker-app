@@ -25,7 +25,7 @@ import {
 
 const TAG = "v3.13.0";
 const COMMIT = "a".repeat(40);
-const MODEL = "gemini-3.5-flash-lite";
+const MODEL = "gemini-flash-lite-latest";
 const NOW = Date.parse("2026-08-23T12:00:00.000Z");
 const indexHtml = (enabled) =>
   `<script type="module">window.AI_ENABLED=${enabled};</script>`;

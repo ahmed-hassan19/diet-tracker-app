@@ -303,7 +303,7 @@ export function releaseVerificationProblems(
   add(freeTier?.rpmPerProjectModel === 15 && freeTier?.rpdPerProjectModel === 500 &&
     freeTier?.inputTpmPerProjectModel === 250000 &&
     freeTier?.inputTpdPerProjectModel === "unlimited-or-unspecified",
-  "release verification must record the reviewed Gemini 3.5 Flash-Lite free-tier quota rows");
+  "release verification must record the current Flash-Lite alias target free-tier quota rows");
   add(record.aiLogic?.p4saEmail === AI_P4SA &&
     record.aiLogic?.p4saRole === "roles/firebaseml.serviceAgent",
   "release verification must confirm the Firebase AI Logic P4SA and service-agent role");

@@ -56,9 +56,13 @@ Every stage must confirm all of the following:
   Check, and Firebase AI Logic quotas is no more than 70%.
 - The record names both exact production hosts and confirms Firestore App Check
   enforcement.
-- The shipped model is exactly `gemini-3.5-flash-lite` and remains stable and
-  available without enabling billing. Record the current model backend RPM,
-  RPD, input TPM, and input TPD rows and Firebase AI Logic telemetry mode.
+- The shipped model selection is exactly `gemini-flash-lite-latest`. Its target
+  can be hot-swapped to a stable, preview, or experimental release; that risk is
+  accepted for this app. Verify the alias and its current target remain
+  available without enabling billing, rerun the model checks, and record the
+  current backend RPM, RPD, input TPM, and input TPD rows plus Firebase AI Logic
+  telemetry mode. Spark/no-billing and manual entry remain the failure boundary
+  if a later alias target is unavailable or requires billing.
 - The Google-managed Firebase AI Logic P4SA and its
   `roles/firebaseml.serviceAgent` role are present. No Gemini Developer API key
   is embedded, any service-managed Gemini key stays server-side and obfuscated,
@@ -113,7 +117,7 @@ quota metric and all 39 location buckets at 6 RPM/user, plus the Spark-plan
 reserve, model availability, P4SA, key restrictions, and telemetry checks shared
 by every stage.
 
-For the v3.13.0 AI-enabled tag, use `stage: "ai-enabled-rollout"` and
+For v3.14.0 and later AI-enabled tags, use `stage: "ai-enabled-rollout"` and
 `configurationState: "enabled"`. Record all 39 exact location buckets at 6, the
 exact current log exclusion resource and older-log expiry, and current
 completion times for every spot check. Set

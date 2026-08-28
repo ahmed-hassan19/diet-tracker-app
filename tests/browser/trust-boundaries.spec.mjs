@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { routePinnedRuntimeResources } from "./runtime-resources.mjs";
 
 async function completeSetup(page) {
   await page.goto("/?test=1");
@@ -35,6 +36,7 @@ function notesState(base, count) {
 }
 
 test.beforeEach(async ({ page }) => {
+  await routePinnedRuntimeResources(page);
   const errors = [];
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());

@@ -23,7 +23,7 @@ import {
   taggedConfigHashes,
 } from "../../scripts/release-lib.mjs";
 
-const TAG = "v3.7.0";
+const TAG = "v3.13.0";
 const COMMIT = "a".repeat(40);
 const MODEL = "gemini-3.5-flash-lite";
 const NOW = Date.parse("2026-08-23T12:00:00.000Z");
@@ -52,10 +52,10 @@ function quotaInventory(limit) {
 function validVerification({ enabled = false, hardened = false, tag = TAG } = {}) {
   const configured = enabled || hardened;
   return {
-    schemaVersion: 5,
+    schemaVersion: 6,
     stage: enabled ? AI_ROLLOUT_STAGES.enabled : AI_ROLLOUT_STAGES.disabled,
     configurationState: enabled ? AI_CONFIGURATION_STATES.enabled :
-      hardened ? AI_CONFIGURATION_STATES.disabledHardened401 :
+      hardened ? AI_CONFIGURATION_STATES.disabledHardenedRejection :
         AI_CONFIGURATION_STATES.disabledPreconfiguration,
     projectId: PROJECT_ID,
     tag,
@@ -76,7 +76,7 @@ function validVerification({ enabled = false, hardened = false, tag = TAG } = {}
       authenticatedUsersRequired: configured,
       authenticatedSuccessVerified: configured,
       unauthenticated401Verified: configured,
-      invalidAppCheck403Verified: enabled,
+      invalidAppCheckRejectionVerified: configured,
       invalidAppCheckObservedHttpStatus: enabled ? 403 : hardened ? 401 : null,
       generateContentRpmPerUserQuota: quotaInventory(configured ? 6 : 100),
       freeTierBackendQuotas: {
@@ -189,25 +189,26 @@ test("preconfiguration AI-disabled rollout accepts its baseline and exact enable
   assert.ok(problems.some((problem) => problem.includes("between 0 and 70")));
 });
 
-test("hardened AI-disabled rollout accepts current controls with the observed invalid-App-Check 401", () => {
-  const hardenedTag = "v3.8.1";
-  assert.deepEqual(
-    releaseVerificationProblems(validVerification({ hardened: true, tag: hardenedTag }), {
+test("hardened AI-disabled rollout accepts paired invalid-App-Check rejection with 401 or 403", () => {
+  const hardenedTag = "v3.13.1";
+  for (const status of [401, 403]) {
+    const record = validVerification({ hardened: true, tag: hardenedTag });
+    record.aiLogic.invalidAppCheckObservedHttpStatus = status;
+    assert.deepEqual(releaseVerificationProblems(record, {
       tag: hardenedTag,
       commitSha: COMMIT,
       model: MODEL,
       indexHtml: indexHtml(false),
       now: NOW,
-    }),
-    [],
-  );
+    }), []);
+  }
 });
 
 test("hardened AI-disabled rollout rejects contradictory status claims and stale evidence", () => {
-  const hardenedTag = "v3.8.1";
+  const hardenedTag = "v3.13.1";
   const invalid = validVerification({ hardened: true, tag: hardenedTag });
-  invalid.aiLogic.invalidAppCheck403Verified = true;
-  invalid.aiLogic.invalidAppCheckObservedHttpStatus = 403;
+  invalid.aiLogic.invalidAppCheckRejectionVerified = false;
+  invalid.aiLogic.invalidAppCheckObservedHttpStatus = 200;
   invalid.aiLogic.spotChecks.completedAt = "2026-08-20T10:00:00.000Z";
   invalid.appCheck.firestoreEnforced = false;
   invalid.appCheck.bothHostsVerified = false;
@@ -226,7 +227,7 @@ test("hardened AI-disabled rollout rejects contradictory status claims and stale
     now: NOW,
   });
   for (const marker of [
-    "returning 401 without claiming 403",
+    "paired valid-App-Check success",
     "spot-check evidence",
     "Firestore App Check",
     "both production hosts",
@@ -241,7 +242,7 @@ test("hardened AI-disabled rollout rejects contradictory status claims and stale
 });
 
 test("AI-enabled rollout requires and accepts the full hardened posture", () => {
-  const enabledTag = "v3.7.1";
+  const enabledTag = "v3.13.0";
   assert.deepEqual(
     releaseVerificationProblems(validVerification({ enabled: true, tag: enabledTag }), {
       tag: enabledTag,
@@ -272,9 +273,20 @@ test("AI-enabled rollout requires and accepts the full hardened posture", () => 
   ]) assert.ok(problems.some((problem) => problem.includes(marker)), marker);
 });
 
-test("AI-enabled rollout rejects missing or contradictory invalid-App-Check status", () => {
-  const enabledTag = "v3.7.1";
-  for (const status of [null, 401]) {
+test("AI-enabled rollout accepts 401 or 403 and rejects missing, successful, or other invalid-App-Check status", () => {
+  const enabledTag = "v3.13.0";
+  for (const status of [401, 403]) {
+    const record = validVerification({ enabled: true, tag: enabledTag });
+    record.aiLogic.invalidAppCheckObservedHttpStatus = status;
+    assert.deepEqual(releaseVerificationProblems(record, {
+      tag: enabledTag,
+      commitSha: COMMIT,
+      model: MODEL,
+      indexHtml: indexHtml(true),
+      now: NOW,
+    }), []);
+  }
+  for (const status of [null, 200, 400, 402, 404, 429, 500]) {
     const record = validVerification({ enabled: true, tag: enabledTag });
     record.aiLogic.invalidAppCheckObservedHttpStatus = status;
     const problems = releaseVerificationProblems(record, {
@@ -285,12 +297,21 @@ test("AI-enabled rollout rejects missing or contradictory invalid-App-Check stat
       now: NOW,
     });
     assert.ok(problems.some((problem) =>
-      problem.includes("returning 403 and confirm 403 verification")), status);
+      problem.includes("observing exactly 401 or 403")), status);
   }
+  const missingEvidence = validVerification({ enabled: true, tag: enabledTag });
+  missingEvidence.aiLogic.invalidAppCheckRejectionVerified = false;
+  assert.ok(releaseVerificationProblems(missingEvidence, {
+    tag: enabledTag,
+    commitSha: COMMIT,
+    model: MODEL,
+    indexHtml: indexHtml(true),
+    now: NOW,
+  }).some((problem) => problem.includes("paired valid-App-Check success")));
 });
 
 test("enabled logging evidence requires the current authoritative exclusion resource", () => {
-  const enabledTag = "v3.7.1";
+  const enabledTag = "v3.13.0";
   const problemsFor = (mutate) => {
     const record = validVerification({ enabled: true, tag: enabledTag });
     mutate(record.logging);
@@ -426,7 +447,7 @@ test("stale or unbound release verification is rejected", () => {
 });
 
 test("AI release posture fails closed on auth mode, quota, key, host, and logging drift", () => {
-  const enabledTag = "v3.7.1";
+  const enabledTag = "v3.13.0";
   const invalid = validVerification({ enabled: true, tag: enabledTag });
   invalid.productionHosts = [PRODUCTION_HOSTS[0]];
   invalid.aiLogic.authenticatedUsersRequired = false;
@@ -463,7 +484,7 @@ test("checked-in release verification template fails closed", () => {
     tag: TAG,
     commitSha: COMMIT,
     model: MODEL,
-    indexHtml: indexHtml(false),
+    indexHtml: indexHtml(true),
     now: NOW,
   });
   for (const marker of [
@@ -479,7 +500,7 @@ test("checked-in release verification template fails closed", () => {
   }
 });
 
-test("a current record completed from the template can deploy the hardened disabled rollout", () => {
+test("a current schema-6 record completed from the template can deploy the enabled rollout", () => {
   const record = JSON.parse(
     fs.readFileSync("docs/release-verification.example.json", "utf8"),
   );
@@ -499,7 +520,7 @@ test("a current record completed from the template can deploy the hardened disab
     authenticatedUsersRequired: true,
     authenticatedSuccessVerified: true,
     unauthenticated401Verified: true,
-    invalidAppCheck403Verified: false,
+    invalidAppCheckRejectionVerified: true,
     invalidAppCheckObservedHttpStatus: 401,
   });
   record.aiLogic.generateContentRpmPerUserQuota.dimensionsInfos =
@@ -523,7 +544,7 @@ test("a current record completed from the template can deploy the hardened disab
     tag: TAG,
     commitSha: COMMIT,
     model: MODEL,
-    indexHtml: indexHtml(false),
+    indexHtml: indexHtml(true),
     now: NOW,
   }), []);
 });

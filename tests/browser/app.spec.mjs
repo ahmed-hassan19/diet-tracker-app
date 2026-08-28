@@ -35,7 +35,7 @@ test("shows the quota fallback copy while local tracking stays available", async
   await expect(page.locator("#app")).toBeVisible();
 });
 
-test("modular Firebase bridge is narrow and AI-disabled calls stop before network", async ({ page }) => {
+test("modular Firebase bridge is narrow and an isolated disabled flag stops AI before network", async ({ page }) => {
   let aiOrMembershipRequests = 0;
   await page.route(/firebasevertexai|generativelanguage|betaMembers/, async (route) => {
     aiOrMembershipRequests++;
@@ -45,7 +45,9 @@ test("modular Firebase bridge is narrow and AI-disabled calls stop before networ
     const bridge = window.firebaseBridge;
     const keys = Object.keys(bridge).sort();
     let code = "";
+    window.AI_ENABLED = false;
     try { await bridge.estimateFood("تفاحة"); } catch (error) { code = error.code; }
+    window.AI_ENABLED = true;
     return { code, frozen: Object.isFrozen(bridge), keys };
   });
   expect(result).toEqual({

@@ -114,9 +114,10 @@ The script requires successful validation for the exact tag, exact agreement
 between the package, lockfile, runtime version, tag, and changelog, and a current local
 record of Spark/no-billing status, quota usage, exact AI model, and
 P4SA/API-key posture. It derives the AI rollout stage from the tagged client:
-disabled releases record the current preconfiguration baseline and exact
-targets, while enabled releases additionally require the completed Auth, App
-Check, all-location quota, logging, and model spot-check evidence. It verifies
+disabled releases record the current preconfiguration or hardened baseline and
+exact targets, while enabled releases additionally require the completed Auth,
+paired valid/invalid App Check rejection, all-location quota, logging, and model
+spot-check evidence. It verifies
 tagged Rules, indexes, runtime-resource manifest, complete Hosting header
 configuration, every pinned Firebase SDK response, and every deployed file
 before printing the GitHub Release publication command. Do not create or upload
@@ -130,7 +131,9 @@ and [public/nutrition-sources.json](public/nutrition-sources.json) for the exact
 runtime nutrition inventory and source ledger.
 Never commit service-account keys, debug tokens, completed release records, or
 console captures. The one modular Firebase app uses invisible reCAPTCHA v3 for
-App Check. AI is disabled in v3.7.0; manual macro entry remains available.
+App Check. From v3.13.0, AI estimation is active only for enabled beta members;
+every AI request performs a fresh server membership read, and manual macro entry
+remains available to invited, pending, revoked, and uninvited users.
 
 Previously published material may remain in older commits, tags, downloaded
 archives, clones, and intermediary caches even after it is removed from the

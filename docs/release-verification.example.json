@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 5,
-  "stage": "ai-disabled-rollout",
-  "configurationState": "disabled-hardened-invalid-app-check-401",
+  "schemaVersion": 6,
+  "stage": "ai-enabled-rollout",
+  "configurationState": "enabled",
   "projectId": "diet-tracker-372ca",
   "tag": "vX.Y.Z",
   "commitSha": "REPLACE_WITH_40_CHARACTER_RELEASE_COMMIT_SHA",
@@ -24,7 +24,7 @@
     "authenticatedUsersRequired": false,
     "authenticatedSuccessVerified": false,
     "unauthenticated401Verified": false,
-    "invalidAppCheck403Verified": false,
+    "invalidAppCheckRejectionVerified": false,
     "invalidAppCheckObservedHttpStatus": null,
     "generateContentRpmPerUserQuota": {
       "metric": "firebasevertexai.googleapis.com/generate_content_requests_per_minute_per_project_per_user",
@@ -130,7 +130,7 @@
     "requiredSpotChecks": [
       "authenticated-success",
       "unauthenticated-401",
-      "invalid-app-check-403",
+      "invalid-app-check-rejected",
       "localhost-debug-token",
       "both-production-hosts",
       "calorie-reference",

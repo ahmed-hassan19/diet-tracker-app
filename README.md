@@ -131,9 +131,11 @@ and [public/nutrition-sources.json](public/nutrition-sources.json) for the exact
 runtime nutrition inventory and source ledger.
 Never commit service-account keys, debug tokens, completed release records, or
 console captures. The one modular Firebase app uses invisible reCAPTCHA v3 for
-App Check. From v3.13.0, AI estimation is active only for enabled beta members;
-every AI request performs a fresh server membership read, and manual macro entry
-remains available to invited, pending, revoked, and uninvited users.
+App Check. v3.13.0 introduced AI estimation for enabled beta members, but
+v3.13.1 pauses the live estimator after production verification found reCAPTCHA
+CSP console errors. The hardened controls and fresh membership check remain in
+place, and manual macro entry remains available to invited, pending, revoked,
+and uninvited users.
 
 Previously published material may remain in older commits, tags, downloaded
 archives, clones, and intermediary caches even after it is removed from the

@@ -174,7 +174,7 @@ test("profile validation enforces adult and BMI limits", () => {
   );
 });
 
-test("custom targets enforce safe ranges and ordering", () => {
+test("custom targets enforce supported ranges and ordering", () => {
   assert.equal(
     context.validTargets({ klo: 1200, khi: 1300, plo: 40, phi: 50 }),
     true,

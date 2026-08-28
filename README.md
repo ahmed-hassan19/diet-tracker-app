@@ -4,10 +4,6 @@ Private, proprietary Arabic RTL single-page diet tracker. It records meals,
 macros, hydration, exercise, sleep, weight, and notes, then synchronizes one
 document per authenticated user with Firebase.
 
-> This is a general tracking tool, not medical advice, diagnosis, or treatment.
-> Nutrition and AI estimates are approximate. Consult a qualified clinician for
-> health decisions.
-
 ## Architecture
 
 - `public/index.html`: markup, styles, and the single modular Firebase bridge.
@@ -47,12 +43,9 @@ The same canonical state is cached in IndexedDB database `diet_tracker`, store
 `states`, keyed by authenticated UID. An older `diet_tracker_v1_{uid}`
 localStorage value is removed only after it has normalized, migrated, been read
 back, and matched byte-for-byte. The remaining localStorage marker contains no
-health data.
-
-The two-step health notice keeps condition selections only in transient UI
-memory. State, IndexedDB, Firestore, exports, logs, and network requests retain
-only the current notice version and canonical acceptance time. Declining never
-strands data: export, delete, and logout remain available.
+user data. Valid paired legacy notice fields are accepted only at the
+normalization boundary and omitted from live state, IndexedDB, Firestore writes,
+and exports.
 
 The nutrition ledger binds every current item to exact FNDDS record IDs or an
 exact manufacturer label and publishes the gram-scaled recipe calculation.
@@ -132,7 +125,7 @@ service-account keys.
 ## Privacy and security
 
 See [public/privacy.html](public/privacy.html) for data handling and deletion.
-See [public/evidence.html](public/evidence.html) for the health-math source notes
+See [public/evidence.html](public/evidence.html) for the calculation source notes
 and [public/nutrition-sources.json](public/nutrition-sources.json) for the exact
 runtime nutrition inventory and source ledger.
 Never commit service-account keys, debug tokens, completed release records, or

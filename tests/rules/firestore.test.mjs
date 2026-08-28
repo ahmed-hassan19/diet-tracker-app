@@ -67,12 +67,12 @@ test("root schema rejects missing, unknown, and wrong top-level fields", async (
   for (const value of cases) await assertFails(setDoc(ref, value));
 });
 
-test("settings enforce known keys, types, ranges, order, enums, and disclosure pairing", async () => {
+test("settings enforce canonical keys, types, ranges, order, enums, and disclosure pairing", async () => {
   const db = await context("settings-schema"),ref = doc(db, "trackers/settings-schema");
   await assertSucceeds(setDoc(ref, tracker({ settings: {
     name: "اسم", sex: "m", age: 18, ht: 120, act: 1.2, klo: 1200, khi: 6000,
     plo: 40, phi: 300, sw: 30, gw: 300, tw: 0, _ts: Date.now(),
-    targetFormulaVersion: 1, builtinSelectionVersion: 1, healthNoticeVersion: 1, healthNoticeAcceptedAt: "2026-08-25T00:00:00.000Z",
+    targetFormulaVersion: 1, builtinSelectionVersion: 1,
     aiDisclosureVersion: 1, aiDisclosureAcceptedAt: "2026-08-25T00:00:00.000Z",
   } })));
   const invalidSettings = [
@@ -83,15 +83,24 @@ test("settings enforce known keys, types, ranges, order, enums, and disclosure p
     { targetFormulaVersion: 0 }, { targetFormulaVersion: 2 }, { targetFormulaVersion: 1.5 },
     { builtinSelectionVersion: 0 }, { builtinSelectionVersion: 2 }, { builtinSelectionVersion: 1.5 },
     { healthNoticeVersion: 1 }, { healthNoticeAcceptedAt: "2026-08-25T00:00:00.000Z" },
-    { healthNoticeVersion: 2, healthNoticeAcceptedAt: "2026-08-25T00:00:00.000Z" },
-    { healthNoticeVersion: 1, healthNoticeAcceptedAt: "2026-08-25T00:00:00Z" },
-    { healthNoticeVersion: 1, healthNoticeAcceptedAt: "2026-02-30T00:00:00.000Z" },
-    { healthNoticeVersion: 1, healthNoticeAcceptedAt: "2999-01-01T00:00:00.000Z" },
+    { healthNoticeVersion: 1, healthNoticeAcceptedAt: "2026-08-25T00:00:00.000Z" },
     { aiDisclosureVersion: 2, aiDisclosureAcceptedAt: "2026-08-25T00:00:00.000Z" },
     { aiDisclosureVersion: 1, aiDisclosureAcceptedAt: "2026/08/25T00:00:00.000Z" },
   ];
   for (const settings of invalidSettings) await assertFails(setDoc(ref, tracker({ settings })));
-  await assertFails(updateDoc(ref, { settings: { healthNoticeVersion: 1, healthNoticeAcceptedAt: "2999-01-01T00:00:00.000Z" }, updated: Date.now() }));
+});
+
+test("owner can recover a readable legacy tracker through canonical replacement", async () => {
+  const uid="legacy-recovery",db=await context(uid),ref=doc(db,`trackers/${uid}`);
+  await seed(`trackers/${uid}`,tracker({settings:{
+    builtinSelectionVersion:1,healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z",
+  }}));
+  await assertSucceeds(getDoc(ref));
+  await assertFails(updateDoc(ref,{updated:Date.now()}));
+  await assertSucceeds(setDoc(ref,tracker()));
+  const recovered=await assertSucceeds(getDoc(ref));
+  const settings=recovered.data().settings;
+  if("healthNoticeVersion" in settings||"healthNoticeAcceptedAt" in settings) throw new Error("legacy settings survived canonical replacement");
 });
 
 test("day, per-list, tombstone, and calorie-reference count boundaries match canonical client state", async () => {
@@ -114,7 +123,6 @@ test("combined client maxima can be created and updated without exhausting Rules
   const settings={
     name:"ن".repeat(40),sex:"f",age:100,ht:230,act:1.725,klo:1200,khi:6000,
     plo:40,phi:300,sw:30,gw:300,tw:0,_ts:now,targetFormulaVersion:1,builtinSelectionVersion:1,
-    healthNoticeVersion:1,healthNoticeAcceptedAt:"2026-08-25T00:00:00.000Z",
     aiDisclosureVersion:1,aiDisclosureAcceptedAt:"2026-08-25T00:00:00.000Z",
   };
   const maximum=tracker({

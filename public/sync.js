@@ -172,14 +172,10 @@ let suEdit=false;
 function editProfile(){ suEdit=true; showSetup(window.firebaseBridge.currentUser()); }
 function routeSignedIn(u){
   if(!u||!S) return;
-  if(!healthNoticeAccepted()){ showHealthGate(); return; }
-  document.getElementById("health-gate").style.display="none";
   if(S.settings&&S.settings.ht) showApp(); else showSetup(u);
 }
 function showApp(){
-  if(!healthNoticeAccepted()){ showHealthGate(); return; }
   suEdit=false;
-  document.getElementById("health-gate").style.display="none";
   document.getElementById("setup").style.display="none";
   document.getElementById("app").style.display="";
   setWho();
@@ -187,8 +183,6 @@ function showApp(){
   setDay(today());
 }
 function showSetup(u){
-  if(!healthNoticeAccepted()){ showHealthGate(); return; }
-  document.getElementById("health-gate").style.display="none";
   document.getElementById("app").style.display="none";
   document.getElementById("setup").style.display="";
   const s=S.settings||{};
@@ -220,7 +214,7 @@ function suCalc(){
 }
 function suSave(){
   const p=suRead();
-  if(!p){ document.getElementById("su-err").textContent="⚠️ اختار النوع والنشاط، وراجع السن والطول والوزن، وخلي هدف الوزن ضمن BMI من 18.5 إلى 40 أو راجع مختص."; return; }
+  if(!p){ document.getElementById("su-err").textContent="⚠️ اختار النوع والنشاط، وراجع السن والطول والوزن، وخلي هدف الوزن ضمن BMI من 18.5 إلى 40."; return; }
   const t=calcTargets(p);
   const v=(id,fb)=>parseFloat(document.getElementById(id).value)||fb;
   const custom={klo:v("su-klo",t.klo),khi:v("su-khi",t.khi),plo:v("su-plo",t.plo),phi:v("su-phi",t.phi)};
@@ -243,8 +237,6 @@ function stop(){
   S=null; KEY=null;
   document.getElementById("app").style.display="none";
   document.getElementById("setup").style.display="none";
-  document.getElementById("health-gate").style.display="none";
-  clearHealthSelections();
   document.getElementById("login").style.display="";
 }
 function login(){
@@ -253,14 +245,14 @@ function login(){
       document.getElementById("login-status").textContent="⚠️ فشل الدخول. جرّب تاني بعد شوية.";
   });
 }
-function logout(){ clearHealthSelections(); window.firebaseBridge.signOut(); }
+function logout(){ window.firebaseBridge.signOut(); }
 async function deleteAllData(){
   if(deletingAll||!FB.ref||!KEY) return;
   if(!confirm("هتمسح كل بيانات المتابعة من الجهاز والسحابة. تحب تكمل؟")) return;
   if(prompt('للتأكيد اكتب كلمة "حذف"')!=="حذف"){ alert("الإلغاء تم — بياناتك زي ما هي."); return; }
   const u=window.firebaseBridge.currentUser(),ref=FB.ref,uid=KEY;
   deletingAll=true;
-  const buttons=[document.getElementById("delete-all"),document.getElementById("health-delete-all")].filter(Boolean);
+  const buttons=[document.getElementById("delete-all")].filter(Boolean);
   buttons.forEach(button=>{ button.disabled=true; });
   setSyncStatus("جاري حذف بياناتك…");
   clearTimeout(FB.pushTimer);
@@ -283,8 +275,6 @@ async function deleteAllData(){
   deletingAll=false;
   document.getElementById("app").style.display="none";
   document.getElementById("setup").style.display="none";
-  document.getElementById("health-gate").style.display="none";
-  clearHealthSelections();
   document.getElementById("login").style.display="";
   alert(localFailed?"اتحذفت بيانات السحابة ومش هترجع تترفع. امسح بيانات الموقع من إعدادات المتصفح عشان تزيل أي نسخة محلية متبقية.":"اتحذفت كل بيانات المتابعة من الجهاز والسحابة ✅");
 }
@@ -314,17 +304,13 @@ function mergeRemote(remote){
       return false;
     }
     applyNormalizedState(merged,{persist:true,push:false});
-    if(!healthNoticeAccepted()) showHealthGate();
-    else{
-      renderFormulaReview(); renderDay();
-      if(curTab==="prog") renderProg();
-      if(curTab==="examples") renderExamples();
-      if(curTab==="cal") renderCalRef();
-    }
+    renderFormulaReview(); renderDay();
+    if(curTab==="prog") renderProg();
+    if(curTab==="examples") renderExamples();
+    if(curTab==="cal") renderCalRef();
   }
   // returning user on a fresh device: cloud profile arrived while setup is showing
-  if(!healthNoticeAccepted()) showHealthGate();
-  else if(S.settings&&S.settings.ht&&!suEdit&&document.getElementById("setup").style.display!=="none") showApp();
+  if(S.settings&&S.settings.ht&&!suEdit&&document.getElementById("setup").style.display!=="none") showApp();
   return true;
 }
 function schedulePush(){
@@ -368,7 +354,7 @@ const recoveryExport=document.getElementById("cloud-recovery-export");
 if(recoveryExport&&typeof recoveryExport.addEventListener==="function") recoveryExport.addEventListener("click",exportRawCloud);
 const testNormalize=typeof normalizeState==="function"?normalizeState:null;
 window.__dietTest={
-  calcTargets,validProfile,validTargets,macroMismatch,totals,project,isoWeekYear,formulaReviewDetails,healthNoticeAccepted,...(testNormalize?{normalizeState:testNormalize}:{}),
+  calcTargets,validProfile,validTargets,macroMismatch,totals,project,isoWeekYear,formulaReviewDetails,...(testNormalize?{normalizeState:testNormalize}:{}),
   getState:()=>S,
   setState:value=>testNormalize&&applyNormalizedState(testNormalize(value,"test"),{persist:false,push:false}),
   mutate:(change,options)=>typeof commitMutation==="function"&&commitMutation(change,options),

@@ -8,9 +8,6 @@ test.beforeEach(async ({ page }) => {
   page.on("pageerror", (error) => errors.push(error.message));
   page.__consoleErrors = errors;
   await page.goto("/?test=1");
-  await expect(page.locator("#health-gate")).toBeVisible();
-  await page.locator("#health-step-1 .btn", { hasText: "التالي" }).click();
-  await page.locator("#health-step-2 .btn", { hasText: "قرأت وفهمت" }).click();
   await expect(page.locator("#setup")).toBeVisible();
   await page.locator("#su-name").fill("مستخدم تجريبي");
   await page.locator("#su-sex").selectOption("m");
@@ -93,7 +90,7 @@ test("renders the runtime version and hosted-install resources", async ({ page, 
     expect((await response.body()).subarray(0, 8)).toEqual(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]));
   }
   const headerLogos = page.locator("header .brand-icon");
-  await expect(headerLogos).toHaveCount(4);
+  await expect(headerLogos).toHaveCount(3);
   await expect(headerLogos.first()).toBeVisible();
   await expect(headerLogos.first()).toHaveAttribute("src", "/icons/icon-180.png");
   const lockup = await page.locator("#app header h1").evaluate((heading) => {

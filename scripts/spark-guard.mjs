@@ -35,10 +35,10 @@ const FORBIDDEN_WORKFLOW_PATTERNS = [
 ];
 
 /* The shipped client may talk to Gemini only through Firebase AI Logic's
-   GoogleAIBackend() on a reviewed Lite-tier model. Update this list only with
-   measured calorie-reference spot checks (see AGENTS.md). */
+   GoogleAIBackend() on the explicitly accepted moving Flash-Lite alias. The
+   alias can be hot-swapped, so every release still requires live model checks. */
 export const AI_BACKEND_ALLOWLIST = ["GoogleAIBackend()"];
-export const AI_MODEL_ALLOWLIST = ["gemini-3.5-flash-lite"];
+export const AI_MODEL_ALLOWLIST = ["gemini-flash-lite-latest"];
 export const FIREBASE_WEB_SDK_VERSION = "12.17.1";
 const FIRST_AI_ENABLED_VERSION = [3, 7, 1];
 

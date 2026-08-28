@@ -43,7 +43,7 @@ test("no committed workflow authenticates GCP or deploys Firebase", () => {
   }
 });
 
-test("shipped AI module stays on an allowlisted Gemini Lite backend and model", () => {
+test("shipped AI module stays on the accepted Gemini Flash-Lite alias and backend", () => {
   const html = fs.readFileSync("public/index.html", "utf8");
   const { version } = JSON.parse(fs.readFileSync("package.json", "utf8"));
   const inline = [...html.matchAll(/<script type="module">([\s\S]*?)<\/script>/g)];
@@ -215,7 +215,7 @@ test("unreviewed AI models are rejected", () => {
   assert.ok(guardAiModule(swapped).some((s) => s.includes("gemini-flash-pro")));
 });
 
-test("missing explicit model pin is rejected", () => {
+test("missing literal model selection is rejected", () => {
   const stripped = aiModule.replace(/model:"[^"]+",/, "");
   assert.ok(guardAiModule(stripped).some((s) => s.includes("exactly one literal")));
 });
@@ -231,20 +231,20 @@ test("second apps, compat SDKs, token copying, and SDK drift are rejected", () =
   }
 });
 
-test("AI bridge ships paused and retains a fresh fail-closed membership read per request", () => {
-  assert.match(aiModule, /window\.AI_ENABLED=false/);
+test("AI bridge ships enabled and retains a fresh fail-closed membership read per request", () => {
+  assert.match(aiModule, /window\.AI_ENABLED=true/);
   assert.match(aiModule, /estimateFood:async text=>\{/);
   assert.match(aiModule, /window\.AI_ENABLED!==true[\s\S]*getDocFromServer\(doc\(db,"betaMembers",user\.uid\)\)[\s\S]*model\.generateContent\(/);
   assert.doesNotMatch(aiModule, /getIdToken|accessToken|initializeApp\([^)]*,\s*["']ai["']/);
 });
 
 test("AI flag accepts the disabled rollout and only later eligible enabled versions", () => {
-  const enabled = aiModule.replace("window.AI_ENABLED=false;", "window.AI_ENABLED=true;");
-  assert.deepEqual(guardAiModule(aiModule, { version: "3.7.0" }), []);
-  assert.deepEqual(guardAiModule(enabled, { version: "3.7.1" }), []);
-  assert.ok(guardAiModule(enabled, { version: "3.7.0" })
+  const disabled = aiModule.replace("window.AI_ENABLED=true;", "window.AI_ENABLED=false;");
+  assert.deepEqual(guardAiModule(disabled, { version: "3.7.0" }), []);
+  assert.deepEqual(guardAiModule(aiModule, { version: "3.7.1" }), []);
+  assert.ok(guardAiModule(aiModule, { version: "3.7.0" })
     .some((problem) => problem.includes("3.7.1 onward")));
-  assert.ok(guardAiModule(aiModule.replace("window.AI_ENABLED=false;", "window.AI_ENABLED=flag;"), {
+  assert.ok(guardAiModule(aiModule.replace("window.AI_ENABLED=true;", "window.AI_ENABLED=flag;"), {
     version: "3.7.1",
   }).some((problem) => problem.includes("exactly one literal")));
 });

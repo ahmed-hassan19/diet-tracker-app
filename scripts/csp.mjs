@@ -18,7 +18,9 @@ export const PERMISSIONS_POLICY = [
   "midi", "otp-credentials", "payment", "picture-in-picture", "publickey-credentials-create",
   "publickey-credentials-get", "screen-wake-lock", "serial", "speaker-selection", "storage-access",
   "usb", "web-share", "window-management", "xr-spatial-tracking",
-].map((feature) => `${feature}=()`).join(", ");
+].map((feature) => feature === "storage-access" ?
+  'storage-access=(self "https://www.google.com" "https://recaptcha.google.com")' :
+  `${feature}=()`).join(", ");
 
 const hashToken = (value) => `'sha256-${crypto.createHash("sha256").update(value).digest("base64")}'`;
 export function inlineModuleSource(html) {
@@ -43,7 +45,7 @@ export function expectedCsp(html, runtimeUrls) {
     "font-src 'self'",
     "img-src 'self' data:",
     "style-src 'self' 'unsafe-inline'",
-    "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://firebaseappcheck.googleapis.com https://content-firebaseappcheck.googleapis.com https://firebasevertexai.googleapis.com https://www.googleapis.com/identitytoolkit/ https://apis.google.com/js/gen_204 http://127.0.0.1:8080 http://localhost:8080 http://127.0.0.1:9099 http://localhost:9099 ws://127.0.0.1:8080 ws://localhost:8080",
+    "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://firebaseappcheck.googleapis.com https://content-firebaseappcheck.googleapis.com https://firebasevertexai.googleapis.com https://www.googleapis.com/identitytoolkit/ https://apis.google.com/js/gen_204 https://www.google.com/recaptcha/ http://127.0.0.1:8080 http://localhost:8080 http://127.0.0.1:9099 http://localhost:9099 ws://127.0.0.1:8080 ws://localhost:8080",
     `script-src-elem 'self' ${hashToken(moduleSource)} ${runtimeUrls.join(" ")} https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://apis.google.com/js/api.js https://apis.google.com/_/scs/`,
     `script-src-attr 'unsafe-hashes' ${handlerHashes.join(" ")}`,
     "frame-src https://diet-tracker-372ca.firebaseapp.com/__/auth/ https://5asesny.web.app/__/auth/ https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ http://127.0.0.1:9099/ http://localhost:9099/",

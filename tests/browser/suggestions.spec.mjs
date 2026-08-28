@@ -1,6 +1,8 @@
 import { expect, test } from "@playwright/test";
+import { routePinnedRuntimeResources } from "./runtime-resources.mjs";
 
 test.beforeEach(async ({ page }) => {
+  await routePinnedRuntimeResources(page);
   const errors = [];
   page.on("console", (message) => {
     if (message.type() === "error") errors.push(message.text());
@@ -97,10 +99,6 @@ test("calorie reference inputs offer name and quantity suggestions", async ({
 });
 
 test("AI-enabled calorie reference shows its button and keeps a complete manual macro path", async ({ page }) => {
-  await page.evaluate(() => {
-    window.AI_ENABLED = true;
-    renderCalRef();
-  });
   let aiRequests = 0;
   await page.route(/firebasevertexai|generativelanguage/, async (route) => {
     aiRequests++;

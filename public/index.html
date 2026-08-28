@@ -280,14 +280,14 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app-check.js";
-import { connectAuthEmulator, getAuth, GoogleAuthProvider, onAuthStateChanged, signInAnonymously, signInWithPopup, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import { browserLocalPersistence, connectAuthEmulator, getAuth, GoogleAuthProvider, initializeAuth, onAuthStateChanged, signInAnonymously, signInWithPopup, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
 import { connectFirestoreEmulator, deleteDoc, doc, getDoc, getDocFromServer, getFirestore, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
 import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-ai.js";
-// Keep the reviewed bridge and hardened controls in place while live AI is paused.
-// Manual entry remains complete and isolated tests can still exercise this path.
-window.AI_ENABLED=false;
+// The reviewed bridge is enabled only for server-confirmed beta members.
+// Manual entry remains complete and generated drafts are never saved automatically.
+window.AI_ENABLED=true;
 const app=initializeApp(FB_BUILTIN.config);
-const auth=getAuth(app);
+const auth=TEST_MODE?initializeAuth(app,{persistence:browserLocalPersistence}):getAuth(app);
 const db=getFirestore(app);
 if(TEST_MODE){
   connectAuthEmulator(auth,"http://127.0.0.1:9099",{disableWarnings:true});
@@ -296,7 +296,7 @@ if(TEST_MODE){
   initializeAppCheck(app,{provider:new ReCaptchaV3Provider(APP_CHECK_SITE_KEY),isTokenAutoRefreshEnabled:true});
 }
 const model=getGenerativeModel(getAI(app,{backend:new GoogleAIBackend()}),{
-  model:"gemini-3.5-flash-lite",
+  model:"gemini-flash-lite-latest",
   generationConfig:{responseMimeType:"application/json",responseSchema:Schema.object({properties:{
     k:Schema.number(),p:Schema.number(),f:Schema.number(),c:Schema.number()
   }})}

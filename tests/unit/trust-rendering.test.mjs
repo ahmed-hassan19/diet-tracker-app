@@ -28,6 +28,11 @@ test("CSP is derived from the one inline module and every remaining static handl
   assert.doesNotMatch(csp, /unsafe-eval|https:\/\/www\.gstatic\.com(?:\s|;)/);
   assert.doesNotMatch(csp, /https:\/\/www\.googleapis\.com(?:\s|;)/);
   assert.match(csp, /https:\/\/www\.googleapis\.com\/identitytoolkit\//);
+  assert.match(csp, /connect-src[^;]*https:\/\/www\.google\.com\/recaptcha\//);
+  const permissions = config.hosting[0].headers.find((entry) => entry.source === "**")
+    .headers.find((header) => header.key === "Permissions-Policy").value;
+  assert.match(permissions, /storage-access=\(self "https:\/\/www\.google\.com" "https:\/\/recaptcha\.google\.com"\)/);
+  assert.doesNotMatch(permissions, /storage-access=\(\)/);
   assert.equal(staticHandlerSources(html).length, 25);
   const mutated = structuredClone(config);
   mutated.hosting[0].headers.find((entry) => entry.source === "**").headers[0].value += " 'unsafe-eval'";

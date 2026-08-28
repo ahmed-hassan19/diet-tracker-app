@@ -96,7 +96,7 @@ test("calorie reference inputs offer name and quantity suggestions", async ({
   await expect(page.locator('#calref-list input[list="cr-qty"]')).toBeVisible();
 });
 
-test("AI-disabled calorie reference keeps a complete manual macro path", async ({ page }) => {
+test("AI-enabled calorie reference shows its button and keeps a complete manual macro path", async ({ page }) => {
   let aiRequests = 0;
   await page.route(/firebasevertexai|generativelanguage/, async (route) => {
     aiRequests++;
@@ -113,6 +113,6 @@ test("AI-disabled calorie reference keeps a complete manual macro path", async (
   await numbers.nth(3).fill("56");
   await form.getByRole("button", { name: "حفظ يدوي" }).click();
   await expect(page.locator("#calref-list")).toContainText("بسبوسة اختبار (قطعة ١٠٠ جم)");
-  await expect(page.locator("#calref-list")).not.toContainText("🤖 احسب");
+  await expect(page.locator("#calref-list")).toContainText("🤖 احسب");
   expect(aiRequests).toBe(0);
 });

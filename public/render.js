@@ -212,7 +212,9 @@ function addForm(saveAction,placeholder){
 const AI_DISCLOSURE_VERSION=1;
 const AI_FAIL_COPY={
   auth:"🔑 جلسة الدخول انتهت — سجّل دخولك تاني، أو اكتب الأرقام بنفسك.",
-  forbidden:"🛡️ التحقق من أمان التطبيق أو صلاحية الحساب منجحش — اكتب الأرقام بنفسك.",
+  verification:"🔐 التحقق من جلسة الدخول أو أمان التطبيق منجحش — حدّث الصفحة وسجّل دخولك تاني، أو اكتب الأرقام بنفسك.",
+  appCheck:"🛡️ التحقق من أمان التطبيق منجحش — حدّث الصفحة، أو اكتب الأرقام بنفسك.",
+  membership:"🔒 الحساب مش مفعّل لتقدير AI — اكتب الأرقام بنفسك.",
   quota:"⏳ حصة التقدير خلصت دلوقتي — جرّب بعد شوية، أو اكتب الأرقام بنفسك.",
   offline:"📴 مفيش اتصال دلوقتي — اكتب الأرقام بنفسك، وجرّب التقدير لما النت يرجع.",
   invalid:"⚠️ التقدير رجع أرقام غير متناسقة — راجع الملصق واكتب الأرقام بنفسك."
@@ -241,8 +243,10 @@ function aiFailKind(error){
   const code=String((error&&error.code)||"").toLowerCase();
   const custom=error&&error.customErrorData&&typeof error.customErrorData==="object"?error.customErrorData:{};
   const status=Number(custom.status??(error&&(error.status??error.httpStatus))),message=String((error&&error.message)||"").toLowerCase();
-  if(code==="ai/unauthenticated"||status===401||code.includes("unauthenticated")||message.includes(" 401")) return "auth";
-  if(code==="ai/forbidden"||status===403||code.includes("permission-denied")||code.includes("app-check")||message.includes(" 403")) return "forbidden";
+  if(status===403||code.includes("permission-denied")||code.includes("app-check")||message.includes("app check")||message.includes("appcheck")||message.includes(" 403")) return "appCheck";
+  if(code==="ai/forbidden") return "membership";
+  if(code==="ai/unauthenticated"||code.includes("unauthenticated")) return "auth";
+  if(status===401||message.includes(" 401")) return "verification";
   if(status===429||code.includes("resource-exhausted")||code.includes("quota")||message.includes(" 429")) return "quota";
   if((typeof navigator!=="undefined"&&navigator.onLine===false)||code.includes("unavailable")||code.includes("network")||code.includes("fetch")) return "offline";
   return "invalid";

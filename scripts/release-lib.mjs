@@ -18,7 +18,7 @@ export const AI_ROLLOUT_STAGES = {
 };
 export const AI_CONFIGURATION_STATES = {
   disabledPreconfiguration: "disabled-preconfiguration",
-  disabledHardened401: "disabled-hardened-invalid-app-check-401",
+  disabledHardenedRejection: "disabled-hardened-invalid-app-check-rejected",
   enabled: "enabled",
 };
 export const AI_GENERATE_CONTENT_QUOTA_METRIC =
@@ -76,7 +76,7 @@ export const AI_QUOTA_DIMENSIONS_INFO_COUNT = AI_QUOTA_NAMED_REGIONS.length + 1;
 export const AI_REQUIRED_SPOT_CHECKS = [
   "authenticated-success",
   "unauthenticated-401",
-  "invalid-app-check-403",
+  "invalid-app-check-rejected",
   "localhost-debug-token",
   "both-production-hosts",
   "calorie-reference",
@@ -261,7 +261,7 @@ export function releaseVerificationProblems(
   add(!!record && typeof record === "object" && !Array.isArray(record),
     "release verification must be a JSON object");
   if (problems.length) return problems;
-  add(record.schemaVersion === 5, "release verification schemaVersion must be 5");
+  add(record.schemaVersion === 6, "release verification schemaVersion must be 6");
   add(record.projectId === PROJECT_ID,
     `release verification projectId must be ${PROJECT_ID}`);
   add(record.tag === tag, `release verification tag must be ${tag}`);
@@ -397,7 +397,7 @@ export function releaseVerificationProblems(
   if (clientAiEnabled === false) {
     const disabledState = record.configurationState;
     add(disabledState === AI_CONFIGURATION_STATES.disabledPreconfiguration ||
-      disabledState === AI_CONFIGURATION_STATES.disabledHardened401,
+      disabledState === AI_CONFIGURATION_STATES.disabledHardenedRejection,
     "AI-disabled rollout must explicitly select a supported configurationState");
     if (disabledState === AI_CONFIGURATION_STATES.disabledPreconfiguration) {
       add(record.appCheck?.aiLogicEnforced === false &&
@@ -406,7 +406,7 @@ export function releaseVerificationProblems(
       add(record.aiLogic?.authenticatedUsersRequired === false &&
         record.aiLogic?.authenticatedSuccessVerified === false &&
         record.aiLogic?.unauthenticated401Verified === false &&
-        record.aiLogic?.invalidAppCheck403Verified === false &&
+        record.aiLogic?.invalidAppCheckRejectionVerified === false &&
         record.aiLogic?.invalidAppCheckObservedHttpStatus === null,
       "Preconfiguration AI-disabled rollout must record the authenticated-users baseline without request success claims");
       add(quotaInventoryAt(record.aiLogic?.generateContentRpmPerUserQuota, 100),
@@ -424,7 +424,7 @@ export function releaseVerificationProblems(
         record.logging?.existingModelLogsExpireAt === null,
       "Preconfiguration AI-disabled rollout must record the logging baseline without exclusion-resource or expiry claims");
     }
-    if (disabledState === AI_CONFIGURATION_STATES.disabledHardened401) {
+    if (disabledState === AI_CONFIGURATION_STATES.disabledHardenedRejection) {
       add(record.appCheck?.aiLogicEnforced === true &&
         record.appCheck?.bothHostsVerified === true,
       "Hardened AI-disabled rollout must confirm Firebase AI Logic App Check enforcement on both production hosts");
@@ -434,9 +434,9 @@ export function releaseVerificationProblems(
         "Hardened AI-disabled rollout must confirm an authenticated AI success");
       add(record.aiLogic?.unauthenticated401Verified === true,
         "Hardened AI-disabled rollout must confirm unauthenticated AI returns 401");
-      add(record.aiLogic?.invalidAppCheck403Verified === false &&
-        record.aiLogic?.invalidAppCheckObservedHttpStatus === 401,
-      "Hardened AI-disabled rollout must record invalid App Check returning 401 without claiming 403 verification");
+      add(record.aiLogic?.invalidAppCheckRejectionVerified === true &&
+        [401, 403].includes(record.aiLogic?.invalidAppCheckObservedHttpStatus),
+      "Hardened AI-disabled rollout must verify a paired valid-App-Check success and invalid-App-Check rejection with no model output, observing exactly 401 or 403");
       add(quotaInventoryAt(record.aiLogic?.generateContentRpmPerUserQuota, 6),
         "Hardened AI-disabled rollout must record the exact Generate Content metric/quotaId and all 39 location buckets at exactly 6 RPM/user");
       validateHardenedSpotChecks("Hardened AI-disabled rollout");
@@ -455,9 +455,9 @@ export function releaseVerificationProblems(
       "AI-enabled rollout must confirm an authenticated AI success");
     add(record.aiLogic?.unauthenticated401Verified === true,
       "AI-enabled rollout must confirm unauthenticated AI returns 401");
-    add(record.aiLogic?.invalidAppCheck403Verified === true &&
-      record.aiLogic?.invalidAppCheckObservedHttpStatus === 403,
-    "AI-enabled rollout must record invalid App Check returning 403 and confirm 403 verification");
+    add(record.aiLogic?.invalidAppCheckRejectionVerified === true &&
+      [401, 403].includes(record.aiLogic?.invalidAppCheckObservedHttpStatus),
+    "AI-enabled rollout must verify a paired valid-App-Check success and invalid-App-Check rejection with no model output, observing exactly 401 or 403");
     add(quotaInventoryAt(record.aiLogic?.generateContentRpmPerUserQuota, 6),
       "AI-enabled rollout must record the exact Generate Content metric/quotaId and all 39 location buckets at exactly 6 RPM/user");
     validateHardenedSpotChecks("AI-enabled rollout");

@@ -68,11 +68,19 @@ test("AI failure classification separates auth, App Check, quota, and offline re
     message: "Error fetching from Firebase AI Logic",
     customErrorData: status === undefined ? {} : { status },
   });
-  assert.equal(app.context.aiFailKind(aiFetchError(401)), "auth");
-  assert.equal(app.context.aiFailKind(aiFetchError(403)), "forbidden");
+  assert.equal(app.context.aiFailKind({ code: "ai/unauthenticated" }), "auth");
+  assert.equal(app.context.aiFailKind({ code: "ai/forbidden" }), "membership");
+  assert.equal(app.context.aiFailKind(aiFetchError(401)), "verification");
+  assert.equal(app.context.aiFailKind({ ...aiFetchError(401), code: "ai/app-check-failed" }), "appCheck");
+  assert.equal(app.context.aiFailKind({ ...aiFetchError(401), code: "firestore/permission-denied" }), "appCheck");
+  assert.equal(app.context.aiFailKind(aiFetchError(403)), "appCheck");
   assert.equal(app.context.aiFailKind(aiFetchError(429)), "quota");
   assert.equal(app.context.aiFailKind(aiFetchError()), "offline");
-  for (const key of ["auth", "forbidden", "quota", "offline"]) {
+  assert.equal(
+    app.context.AI_FAIL_COPY.verification,
+    "🔐 التحقق من جلسة الدخول أو أمان التطبيق منجحش — حدّث الصفحة وسجّل دخولك تاني، أو اكتب الأرقام بنفسك.",
+  );
+  for (const key of ["auth", "verification", "appCheck", "membership", "quota", "offline"]) {
     assert.match(app.context.AI_FAIL_COPY[key], /بنفسك|يدوي/);
   }
 });

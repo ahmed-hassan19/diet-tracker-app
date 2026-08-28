@@ -36,15 +36,16 @@ Copy the template to the ignored `local/` directory:
 cp docs/release-verification.example.json local/release-verification-vX.Y.Z.json
 ```
 
-The checked-in schema 5 template represents an AI-disabled client after the
-Firebase AI controls have been hardened, with an invalid-App-Check response of
-`401` still blocking enablement. It contains blocking identity, time, control,
-test, and quota-inventory placeholders and is intentionally invalid until the
-current checks are completed. The release validator reads `window.AI_ENABLED`
-from the exact tagged `public/index.html` bytes and rejects a record whose stage
-disagrees; the record cannot choose its own enabled or disabled validation path.
-Within a disabled stage, `configurationState` explicitly selects either the
-preconfiguration contract or the hardened-disabled contract.
+The checked-in schema 6 template represents the AI-enabled v3.13.0 posture. It
+contains blocking identity, time, control, paired-probe, and quota-inventory
+placeholders and is intentionally invalid until the current checks are
+completed. The release validator reads `window.AI_ENABLED` from the exact tagged
+`public/index.html` bytes and rejects a record whose stage disagrees; the record
+cannot choose its own enabled or disabled validation path. Within a disabled
+stage, `configurationState` explicitly selects either the preconfiguration
+contract or the hardened-disabled contract. Already-published tags keep the
+schema-4 or schema-5 validator contained in their immutable tagged source;
+v3.13.0 and later use schema 6.
 
 Check the current Firebase and Google Cloud consoles, then complete the local
 record with the release tag, its 40-character commit SHA, and the current time.
@@ -74,7 +75,8 @@ For an AI-disabled tag whose controls have not yet been configured, use
 preconfiguration baseline without claiming later success:
 
 - Firebase AI Logic App Check and authenticated-users mode are off; the Auth,
-  `401`, `403`, both-host, and model spot-check fields remain false or empty.
+  invalid-App-Check rejection, both-host, and model spot-check fields remain
+  false or empty.
 - Under `generateContentRpmPerUserQuota`, use only metric
   `firebasevertexai.googleapis.com/generate_content_requests_per_minute_per_project_per_user`
   and quota ID `GenerateContentRequestsPerMinutePerProjectPerUser`. Normalize
@@ -94,43 +96,41 @@ preconfiguration baseline without claiming later success:
 This baseline record is sufficient to deploy 3.7.0. Do not configure the
 post-deployment AI controls before its compatible client bytes are live.
 
-Release 3.7.0 keeps `window.AI_ENABLED=false` even after the same-app bridge is
-deployed. Only then configure and verify authenticated-users mode, all 39
-6 RPM/user location buckets, the exact log exclusion, and AI App Check
-enforcement. Run authenticated success, unauthenticated `401`, invalid-App-Check
-`403`, calorie-reference, and latency checks from localhost with a temporary
-registered debug token and from both production hosts. A session-only owner
-override may exercise the exact deployed 3.7.0 bridge while the shipped flag
-remains false; never store the debug token or override in the release record.
+Release 3.7.0 historically kept `window.AI_ENABLED=false` while the controls
+were configured. Its immutable schema-4 validator required `403`; schema 5 later
+recorded the observed hardened-disabled `401` without claiming successful
+enablement. Those published contracts are not rewritten by schema 6.
 
-If those controls have been configured but AI must remain disabled because an
-invalid App Check request returned `401` instead of the required `403`, keep
+For a future AI-disabled tag with the hardened controls still active, keep
 `stage: "ai-disabled-rollout"` and use
-`configurationState: "disabled-hardened-invalid-app-check-401"`. This contract
-requires current evidence for Firestore and Firebase AI Logic App Check,
-authenticated-users mode, authenticated success, unauthenticated `401`, both
-production hosts, localhost debug-token access, calorie-reference and latency
-checks, the exact current Model log exclusion resource, and its derived 30-day
-older-log expiry.
-It also requires the exact non-Bidi Generate Content quota metric and all 39
-location buckets at 6 RPM/user, plus the Spark-plan reserve, model availability,
-P4SA, key restrictions, and telemetry checks shared by every stage. Record
-`invalidAppCheckObservedHttpStatus: 401` and keep
-`invalidAppCheck403Verified: false`; a `403` success claim is contradictory and
-fails validation. The checked-in template uses this state but leaves completion
-evidence false, empty, or null until it is verified.
+`configurationState: "disabled-hardened-invalid-app-check-rejected"`. This
+contract requires current evidence for Firestore and Firebase AI Logic App
+Check, authenticated-users mode, authenticated success, unauthenticated `401`,
+both production hosts, localhost debug-token access, calorie-reference and
+latency checks, the exact current Model log exclusion resource, and its derived
+30-day older-log expiry. It also requires the exact non-Bidi Generate Content
+quota metric and all 39 location buckets at 6 RPM/user, plus the Spark-plan
+reserve, model availability, P4SA, key restrictions, and telemetry checks shared
+by every stage.
 
-For an AI-enabled tag such as 3.7.1, use `stage: "ai-enabled-rollout"`, replace
-the observed baseline with the hardened current posture, set
-`configurationState: "enabled"`, record all 39 exact location buckets at 6, the
+For the v3.13.0 AI-enabled tag, use `stage: "ai-enabled-rollout"` and
+`configurationState: "enabled"`. Record all 39 exact location buckets at 6, the
 exact current log exclusion resource and older-log expiry, and current
-completion times for every
-spot check. Enabled releases continue to require
-`invalidAppCheck403Verified: true` together with
-`invalidAppCheckObservedHttpStatus: 403`; a missing status or an observed `401`
-fails validation. The deploy script rejects an enabled tagged client until all
-of that evidence is present. If any check fails, leave AI disabled; another
-model, a paid tier, and automatic billing are never fallbacks.
+completion times for every spot check. Set
+`invalidAppCheckRejectionVerified: true` only after one paired probe in the same
+authenticated session: first an ordinary request with valid App Check must
+succeed, then the otherwise equivalent request with intentionally invalid App
+Check must be denied and must produce no model output. Record its exact observed
+status as `invalidAppCheckObservedHttpStatus: 401` or `403`; null, any success
+response, and every other status fail validation. Separately verify that a
+genuinely unauthenticated request returns exactly `401`. The record stores only
+booleans, canonical timestamps, and the observed status—never tokens, prompts,
+account identifiers, or raw logs.
+
+The deploy script rejects an enabled tagged client until all evidence is
+present. If any check fails, leave or restore AI disabled through a reviewed
+fix-forward release; another model, a paid tier, weakened Auth/App Check, and
+automatic billing are never fallbacks.
 
 Read the current Cloud Logging
 [`LogExclusion` resource](https://docs.cloud.google.com/logging/docs/reference/v2/rest/v2/exclusions)
@@ -150,9 +150,11 @@ noncanonical, future-dated, stale, or inconsistent evidence fails validation.
 
 App Check and authenticated-users mode are console actions, never repository
 claims. Preserve the compatible client-before-enforcement ordering, test
-member/non-member/revoked and 401/403/429/offline recovery, and repeat both-host
-verification after deployment. Automated browser tests stub or disable AI and
-must never call production.
+member/non-member/revoked and 401/403/429/offline recovery, run the paired
+valid/invalid App Check probe, unauthenticated `401`, localhost registered debug
+token, calorie benchmark, latency comparison, and repeat both-host verification
+after deployment. Automated browser tests stub or disable AI and must never call
+production.
 
 The record must be less than 24 hours old. Keep it under `local/`; do not commit
 console captures, account information, tokens, or the completed JSON file.
@@ -176,10 +178,12 @@ bytes, undeclared imports, or version drift. Finally it verifies the exact CSP
 and security headers, including `no-store`, on `/`, HTML, JavaScript, the privacy
 page, and a rewritten missing path on both hosts.
 
-Because local browser tests bypass App Check, also open each production host in
-a clean signed-in session and confirm that the reCAPTCHA/App Check bootstrap,
-Google sign-in, tracker read, and a permitted tracker write complete without a
-CSP violation before publication. This is a read/write smoke check against the
+Because local browser tests bypass App Check, use the dedicated enabled beta
+account on each production host after the bytes match. Confirm the
+reCAPTCHA/App Check bootstrap, Google sign-in, membership, tracker read, and a
+permitted tracker write; request one generic-food AI draft, review it, cancel it
+without saving, and confirm zero console or CSP errors. Sign out from both
+origins before publication. This is a scoped smoke check against the
 already-deployed tagged client, not permission to change Firebase configuration.
 
 After deployment, repeat the Spark, billing, and configuration checks when

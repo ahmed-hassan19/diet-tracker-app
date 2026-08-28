@@ -285,7 +285,7 @@ import { connectFirestoreEmulator, deleteDoc, doc, getDoc, getDocFromServer, get
 import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-ai.js";
 // v3.7.0 ships the reviewed same-app bridge and model pin with AI still off.
 // A later reviewed release can enable the path by changing this flag only.
-window.AI_ENABLED=false;
+window.AI_ENABLED=true;
 const app=initializeApp(FB_BUILTIN.config);
 const auth=getAuth(app);
 const db=getFirestore(app);

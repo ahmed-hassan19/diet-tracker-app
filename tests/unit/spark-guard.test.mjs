@@ -231,20 +231,20 @@ test("second apps, compat SDKs, token copying, and SDK drift are rejected", () =
   }
 });
 
-test("AI bridge ships enabled and performs a fresh fail-closed membership read per request", () => {
-  assert.match(aiModule, /window\.AI_ENABLED=true/);
+test("AI bridge ships paused and retains a fresh fail-closed membership read per request", () => {
+  assert.match(aiModule, /window\.AI_ENABLED=false/);
   assert.match(aiModule, /estimateFood:async text=>\{/);
   assert.match(aiModule, /window\.AI_ENABLED!==true[\s\S]*getDocFromServer\(doc\(db,"betaMembers",user\.uid\)\)[\s\S]*model\.generateContent\(/);
   assert.doesNotMatch(aiModule, /getIdToken|accessToken|initializeApp\([^)]*,\s*["']ai["']/);
 });
 
 test("AI flag accepts the disabled rollout and only later eligible enabled versions", () => {
-  const disabled = aiModule.replace("window.AI_ENABLED=true;", "window.AI_ENABLED=false;");
-  assert.deepEqual(guardAiModule(disabled, { version: "3.7.0" }), []);
-  assert.deepEqual(guardAiModule(aiModule, { version: "3.7.1" }), []);
-  assert.ok(guardAiModule(aiModule, { version: "3.7.0" })
+  const enabled = aiModule.replace("window.AI_ENABLED=false;", "window.AI_ENABLED=true;");
+  assert.deepEqual(guardAiModule(aiModule, { version: "3.7.0" }), []);
+  assert.deepEqual(guardAiModule(enabled, { version: "3.7.1" }), []);
+  assert.ok(guardAiModule(enabled, { version: "3.7.0" })
     .some((problem) => problem.includes("3.7.1 onward")));
-  assert.ok(guardAiModule(aiModule.replace("window.AI_ENABLED=true;", "window.AI_ENABLED=flag;"), {
+  assert.ok(guardAiModule(aiModule.replace("window.AI_ENABLED=false;", "window.AI_ENABLED=flag;"), {
     version: "3.7.1",
   }).some((problem) => problem.includes("exactly one literal")));
 });

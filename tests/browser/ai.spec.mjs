@@ -18,6 +18,10 @@ test.beforeEach(async ({ page }) => {
   await page.locator("#su-act").selectOption("1.55");
   await page.locator("#su-save").click();
   await expect(page.locator("#app")).toBeVisible();
+  await page.evaluate(() => {
+    window.AI_ENABLED = true;
+    renderDay();
+  });
 });
 
 test.afterEach(async ({ page }) => {

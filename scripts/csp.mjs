@@ -48,7 +48,7 @@ export function expectedCsp(html, runtimeUrls) {
     "connect-src 'self' https://identitytoolkit.googleapis.com https://securetoken.googleapis.com https://firestore.googleapis.com https://firebaseappcheck.googleapis.com https://content-firebaseappcheck.googleapis.com https://firebasevertexai.googleapis.com https://www.googleapis.com/identitytoolkit/ https://apis.google.com/js/gen_204 https://www.google.com/recaptcha/ http://127.0.0.1:8080 http://localhost:8080 http://127.0.0.1:9099 http://localhost:9099 ws://127.0.0.1:8080 ws://localhost:8080",
     `script-src-elem 'self' ${hashToken(moduleSource)} ${runtimeUrls.join(" ")} https://www.google.com/recaptcha/ https://www.gstatic.com/recaptcha/ https://apis.google.com/js/api.js https://apis.google.com/_/scs/`,
     `script-src-attr 'unsafe-hashes' ${handlerHashes.join(" ")}`,
-    "frame-src https://diet-tracker-372ca.firebaseapp.com/__/auth/ https://5asesny.web.app/__/auth/ https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ http://127.0.0.1:9099/ http://localhost:9099/",
+    "frame-src https://diet-tracker-372ca.firebaseapp.com/__/auth/ https://diet-tracker-372ca.web.app/__/auth/ https://5asesny.web.app/__/auth/ https://www.google.com/recaptcha/ https://recaptcha.google.com/recaptcha/ http://127.0.0.1:9099/ http://localhost:9099/",
     "worker-src 'self' blob:",
   ].join("; ");
 }

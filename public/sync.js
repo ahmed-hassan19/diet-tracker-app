@@ -3,7 +3,7 @@
 const FB_BUILTIN = {
   config: {
     apiKey: "AIzaSyAWEL19TBqIL9w785_R71JMj698-mwvsfU",
-    authDomain: location.hostname==="5asesny.web.app" ? "5asesny.web.app" : "diet-tracker-372ca.firebaseapp.com",
+    authDomain: ["diet-tracker-372ca.web.app","5asesny.web.app"].includes(location.hostname) ? location.hostname : "diet-tracker-372ca.firebaseapp.com",
     projectId: "diet-tracker-372ca",
     storageBucket: "diet-tracker-372ca.firebasestorage.app",
     messagingSenderId: "142673055934",

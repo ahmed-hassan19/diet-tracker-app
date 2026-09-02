@@ -280,7 +280,7 @@
 <script type="module">
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app-check.js";
-import { browserLocalPersistence, connectAuthEmulator, getAuth, GoogleAuthProvider, initializeAuth, onAuthStateChanged, signInAnonymously, signInWithPopup, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+import { browserLocalPersistence, connectAuthEmulator, getAuth, getRedirectResult, GoogleAuthProvider, initializeAuth, onAuthStateChanged, signInAnonymously, signInWithPopup, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
 import { connectFirestoreEmulator, deleteDoc, doc, getDoc, getDocFromServer, getFirestore, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
 import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-ai.js";
 // The reviewed bridge is enabled only for server-confirmed beta members.
@@ -295,6 +295,12 @@ if(TEST_MODE){
 }else{
   initializeAppCheck(app,{provider:new ReCaptchaV3Provider(APP_CHECK_SITE_KEY),isTokenAutoRefreshEnabled:true});
 }
+const mobileAuth=typeof navigator!=="undefined"&&(/Android|iPhone|iPad|iPod/i.test(navigator.userAgent)||navigator.standalone===true||(typeof window.matchMedia==="function"&&window.matchMedia("(display-mode: standalone)").matches));
+const redirectResult=getRedirectResult(auth).catch(_error=>{
+  const status=document.getElementById("login-status");
+  if(status) status.textContent="⚠️ فشل إكمال تسجيل الدخول. افتح الموقع في Safari أو Chrome وجرّب تاني.";
+  return null;
+});
 const model=getGenerativeModel(getAI(app,{backend:new GoogleAIBackend()}),{
   model:"gemini-flash-lite-latest",
   generationConfig:{responseMimeType:"application/json",responseSchema:Schema.object({properties:{
@@ -306,10 +312,11 @@ const fail=(code,message)=>Object.assign(new Error(message),{code});
 const plainSnapshot=s=>Object.freeze({exists:s.exists(),data:s.exists()?s.data():null});
 const bridge=Object.freeze({
   currentUser:()=>publicUser(auth.currentUser),
-  observeAuth:callback=>Promise.resolve(onAuthStateChanged(auth,u=>callback(publicUser(u)))),
+  observeAuth:async callback=>{ await redirectResult; return onAuthStateChanged(auth,u=>callback(publicUser(u))); },
   signInForTest:()=>signInAnonymously(auth).then(x=>publicUser(x.user)),
   signInGoogle:async()=>{
     const provider=new GoogleAuthProvider();
+    if(mobileAuth){ await signInWithRedirect(auth,provider); return null; }
     try{ return publicUser((await signInWithPopup(auth,provider)).user); }
     catch(e){
       if(e&&["auth/popup-blocked","auth/operation-not-supported-in-this-environment"].includes(e.code)){

@@ -3,7 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 
-function bridgeHarness({ enabled = true } = {}) {
+function bridgeHarness({ enabled = true, userAgent = "" } = {}) {
   const html = fs.readFileSync("public/index.html", "utf8");
   const moduleSource = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1]
     .replace(/^import .*;$/gm, "");
@@ -12,6 +12,8 @@ function bridgeHarness({ enabled = true } = {}) {
   const db = { single: true };
   const memberships = [];
   let membershipReads = 0;
+  let popupCalls = 0;
+  let redirectCalls = 0;
   const modelCalls = [];
   const serviceApps = [];
   const context = {
@@ -24,7 +26,8 @@ function bridgeHarness({ enabled = true } = {}) {
     Promise,
     String,
     JSON,
-    window: { dispatchEvent() {} },
+    window: { dispatchEvent() {}, matchMedia: () => ({ matches: false }) },
+    navigator: { userAgent, standalone: false },
     initializeApp(config) { assert.equal(config.projectId, "demo"); return app; },
     initializeAppCheck(got) { serviceApps.push(got); },
     ReCaptchaV3Provider: class {},
@@ -54,14 +57,15 @@ function bridgeHarness({ enabled = true } = {}) {
     deleteDoc: async () => {}, setDoc: async () => {},
     onSnapshot: () => () => {}, onAuthStateChanged: () => () => {},
     signInAnonymously: async () => ({ user: auth.currentUser }),
-    signInWithPopup: async () => ({ user: auth.currentUser }),
-    signInWithRedirect: async () => {}, signOut: async () => {},
+    getRedirectResult: async () => null,
+    signInWithPopup: async () => { popupCalls++; return { user: auth.currentUser }; },
+    signInWithRedirect: async () => { redirectCalls++; }, signOut: async () => {},
     GoogleAuthProvider: class {},
   };
   vm.createContext(context);
   vm.runInContext(moduleSource, context);
   context.window.AI_ENABLED = enabled;
-  return { auth, bridge: context.window.firebaseBridge, memberships, membershipReads: () => membershipReads, modelCalls, serviceApps, app };
+  return { auth, bridge: context.window.firebaseBridge, memberships, membershipReads: () => membershipReads, modelCalls, serviceApps, popupCalls: () => popupCalls, redirectCalls: () => redirectCalls, app };
 }
 
 test("one app owns Auth, Firestore, App Check, and AI without exposing SDK objects", () => {
@@ -92,4 +96,11 @@ test("every AI call freshly checks membership and disabled or denied calls fail 
   assert.equal(allowed.memberships.length, 0);
   assert.equal(allowed.membershipReads(), 2);
   assert.equal(allowed.modelCalls.length, 2);
+});
+
+test("mobile Google sign-in uses a full-page redirect instead of a popup", async () => {
+  const h = bridgeHarness({ userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)" });
+  assert.equal(await h.bridge.signInGoogle(), null);
+  assert.equal(h.popupCalls(), 0);
+  assert.equal(h.redirectCalls(), 1);
 });

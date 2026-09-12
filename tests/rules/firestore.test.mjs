@@ -13,8 +13,7 @@ const days = (count) => Object.fromEntries(Array.from({ length: count }, (_, ind
 async function seed(path, value) {
   await env.withSecurityRulesDisabled((admin) => setDoc(doc(admin.firestore(), path), value));
 }
-async function context(uid, enabled = true) {
-  await seed(`betaMembers/${uid}`, { enabled });
+async function context(uid) {
   return env.authenticatedContext(uid).firestore();
 }
 
@@ -26,7 +25,7 @@ before(async () => {
 });
 after(async () => env.cleanup());
 
-test("enabled owner can create and update only canonical post-images", async () => {
+test("new owner without membership can create and update only canonical post-images", async () => {
   const db = await context("valid-owner"),ref = doc(db, "trackers/valid-owner");
   await assertSucceeds(setDoc(ref, tracker()));
   await assertSucceeds(updateDoc(ref, { days: { "2026-08-25": { notes: "client-validated" } }, updated: Date.now() }));
@@ -34,14 +33,15 @@ test("enabled owner can create and update only canonical post-images", async () 
   await assertSucceeds(deleteDoc(ref));
 });
 
-test("revoked and absent membership block writes but never strand owner read or delete", async () => {
+test("legacy disabled or absent membership does not restrict owner access", async () => {
   for (const [uid, enabled] of [["revoked", false], ["not-member", null]]) {
     if (enabled !== null) await seed(`betaMembers/${uid}`, { enabled });
     await seed(`trackers/${uid}`, { malformed: "legacy root" });
     const db = env.authenticatedContext(uid).firestore(),ref = doc(db, `trackers/${uid}`);
     await assertSucceeds(getDoc(ref));
-    await assertFails(setDoc(ref, tracker()));
     await assertFails(updateDoc(ref, { updated: Date.now() }));
+    await assertSucceeds(setDoc(ref, tracker()));
+    await assertSucceeds(updateDoc(ref, { updated: Date.now() }));
     await assertSucceeds(deleteDoc(ref));
   }
 });
@@ -52,6 +52,7 @@ test("cross-user and unauthenticated tracker access is denied", async () => {
     const ref = doc(db, "trackers/private-owner");
     await assertFails(getDoc(ref));
     await assertFails(setDoc(ref, tracker()));
+    await assertFails(updateDoc(ref, { updated: Date.now() }));
     await assertFails(deleteDoc(ref));
   }
 });
@@ -143,6 +144,7 @@ test("the same validator prevents update bypass on valid and admin-seeded invali
 });
 
 test("membership is own-get-only and client writes or listing are denied", async () => {
+  await seed("betaMembers/member-doc", { enabled: false });
   const db = await context("member-doc"),other = env.authenticatedContext("other-user").firestore();
   await assertSucceeds(getDoc(doc(db, "betaMembers/member-doc")));
   await assertFails(getDoc(doc(db, "betaMembers/someone-else")));

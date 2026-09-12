@@ -231,11 +231,12 @@ test("second apps, compat SDKs, token copying, and SDK drift are rejected", () =
   }
 });
 
-test("AI bridge ships enabled and retains a fresh fail-closed membership read per request", () => {
+test("AI bridge ships enabled and requires authentication without membership provisioning", () => {
   assert.match(aiModule, /window\.AI_ENABLED=true/);
   assert.match(aiModule, /estimateFood:async text=>\{/);
-  assert.match(aiModule, /window\.AI_ENABLED!==true[\s\S]*getDocFromServer\(doc\(db,"betaMembers",user\.uid\)\)[\s\S]*model\.generateContent\(/);
-  assert.doesNotMatch(aiModule, /getIdToken|accessToken|initializeApp\([^)]*,\s*["']ai["']/);
+  assert.match(aiModule, /window\.AI_ENABLED!==true[\s\S]*if\(!user\) throw fail\("ai\/unauthenticated"[\s\S]*model\.generateContent\(/);
+  assert.ok(guardAiModule(aiModule.replace('if(!user) throw fail("ai/unauthenticated","Authentication is required");', "")).some(problem => problem.includes("authentication")));
+  assert.doesNotMatch(aiModule, /betaMembers|readMembership|getIdToken|accessToken|initializeApp\([^)]*,\s*["']ai["']/);
 });
 
 test("AI flag accepts the disabled rollout and only later eligible enabled versions", () => {

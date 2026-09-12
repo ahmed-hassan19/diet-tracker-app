@@ -154,7 +154,7 @@ noncanonical, future-dated, stale, or inconsistent evidence fails validation.
 
 App Check and authenticated-users mode are console actions, never repository
 claims. Preserve the compatible client-before-enforcement ordering, test
-member/non-member/revoked and 401/403/429/offline recovery, run the paired
+accounts with absent/disabled legacy membership and 401/403/429/offline recovery, run the paired
 valid/invalid App Check probe, unauthenticated `401`, localhost registered debug
 token, calorie benchmark, latency comparison, and repeat both-host verification
 after deployment. Automated browser tests stub or disable AI and must never call
@@ -182,9 +182,9 @@ bytes, undeclared imports, or version drift. Finally it verifies the exact CSP
 and security headers, including `no-store`, on `/`, HTML, JavaScript, the privacy
 page, and a rewritten missing path on both hosts.
 
-Because local browser tests bypass App Check, use the dedicated enabled beta
-account on each production host after the bytes match. Confirm the
-reCAPTCHA/App Check bootstrap, Google sign-in, membership, tracker read, and a
+Because local browser tests bypass App Check, use the dedicated test
+account without a beta membership record on each production host after the bytes match. Confirm the
+reCAPTCHA/App Check bootstrap, Google sign-in, automatic access without activation, tracker read, and a
 permitted tracker write; request one generic-food AI draft, review it, cancel it
 without saving, and confirm zero console or CSP errors. Sign out from both
 origins before publication. This is a scoped smoke check against the

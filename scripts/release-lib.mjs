@@ -1,10 +1,12 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
+import vm from "node:vm";
 
 export const PROJECT_ID = "diet-tracker-372ca";
 export const FIRESTORE_RULES_RELEASE = `projects/${PROJECT_ID}/releases/cloud.firestore`;
 export const VERIFICATION_MAX_AGE_MS = 24 * 60 * 60 * 1000;
+export const QUALIFICATION_MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000;
 export const AI_LOG_RETENTION_MS = 30 * 24 * 60 * 60 * 1000;
 export const PRODUCTION_HOSTS = [
   "https://diet-tracker-372ca.web.app",
@@ -250,9 +252,9 @@ function canonicalIsoTimestamp(value) {
     Number.isFinite(Date.parse(value)) && new Date(value).toISOString() === value;
 }
 
-export function releaseVerificationProblems(
+function releaseControlProblems(
   record,
-  { tag, commitSha, model, indexHtml, now = Date.now() },
+  { tag, commitSha, model, indexHtml, now = Date.now(), spotMaxAge = VERIFICATION_MAX_AGE_MS },
 ) {
   const problems = [];
   const add = (ok, message) => {
@@ -332,7 +334,7 @@ export function releaseVerificationProblems(
     add(spot?.calorieReferencePassed === true && spot?.latencyCompared === true &&
       spot?.localhostDebugTokenPassed === true &&
       JSON.stringify(spot?.productionHostsPassed) === JSON.stringify(PRODUCTION_HOSTS) &&
-      Number.isFinite(spotAt) && spotAt <= now + 5 * 60 * 1000 && now - spotAt <= VERIFICATION_MAX_AGE_MS,
+      Number.isFinite(spotAt) && spotAt <= now + 5 * 60 * 1000 && now - spotAt <= spotMaxAge,
     `${label} must include current localhost, both-host, calorie-reference, and latency spot-check evidence`);
   };
   const validateHardenedLogging = (label) => {
@@ -464,6 +466,191 @@ export function releaseVerificationProblems(
     validateHardenedLogging("AI-enabled rollout");
   }
   return problems;
+}
+
+
+// Workflow identity comes from the repository-scoped Actions API, not its mutable display name.
+export function matchingQualityRuns(runs, commitSha, repository, workflowId) {
+  return (Array.isArray(runs) ? runs : []).filter((run) =>
+    run.repository?.full_name === repository &&
+    run.head_repository?.full_name === repository &&
+    run.workflow_id === workflowId && run.path === ".github/workflows/quality.yml" &&
+    run.head_branch === "main" && run.head_sha === commitSha && run.event === "push" &&
+    run.status === "completed" && run.conclusion === "success");
+}
+
+// Configuration observations are fresh; reusable probes are deliberately excluded.
+export function qualificationConfigurationHash(record) {
+  const logic = { ...record.aiLogic };
+  for (const key of ["authenticatedSuccessVerified", "unauthenticated401Verified",
+    "invalidAppCheckRejectionVerified", "invalidAppCheckObservedHttpStatus", "spotChecks"]) delete logic[key];
+  const logging = { ...record.logging };
+  delete logging.exclusionVerifiedAt;
+  return sha256(JSON.stringify(sortedObject({projectId: record.projectId,
+    configurationState: record.configurationState, model: record.model,
+    appCheck: record.appCheck, aiLogic: logic, logging,
+    aiEnablementTargets: record.aiEnablementTargets})));
+}
+
+export const QUALIFICATION_FILES = [
+  "firebase.json", "firestore.rules", "firestore.indexes.json", ".firebaserc",
+  "runtime-resources.json", "scripts/spark-guard.mjs", "scripts/release-lib.mjs",
+  "scripts/release-deploy.mjs", "scripts/qualification-inputs.mjs",
+  "scripts/quality-evidence.mjs", "scripts/runtime-resources.mjs", "scripts/verify-hosting-headers.mjs",
+  ".github/workflows/release.yml", ".github/workflows/quality.yml",
+  "docs/releasing.md", "docs/release-verification.example.json",
+];
+
+// Bind all executable source except this reviewed allowlist of diet/UI functions.
+// New functions, top-level statements, loaders, and persistence/session changes default to fresh qualification.
+const QUALIFICATION_DIET_FUNCTIONS = {
+  "public/data.js": ["rankedExampleDays"],
+  "public/calc.js": ["calcTargets", "rateBand", "basisWeight", "targetsMoved", "isoWeekYear",
+    "weightHistoryStats", "validProfile", "validTargets", "macroHints", "macroMismatch", "macroValues"],
+  "public/render.js": ["valueBlock", "macroNode", "optionRow", "formulaReviewDetails", "renderFormulaReview",
+    "finishFormulaReview", "applyFormulaReview", "keepFormulaReview", "showTab", "renderAppVersion",
+    "renderExamples", "setDay", "shiftDay", "renderDay", "pick", "openAdd", "closeAdd", "fillFood",
+    "numberDraftInput", "draftFood", "delFood", "delExtra", "pickExtra", "pickWorkout", "water",
+    "saveField", "setT", "recalcTargets", "keepTargets", "renderSummary", "crNumberInput", "renderCalRef",
+    "delCalRef", "tableNode", "stat", "labeledInput", "renderProg", "settingsCard", "goToDay", "svgElement",
+    "weightDeltaText", "chartPointDetails", "drawChart"],
+  "public/state.js": ["validDayKey", "normalizeFood", "normalizeFoods", "normalizeCalref",
+    "legacyBuiltinSelection", "migratedBuiltinSelection", "normalizeSelection", "normalizeDays",
+    "today", "day", "ensureDay", "getOpt", "weightSeries", "T", "getExtra",
+    "foodNames", "foodByName", "crNames", "qtyNames", "totals", "project"],
+  "public/sync.js": ["setSyncStatus", "setSyncSuccess", "setWho", "editProfile", "showApp", "showSetup",
+    "suRead", "suCalc", "suSave"],
+};
+
+export function qualificationInputsHash(read) {
+  const inputs = Object.fromEntries(QUALIFICATION_FILES.map((file) => [file, read(file)]));
+  const html = read("public/index.html");
+  const scripts = [...html.matchAll(/<script\b[^>]*>[\s\S]*?<\/script\s*>/gi)];
+  if (!scripts.some(([script]) => script.includes('<script type="module">')))
+    throw new Error("Cannot locate the Firebase module for qualification");
+  inputs.scripts = scripts.map(([script]) => script);
+  const sensitiveSource = source =>
+    /window|globalThis|firebase|auth|app.?check|\bai[A-Z_]|AI_|disclosure|fetch|XMLHttpRequest|\beval\b|\bnew\s+Function\b/i.test(source) ||
+    /\b(?:FB|KEY|syncGeneration|cloudWriteBlocked|GATE|syncContextCurrent|resetSyncContext|deletingAll)\b/.test(source);
+  for (const [file, allowed] of Object.entries(QUALIFICATION_DIET_FUNCTIONS)) {
+    let source = read(file);
+    if (file === "public/data.js") {
+      const constants = ["APP_VERSION", "TARGET_FORMULA_VERSION", "BUILTIN_SELECTION_VERSION",
+        "LEGACY_BUILTIN_SELECTIONS", "LEGACY_BUILTIN_MIGRATIONS", "MEALS", "EXTRAS", "CALREF", "WORKOUTS", "DEF"];
+      for (const name of constants) {
+        const match = new RegExp("^const " + name + "\\s*=", "m").exec(source);
+        if (!match) throw new Error(`Cannot isolate diet constant ${name}`);
+        let end = source.indexOf(";", match.index), complete = false;
+        while (end !== -1) {
+          try { new vm.Script(source.slice(match.index, end + 1)); complete = true; break; }
+          catch { end = source.indexOf(";", end + 1); }
+        }
+        if (!complete) throw new Error(`Cannot isolate diet constant ${name}`);
+        const declaration = source.slice(match.index, end + 1);
+        source = source.slice(0, match.index) + `const ${name} /* diet literal */` +
+          (sensitiveSource(declaration) ? declaration : "") + source.slice(end + 1);
+      }
+    }
+    // Compile candidate endings without executing them. The first valid closing brace
+    // is the actual declaration end, including nested braces, templates, and regexes.
+    // This keeps following executable statements in the fingerprint.
+    const declarations = /^(?:async )?function ([A-Za-z0-9_]+)\(/gm;
+    let output = "", cursor = 0, declaration;
+    while ((declaration = declarations.exec(source))) {
+      let end = source.indexOf("}", declarations.lastIndex), complete = false;
+      while (end !== -1) {
+        try { new vm.Script(source.slice(declaration.index, end + 1)); complete = true; break; }
+        catch { end = source.indexOf("}", end + 1); }
+      }
+      if (!complete) throw new Error(`Cannot isolate qualification declaration ${declaration[1]}`);
+      output += source.slice(cursor, declaration.index);
+      const body = source.slice(declaration.index, end + 1);
+      output += allowed.includes(declaration[1]) && !sensitiveSource(body) ?
+        `function ${declaration[1]} /* diet/UI */` : body;
+      cursor = end + 1;
+      declarations.lastIndex = cursor;
+    }
+    inputs[file] = output + source.slice(cursor);
+  }
+  const contracts = read("docs/development-contracts.md");
+  const policy = contracts.indexOf("## Release-Driven Workflow");
+  if (policy < 0) throw new Error("Cannot isolate the development release policy");
+  inputs.developmentReleasePolicy = contracts.slice(policy);
+  return sha256(JSON.stringify(sortedObject(inputs)));
+}
+
+export function postDeploymentProblems(smoke, {now = Date.now(), deployedAt, aiEnabled = true} = {}) {
+  const errors = [];
+  if (!canonicalIsoTimestamp(smoke?.completedAt) || Date.parse(smoke.completedAt) > now ||
+      now - Date.parse(smoke.completedAt) > VERIFICATION_MAX_AGE_MS ||
+      !canonicalIsoTimestamp(deployedAt) || Date.parse(smoke.completedAt) < Date.parse(deployedAt))
+    errors.push("post-deployment smoke must have a fresh canonical completion time after deployment");
+  const required = ["bootstrap", "signIn", "ownDataRead", "ownDataWrite", "consoleClean", "testDataRestored", "signedOut"];
+  if (aiEnabled) required.push("aiDraftCancelled");
+  if (!Array.isArray(smoke?.hosts) || smoke.hosts.length !== PRODUCTION_HOSTS.length ||
+      !PRODUCTION_HOSTS.every((host) => smoke.hosts.filter((item) => item?.host === host &&
+        required.every((key) => item[key] === true)).length === 1))
+    errors.push("post-deployment smoke must pass every check on both hosts, restore test data, and sign out");
+  return errors;
+}
+
+export function releaseVerificationProblems(record, context) {
+  if (!record || typeof record !== "object" || Array.isArray(record))
+    return ["release verification must be a JSON object"];
+  const {now = Date.now(), commitSha, qualificationComparison, requirePostDeployment = false, deployedAt} = context;
+  const q = record.qualification;
+  const configured = record.configurationState !== AI_CONFIGURATION_STATES.disabledPreconfiguration;
+  // Reuse the detailed control inventory without altering any recorded evidence timestamp.
+  const probeKeys = ["authenticatedSuccessVerified", "unauthenticated401Verified",
+    "invalidAppCheckRejectionVerified", "invalidAppCheckObservedHttpStatus"];
+  const controls = {...record, schemaVersion: 6, aiLogic: {...record.aiLogic,
+    ...Object.fromEntries(probeKeys.map(key => [key, q?.probes?.[key]])), spotChecks: q?.spotChecks}};
+  const errors = releaseControlProblems(controls, {...context, spotMaxAge: QUALIFICATION_MAX_AGE_MS});
+  const add = (ok, message) => { if (!ok) errors.push(message); };
+  add(record.schemaVersion === 7, "release verification schemaVersion must be 7");
+  add(q?.probes && typeof q.probes === "object" && !Array.isArray(q.probes) &&
+    Object.keys(q.probes).length === probeKeys.length && Object.keys(q.probes).every(key => probeKeys.includes(key)),
+  "qualification probes must contain only the four recorded request outcomes");
+  add(canonicalIsoTimestamp(record.verifiedAt) && Date.parse(record.verifiedAt) <= now,
+    "release verification verifiedAt must be canonical ISO and not in the future");
+  if (configured) {
+    const at = Date.parse(q?.auditedAt);
+    add(canonicalIsoTimestamp(q?.auditedAt) && at <= Date.parse(record.verifiedAt) &&
+      at <= now && now - at <= QUALIFICATION_MAX_AGE_MS,
+    "qualification auditedAt must retain its original canonical timestamp within 30 days");
+    add(/^[a-f0-9]{40}$/.test(q?.commitSha || ""), "qualification must name its original audited commitSha");
+    add(canonicalIsoTimestamp(q?.spotChecks?.completedAt) && Date.parse(q.spotChecks.completedAt) <= at &&
+      at - Date.parse(q.spotChecks.completedAt) <= VERIFICATION_MAX_AGE_MS,
+    "qualification spot-check evidence must precede auditedAt by no more than 24 hours");
+    add(q?.configurationSha256 === qualificationConfigurationHash(record),
+      "qualification configuration changed; perform a fresh audit");
+    add(qualificationComparison?.auditedCommit === q?.commitSha &&
+      qualificationComparison?.releaseCommit === commitSha && qualificationComparison?.ancestor === true &&
+      qualificationComparison?.allInterveningInputsMatch === true &&
+      /^[a-f0-9]{64}$/.test(q?.inputsSha256 || "") &&
+      qualificationComparison?.inputsSha256 === q?.inputsSha256,
+    "qualification requires an explicit matching comparison of every intervening commit's inputs");
+    const targetValid = (target) => target === null || (typeof target === "string" && /^gemini-[a-z0-9.-]+$/.test(target));
+    add(targetValid(record.modelAliasTarget) && targetValid(q?.modelAliasTarget),
+      "modelAliasTarget must name the resolved Gemini target or be null when unresolved");
+    add(!(record.modelAliasTarget && q?.modelAliasTarget && record.modelAliasTarget !== q.modelAliasTarget),
+      "detected model alias target change requires a fresh qualification");
+    add(record.qualificationFailureDetected === false,
+      "detected qualification failure requires a fresh successful audit");
+    const review = record.qualificationDiffReview;
+    add(review?.auditedCommitSha === q?.commitSha && review?.releaseCommitSha === commitSha &&
+      review?.noRelevantBehaviorChanges === true && canonicalIsoTimestamp(review?.reviewedAt) &&
+      Date.parse(review.reviewedAt) <= Date.parse(record.verifiedAt) && Date.parse(review.reviewedAt) <= now &&
+      now - Date.parse(review.reviewedAt) <= VERIFICATION_MAX_AGE_MS,
+    "qualification requires a fresh owner review of relevant behavior across the exact compared commits");
+  }
+  if (requirePostDeployment) add(canonicalIsoTimestamp(deployedAt) &&
+    Date.parse(record.verifiedAt) >= Date.parse(deployedAt),
+  "fresh configuration verifiedAt must follow deployment");
+  if (requirePostDeployment || record.postDeployment !== null)
+    errors.push(...postDeploymentProblems(record.postDeployment, {now, deployedAt,
+      aiEnabled: clientAiEnabledFromIndexHtml(context.indexHtml) === true}));
+  return errors;
 }
 
 /* firebase-tools has printed `Active Project: <id>`, `Now using project <id>`,

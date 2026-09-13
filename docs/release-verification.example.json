@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 6,
+  "schemaVersion": 7,
   "stage": "ai-enabled-rollout",
   "configurationState": "enabled",
   "projectId": "diet-tracker-372ca",
@@ -22,10 +22,6 @@
   "modelAvailableWithoutBilling": true,
   "aiLogic": {
     "authenticatedUsersRequired": false,
-    "authenticatedSuccessVerified": false,
-    "unauthenticated401Verified": false,
-    "invalidAppCheckRejectionVerified": false,
-    "invalidAppCheckObservedHttpStatus": null,
     "generateContentRpmPerUserQuota": {
       "metric": "firebasevertexai.googleapis.com/generate_content_requests_per_minute_per_project_per_user",
       "quotaId": "GenerateContentRequestsPerMinutePerProjectPerUser",
@@ -45,14 +41,7 @@
     "serverSideGeminiKeyObfuscated": true,
     "geminiDeveloperApiKeyEmbedded": false,
     "publicBrowserKeyAllowsGenerativeLanguage": false,
-    "obsoleteGeminiKeyHasRecentConsumers": false,
-    "spotChecks": {
-      "calorieReferencePassed": false,
-      "latencyCompared": false,
-      "localhostDebugTokenPassed": false,
-      "productionHostsPassed": [],
-      "completedAt": null
-    }
+    "obsoleteGeminiKeyHasRecentConsumers": false
   },
   "logging": {
     "exclusionDisabled": null,
@@ -136,5 +125,34 @@
       "calorie-reference",
       "latency-comparison"
     ]
+  },
+  "qualification": {
+    "auditedAt": "REPLACE_WITH_ORIGINAL_AUDIT_ISO_TIMESTAMP",
+    "commitSha": "REPLACE_WITH_ORIGINAL_AUDITED_COMMIT_SHA",
+    "configurationSha256": "REPLACE_WITH_CONFIGURATION_SHA256",
+    "inputsSha256": "REPLACE_WITH_AUDITED_INPUTS_SHA256",
+    "modelAliasTarget": null,
+    "probes": {
+      "authenticatedSuccessVerified": false,
+      "unauthenticated401Verified": false,
+      "invalidAppCheckRejectionVerified": false,
+      "invalidAppCheckObservedHttpStatus": null
+    },
+    "spotChecks": {
+      "calorieReferencePassed": false,
+      "latencyCompared": false,
+      "localhostDebugTokenPassed": false,
+      "productionHostsPassed": [],
+      "completedAt": null
+    }
+  },
+  "modelAliasTarget": null,
+  "qualificationFailureDetected": true,
+  "postDeployment": null,
+  "qualificationDiffReview": {
+    "auditedCommitSha": "REPLACE_WITH_ORIGINAL_AUDITED_COMMIT_SHA",
+    "releaseCommitSha": "REPLACE_WITH_RELEASE_COMMIT_SHA",
+    "reviewedAt": "REPLACE_WITH_CURRENT_ISO_TIMESTAMP",
+    "noRelevantBehaviorChanges": false
   }
 }

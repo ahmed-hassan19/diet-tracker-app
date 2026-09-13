@@ -19,6 +19,7 @@ import {
   sha256,
   taggedConfigHashes,
 } from "./release-lib.mjs";
+import { compareQualificationInputs } from "./qualification-inputs.mjs";
 import { AI_MODEL_ALLOWLIST } from "./spark-guard.mjs";
 import { assertVersionContract } from "./version-contract.mjs";
 import { verifyRuntimeResources } from "./runtime-resources.mjs";
@@ -118,6 +119,11 @@ try { await verifyRuntimeResources(); }
 catch (error) { die(error.message); }
 console.log("  ok: all five CDN resources match their tracked lengths, digests, and dependency inventory");
 
+console.log("— exact main quality evidence");
+const repository = parseJson(command("GitHub repository identity", "gh", ["repo", "view", "--json", "nameWithOwner"]), "repository identity").nameWithOwner;
+process.env.GITHUB_REPOSITORY = repository;
+const qualityEvidence = parseJson(command("exact main quality", process.execPath, ["scripts/quality-evidence.mjs", peeled]), "quality evidence");
+
 console.log("— successful tag validation");
 const validationOutput = command("GitHub validation lookup", "gh", [
   "run",
@@ -153,9 +159,18 @@ const verificationPath =
 if (!fs.existsSync(verificationPath)) {
   die(`missing ${verificationPath}; follow docs/releasing.md before deploying`);
 }
-const verificationRaw = fs.readFileSync(verificationPath, "utf8");
-const verification = parseJson(verificationRaw, verificationPath);
+let verificationRaw = fs.readFileSync(verificationPath, "utf8");
+let verification = parseJson(verificationRaw, verificationPath);
+let qualificationComparison;
+if (verification.qualification?.commitSha) {
+  try { qualificationComparison = compareQualificationInputs(verification.qualification.commitSha, peeled); }
+  catch (error) { die(error.message); }
+}
+const verificationContext = {
+  tag, commitSha: peeled, model: MODEL, indexHtml: html, qualificationComparison,
+};
 const verificationProblems = releaseVerificationProblems(verification, {
+  ...verificationContext,
   tag,
   commitSha: peeled,
   model: MODEL,
@@ -332,6 +347,21 @@ prompt.close();
 if (confirmation !== "SPARK-VERIFIED") {
   die("post-deploy Spark/config verification was not confirmed; do not publish this release");
 }
+console.log("Complete postDeployment in the private verification record: on both hosts verify bootstrap, sign-in, own-data read/write, one AI draft cancelled, zero console/CSP errors, restore test data, and sign out. Preserve qualification timestamps.");
+const smokePrompt = readline.createInterface({ input: process.stdin, output: process.stdout });
+await smokePrompt.question("Save the completed record, then press Enter to validate it: ");
+smokePrompt.close();
+const completedRaw = fs.readFileSync(verificationPath, "utf8");
+const completed = parseJson(completedRaw, verificationPath);
+// Only fresh observations and smoke may change after deployment; never replace an old audit silently.
+if (JSON.stringify(completed.qualification) !== JSON.stringify(verification.qualification))
+  die("Qualification changed during deployment; restart validation with the new audit");
+const postProblems = releaseVerificationProblems(completed, {
+  ...verificationContext, requirePostDeployment: true, deployedAt,
+});
+if (postProblems.length) die(`Post-deployment verification failed:\n${postProblems.join("\n")}`);
+verification = completed;
+verificationRaw = completedRaw;
 const postDeployVerifiedAt = new Date().toISOString();
 
 fs.mkdirSync("local/releases", { recursive: true });
@@ -340,9 +370,12 @@ const manifest = {
   tag,
   commitSha: peeled,
   projectId: PROJECT_ID,
+  qualityEvidence,
   validationRunId: validationRun.databaseId,
   validationRunUrl: validationRun.url,
   settingsVerifiedAt: verification.verifiedAt,
+  qualificationComparison,
+  postDeployment: verification.postDeployment,
   verificationSha256: sha256(verificationRaw),
   deployedAt,
   postDeployVerifiedAt,

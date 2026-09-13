@@ -19,7 +19,11 @@ import {
   canonicalIndexSpec,
   clientAiEnabledFromIndexHtml,
   matchingValidationRuns,
-  releaseVerificationProblems,
+  releaseVerificationProblems as validateVerification,
+  qualificationConfigurationHash,
+  qualificationInputsHash,
+  matchingQualityRuns,
+  postDeploymentProblems,
   taggedConfigHashes,
 } from "../../scripts/release-lib.mjs";
 
@@ -29,6 +33,32 @@ const MODEL = "gemini-flash-lite-latest";
 const NOW = Date.parse("2026-08-23T12:00:00.000Z");
 const indexHtml = (enabled) =>
   `<script type="module">window.AI_ENABLED=${enabled};</script>`;
+
+const INPUTS = "b".repeat(64);
+function releaseVerificationProblems(record, context) {
+  return validateVerification(record, {qualificationComparison: {
+    auditedCommit: COMMIT, releaseCommit: COMMIT, ancestor: true,
+    inputsSha256: INPUTS, allInterveningInputsMatch: true,
+  }, ...context});
+}
+function extendVerification(record) {
+  record.schemaVersion = 7;
+  const probes = {};
+  for (const key of ["authenticatedSuccessVerified", "unauthenticated401Verified",
+    "invalidAppCheckRejectionVerified", "invalidAppCheckObservedHttpStatus"]) {
+    probes[key] = record.aiLogic[key]; delete record.aiLogic[key];
+  }
+  record.qualification = {auditedAt: "2026-08-23T10:00:00.000Z", commitSha: COMMIT,
+    inputsSha256: INPUTS, modelAliasTarget: null, probes, spotChecks: record.aiLogic.spotChecks};
+  delete record.aiLogic.spotChecks;
+  record.modelAliasTarget = null;
+  record.qualificationFailureDetected = false;
+  record.qualificationDiffReview = {auditedCommitSha:COMMIT,releaseCommitSha:COMMIT,
+    reviewedAt:"2026-08-23T10:00:00.000Z",noRelevantBehaviorChanges:true};
+  record.postDeployment = null;
+  record.qualification.configurationSha256 = qualificationConfigurationHash(record);
+  return record;
+}
 
 function quotaInventory(limit) {
   return {
@@ -51,7 +81,7 @@ function quotaInventory(limit) {
 
 function validVerification({ enabled = false, hardened = false, tag = TAG } = {}) {
   const configured = enabled || hardened;
-  return {
+  return extendVerification({
     schemaVersion: 6,
     stage: enabled ? AI_ROLLOUT_STAGES.enabled : AI_ROLLOUT_STAGES.disabled,
     configurationState: enabled ? AI_CONFIGURATION_STATES.enabled :
@@ -129,7 +159,7 @@ function validVerification({ enabled = false, hardened = false, tag = TAG } = {}
       logExclusionFilter: AI_LOG_EXCLUSION,
       requiredSpotChecks: AI_REQUIRED_SPOT_CHECKS,
     },
-  };
+  });
 }
 
 test("release verification uses Firebase's default Firestore release name", () => {
@@ -193,7 +223,7 @@ test("hardened AI-disabled rollout accepts paired invalid-App-Check rejection wi
   const hardenedTag = "v3.13.1";
   for (const status of [401, 403]) {
     const record = validVerification({ hardened: true, tag: hardenedTag });
-    record.aiLogic.invalidAppCheckObservedHttpStatus = status;
+    record.qualification.probes.invalidAppCheckObservedHttpStatus = status;
     assert.deepEqual(releaseVerificationProblems(record, {
       tag: hardenedTag,
       commitSha: COMMIT,
@@ -207,12 +237,12 @@ test("hardened AI-disabled rollout accepts paired invalid-App-Check rejection wi
 test("hardened AI-disabled rollout rejects contradictory status claims and stale evidence", () => {
   const hardenedTag = "v3.13.1";
   const invalid = validVerification({ hardened: true, tag: hardenedTag });
-  invalid.aiLogic.invalidAppCheckRejectionVerified = false;
-  invalid.aiLogic.invalidAppCheckObservedHttpStatus = 200;
-  invalid.aiLogic.spotChecks.completedAt = "2026-08-20T10:00:00.000Z";
+  invalid.qualification.probes.invalidAppCheckRejectionVerified = false;
+  invalid.qualification.probes.invalidAppCheckObservedHttpStatus = 200;
+  invalid.qualification.spotChecks.completedAt = "2026-08-20T10:00:00.000Z";
   invalid.appCheck.firestoreEnforced = false;
   invalid.appCheck.bothHostsVerified = false;
-  invalid.aiLogic.authenticatedSuccessVerified = false;
+  invalid.qualification.probes.authenticatedSuccessVerified = false;
   invalid.aiLogic.generateContentRpmPerUserQuota.dimensionsInfos[0].limit = 100;
   invalid.aiLogic.p4saEmail = "wrong@example.invalid";
   invalid.aiLogic.telemetryMode = "FULL";
@@ -277,7 +307,7 @@ test("AI-enabled rollout accepts 401 or 403 and rejects missing, successful, or 
   const enabledTag = "v3.13.0";
   for (const status of [401, 403]) {
     const record = validVerification({ enabled: true, tag: enabledTag });
-    record.aiLogic.invalidAppCheckObservedHttpStatus = status;
+    record.qualification.probes.invalidAppCheckObservedHttpStatus = status;
     assert.deepEqual(releaseVerificationProblems(record, {
       tag: enabledTag,
       commitSha: COMMIT,
@@ -288,7 +318,7 @@ test("AI-enabled rollout accepts 401 or 403 and rejects missing, successful, or 
   }
   for (const status of [null, 200, 400, 402, 404, 429, 500]) {
     const record = validVerification({ enabled: true, tag: enabledTag });
-    record.aiLogic.invalidAppCheckObservedHttpStatus = status;
+    record.qualification.probes.invalidAppCheckObservedHttpStatus = status;
     const problems = releaseVerificationProblems(record, {
       tag: enabledTag,
       commitSha: COMMIT,
@@ -300,7 +330,7 @@ test("AI-enabled rollout accepts 401 or 403 and rejects missing, successful, or 
       problem.includes("observing exactly 401 or 403")), status);
   }
   const missingEvidence = validVerification({ enabled: true, tag: enabledTag });
-  missingEvidence.aiLogic.invalidAppCheckRejectionVerified = false;
+  missingEvidence.qualification.probes.invalidAppCheckRejectionVerified = false;
   assert.ok(releaseVerificationProblems(missingEvidence, {
     tag: enabledTag,
     commitSha: COMMIT,
@@ -454,7 +484,7 @@ test("AI release posture fails closed on auth mode, quota, key, host, and loggin
   invalid.aiLogic.generateContentRpmPerUserQuota.dimensionsInfos[0].limit = 100;
   invalid.aiLogic.p4saEmail = "wrong@example.invalid";
   invalid.aiLogic.publicBrowserKeyAllowsGenerativeLanguage = true;
-  invalid.aiLogic.spotChecks.productionHostsPassed = [PRODUCTION_HOSTS[0]];
+  invalid.qualification.spotChecks.productionHostsPassed = [PRODUCTION_HOSTS[0]];
   invalid.logging.exclusionFilter = "resource.type=wrong";
   invalid.logging.existingModelLogsExpireAt = "unknown";
   const problems = releaseVerificationProblems(invalid, {
@@ -500,7 +530,7 @@ test("checked-in release verification template fails closed", () => {
   }
 });
 
-test("a current schema-6 record completed from the template can deploy the enabled rollout", () => {
+test("a current schema-7 record completed from the template can deploy the enabled rollout", () => {
   const record = JSON.parse(
     fs.readFileSync("docs/release-verification.example.json", "utf8"),
   );
@@ -516,8 +546,8 @@ test("a current schema-6 record completed from the template can deploy the enabl
     aiLogicEnforced: true,
     bothHostsVerified: true,
   });
-  Object.assign(record.aiLogic, {
-    authenticatedUsersRequired: true,
+  record.aiLogic.authenticatedUsersRequired = true;
+  Object.assign(record.qualification.probes, {
     authenticatedSuccessVerified: true,
     unauthenticated401Verified: true,
     invalidAppCheckRejectionVerified: true,
@@ -525,7 +555,7 @@ test("a current schema-6 record completed from the template can deploy the enabl
   });
   record.aiLogic.generateContentRpmPerUserQuota.dimensionsInfos =
     quotaInventory(6).dimensionsInfos;
-  Object.assign(record.aiLogic.spotChecks, {
+  Object.assign(record.qualification.spotChecks, {
     calorieReferencePassed: true,
     latencyCompared: true,
     localhostDebugTokenPassed: true,
@@ -540,6 +570,11 @@ test("a current schema-6 record completed from the template can deploy the enabl
     exclusionVerifiedAt: "2026-08-23T10:00:00.000Z",
     existingModelLogsExpireAt: "2025-03-03T00:00:00.000Z",
   });
+  Object.assign(record.qualification, {auditedAt: "2026-08-23T10:00:00.000Z",
+    commitSha: COMMIT, inputsSha256: INPUTS, configurationSha256: qualificationConfigurationHash(record)});
+  record.qualificationFailureDetected = false;
+  record.qualificationDiffReview = {auditedCommitSha:COMMIT,releaseCommitSha:COMMIT,
+    reviewedAt:"2026-08-23T10:00:00.000Z",noRelevantBehaviorChanges:true};
   assert.deepEqual(releaseVerificationProblems(record, {
     tag: TAG,
     commitSha: COMMIT,
@@ -655,4 +690,174 @@ test("activeFirebaseProject fails closed on anything else", () => {
   assert.equal(activeFirebaseProject(undefined), null);
   assert.equal(activeFirebaseProject("Warning: deprecated\ndiet-tracker-372ca\nother-id\n"), null);
   assert.equal(activeFirebaseProject("Active Project: wrong-project\n"), "wrong-project");
+});
+
+test("quality evidence binds repository, workflow identity, push main, and exact successful SHA", () => {
+  const repository = "owner/diet";
+  const good = {repository: {full_name: repository}, head_repository: {full_name: repository},
+    workflow_id: 42, path: ".github/workflows/quality.yml", head_branch: "main",
+    head_sha: COMMIT, event: "push", status: "completed", conclusion: "success"};
+  assert.deepEqual(matchingQualityRuns([good], COMMIT, repository, 42), [good]);
+  for (const patch of [{repository:{full_name:"other/diet"}}, {head_repository:{full_name:"fork/diet"}},
+    {workflow_id:43}, {path:".github/workflows/impostor.yml"}, {head_branch:"feature/change"},
+    {head_sha:"c".repeat(40)}, {event:"pull_request"}, {status:"in_progress"}, {conclusion:"failure"}])
+    assert.deepEqual(matchingQualityRuns([{...good,...patch}],COMMIT,repository,42), [], JSON.stringify(patch));
+  assert.deepEqual(matchingQualityRuns([],COMMIT,repository,42), []);
+});
+
+test("qualification reuses an original 30-day audit but blocks expiry, changed inputs, and failures", () => {
+  const context = {tag:TAG,commitSha:COMMIT,model:MODEL,indexHtml:indexHtml(true),now:NOW};
+  const good = validVerification({enabled:true});
+  good.qualification.auditedAt = "2026-08-01T10:00:00.000Z";
+  good.qualification.spotChecks.completedAt = good.qualification.auditedAt;
+  assert.deepEqual(releaseVerificationProblems(good,context), []);
+  for (const mutate of [
+    r=>{r.qualification.auditedAt="2026-07-23T10:00:00.000Z";r.qualification.spotChecks.completedAt=r.qualification.auditedAt;},
+    r=>{r.qualification.auditedAt="2026-08-24T10:00:00.000Z";},
+    r=>{r.qualification.spotChecks.completedAt="2026-08-02T10:00:00.000Z";},
+    r=>{r.qualification.configurationSha256="d".repeat(64);},
+    r=>{r.qualification.inputsSha256="d".repeat(64);},
+    r=>{r.qualification.commitSha="d".repeat(40);},
+    r=>{r.modelAliasTarget="gemini-target-new";r.qualification.modelAliasTarget="gemini-target-old";},
+    r=>{r.qualificationFailureDetected=true;},
+    r=>{r.qualification.probes.unauthenticated401Verified=false;},
+    r=>{r.qualification.probes.authenticatedUsersRequired=true;r.aiLogic.authenticatedUsersRequired=false;},
+    r=>{r.schemaVersion=6;},
+    r=>{r.qualificationDiffReview.noRelevantBehaviorChanges=false;},
+    r=>{r.qualificationDiffReview.releaseCommitSha="c".repeat(40);},
+  ]) {
+    const bad=structuredClone(good);mutate(bad);
+    assert.ok(releaseVerificationProblems(bad,context).length,mutate.toString());
+  }
+  assert.ok(releaseVerificationProblems(good,{...context,qualificationComparison:null}).length);
+  assert.ok(releaseVerificationProblems(good,{...context,qualificationComparison:{
+    auditedCommit:COMMIT,releaseCommit:COMMIT,ancestor:true,inputsSha256:INPUTS,allInterveningInputsMatch:false,
+  }}).length);
+  // Unresolved is explicit absence of evidence, never a fabricated target string.
+  good.modelAliasTarget=null;good.qualification.modelAliasTarget=null;
+  assert.deepEqual(releaseVerificationProblems(good,context), []);
+});
+
+test("qualification fingerprints AI/Auth/security policy while permitting unrelated diet UI edits", () => {
+  const read = file=>fs.readFileSync(file,"utf8");
+  const original=qualificationInputsHash(read);
+  for(const [file,from,to] of [
+    ["public/index.html","<title>","<title>Diet "],
+    ["public/render.js","function draftFood(label){","function draftFood(label){ /* diet-only */"],
+    ["public/calc.js","function calcTargets(p){","function calcTargets(p){ /* diet formula */"],
+  ]) {
+    assert.ok(read(file).includes(from),file);
+    assert.equal(qualificationInputsHash(f=>f===file?read(f).replace(from,to):read(f)),original,file);
+  }
+  for(const [file,from,to] of [
+    ["public/index.html","window.AI_ENABLED=true","window.AI_ENABLED=false"],
+    ["public/render.js","function aiOn(){","function aiOn(){ /* changed */"],
+    ["public/render.js","async function aiCalRef(btn){","async function aiCalRef(btn){ /* changed */"],
+    ["public/sync.js","function login(){","function login(){ /* changed */"],
+    ["public/sync.js","function resetSyncContext(){","function resetSyncContext(){ /* changed */"],
+    ["public/state.js","function normalizeSettings(","function normalizeSettingsChanged("],
+    ["public/index.html",'<script src="./data.js">','<script src="./other.js">'],
+    ["public/index.html",'<script src="./data.js">','<script>window.AI_ENABLED=false;</script><script src="./data.js">'],
+    ["public/render.js","const SVG_NS=","function unexpectedSecurityCode(){}\nconst SVG_NS="],
+    ["public/render.js","function saveFood(key){","window.firebaseBridge = null;\nfunction saveFood(key){"],
+    ["public/render.js","function showTab(t){","function showTab(t){ window.AI_ENABLED=false;"],
+    ["public/render.js","function showTab(t){","function showTab(t){ FB.active=false;"],
+    ["public/render.js","function showTab(t){","function showTab(t){ KEY=null;"],
+    ["public/render.js","function renderCalRef(){","function renderCalRef(){ return;"],
+    ["public/sync.js","function mergeRemote(remote){","function mergeRemote(remote){ window.AI_ENABLED=false;"],
+    ["public/state.js","function normalizeState(raw,source){","function normalizeState(raw,source){ window.AI_ENABLED=false;"],
+    ["public/data.js",'const APP_VERSION=', 'window.AI_ENABLED=false;\nconst APP_VERSION='],
+    ["public/calc.js",'function calcTargets(p){', 'window.AI_ENABLED=false;\nfunction calcTargets(p){'],
+    ["scripts/release-lib.mjs","schemaVersion === 7","schemaVersion === 8"],
+  ]) {
+    assert.ok(read(file).includes(from),file);
+    assert.notEqual(qualificationInputsHash(f=>f===file?read(f).replace(from,to):read(f)),original,file);
+  }
+});
+
+test("post-deployment smoke requires fresh checks, cleanup, and signout on both hosts", () => {
+  const context={now:NOW,deployedAt:"2026-08-23T10:00:00.000Z"};
+  const good={completedAt:"2026-08-23T11:00:00.000Z",hosts:PRODUCTION_HOSTS.map(host=>({host,
+    bootstrap:true,signIn:true,ownDataRead:true,ownDataWrite:true,aiDraftCancelled:true,
+    consoleClean:true,testDataRestored:true,signedOut:true}))};
+  assert.deepEqual(postDeploymentProblems(good,context),[]);
+  for(const key of ["bootstrap","signIn","ownDataRead","ownDataWrite","aiDraftCancelled","consoleClean","testDataRestored","signedOut"]){
+    const bad=structuredClone(good);bad.hosts[1][key]=false;
+    assert.ok(postDeploymentProblems(bad,context).length,key);
+  }
+  assert.ok(postDeploymentProblems(null,context).length);
+  assert.ok(postDeploymentProblems({...good,completedAt:"2026-08-23T09:00:00.000Z"},context).length);
+  assert.ok(postDeploymentProblems({...good,completedAt:"2026-08-24T11:00:00.000Z"},context).length);
+  const record=validVerification({enabled:true});
+  assert.ok(releaseVerificationProblems(record,{tag:TAG,commitSha:COMMIT,model:MODEL,indexHtml:indexHtml(true),now:NOW,
+    requirePostDeployment:true,deployedAt:context.deployedAt}).some(p=>p.includes("smoke")));
+});
+
+test("qualification comparison checks ancestry and reverted changes without inheriting Git hook state", async () => {
+  const {mkdtempSync,cpSync,mkdirSync,writeFileSync,rmSync}=await import("node:fs");
+  const {tmpdir}=await import("node:os");
+  const path=await import("node:path");
+  const {spawnSync}=await import("node:child_process");
+  const {QUALIFICATION_FILES}=await import("../../scripts/release-lib.mjs");
+  const scratch=mkdtempSync(path.join(tmpdir(),"diet-qualification-test-"));
+  const root=path.join(scratch,"fixture"),parent=path.join(scratch,"protected-parent");
+  mkdirSync(root);mkdirSync(parent);
+  const cli=path.resolve("scripts/qualification-inputs.mjs");
+  // cwd does not override GIT_DIR/GIT_INDEX_FILE exported by a real commit hook.
+  // Remove the entire Git environment namespace for every fixture subprocess,
+  // including Node children that themselves invoke Git.
+  const cleanGitEnvironment=environment=>Object.fromEntries(
+    Object.entries(environment).filter(([key])=>!key.startsWith("GIT_")),
+  );
+  const runGit=(cwd,args,environment=process.env)=>{
+    const result=spawnSync("git",["-c","core.hooksPath=/dev/null",...args],{
+      cwd,encoding:"utf8",env:cleanGitEnvironment(environment),
+    });
+    assert.equal(result.status,0,result.stderr);return result.stdout.trim();
+  };
+  try {
+    runGit(parent,["init","--quiet"]);
+    writeFileSync(path.join(parent,"sentinel.txt"),"Protected parent worktree\n");
+    runGit(parent,["add","."]);
+    runGit(parent,["-c","user.name=Test","-c","user.email=test@example.invalid",
+      "commit","--quiet","-m","parent sentinel"]);
+    const parentHead=runGit(parent,["rev-parse","HEAD"]);
+    const parentIndex=fs.readFileSync(path.join(parent,".git/index"));
+    const parentConfig=fs.readFileSync(path.join(parent,".git/config"));
+    const hookEnvironment={...process.env,
+      GIT_DIR:path.join(parent,".git"),GIT_COMMON_DIR:path.join(parent,".git"),
+      GIT_WORK_TREE:parent,GIT_INDEX_FILE:path.join(parent,".git/index"),GIT_PREFIX:"nested/",
+      GIT_OBJECT_DIRECTORY:path.join(parent,".git/objects"),
+      GIT_CONFIG_COUNT:"1",GIT_CONFIG_KEY_0:"core.bare",GIT_CONFIG_VALUE_0:"true",
+      GIT_CONFIG_PARAMETERS:"'user.name=Wrong'",GIT_CONFIG_GLOBAL:path.join(parent,".git/config"),
+    };
+    assert.ok(!Object.keys(cleanGitEnvironment(hookEnvironment)).some(key=>key.startsWith("GIT_")));
+    const git=(...args)=>runGit(root,args,hookEnvironment);
+    const compare=(a,b)=>spawnSync(process.execPath,[cli,a,b],{
+      cwd:root,encoding:"utf8",env:cleanGitEnvironment(hookEnvironment),
+    });
+    for(const file of [...QUALIFICATION_FILES,"docs/development-contracts.md","public/index.html","public/render.js","public/state.js","public/sync.js","public/data.js","public/calc.js"]){
+      mkdirSync(path.dirname(path.join(root,file)),{recursive:true});cpSync(file,path.join(root,file));
+    }
+    git("init","--quiet");git("config","user.name","Test");git("config","user.email","test@example.invalid");
+    git("add",".");git("commit","--quiet","-m","initial");const audit=git("rev-parse","HEAD");
+    writeFileSync(path.join(root,"diet-note.txt"),"Unrelated diet-only work\n");
+    git("add",".");git("commit","--quiet","-m","diet");const diet=git("rev-parse","HEAD");
+    const unchanged=compare(audit,diet);
+    assert.equal(unchanged.status,0,unchanged.stderr);
+    assert.equal(JSON.parse(unchanged.stdout).allInterveningInputsMatch,true);
+    const html=fs.readFileSync(path.join(root,"public/index.html"),"utf8");
+    writeFileSync(path.join(root,"public/index.html"),html.replace("window.AI_ENABLED=true","window.AI_ENABLED=false"));
+    git("add",".");git("commit","--quiet","-m","AI change");
+    writeFileSync(path.join(root,"public/index.html"),html);
+    git("add",".");git("commit","--quiet","-m","revert AI");const reverted=git("rev-parse","HEAD");
+    const changed=compare(audit,reverted);
+    assert.equal(changed.status,0,changed.stderr);
+    assert.equal(JSON.parse(changed.stdout).allInterveningInputsMatch,false);
+    assert.notEqual(compare(reverted,audit).status,0);
+    assert.equal(runGit(parent,["rev-parse","HEAD"]),parentHead);
+    assert.deepEqual(fs.readFileSync(path.join(parent,".git/index")),parentIndex);
+    assert.deepEqual(fs.readFileSync(path.join(parent,".git/config")),parentConfig);
+    assert.equal(fs.readFileSync(path.join(parent,"sentinel.txt"),"utf8"),"Protected parent worktree\n");
+  } finally {rmSync(scratch,{recursive:true,force:true});}
 });

@@ -9,7 +9,7 @@ const IDB_VERSION=1;
 const IDB_STORE="states";
 const DAY_KEYS=new Set([...Object.keys(MEALS),"extras","water","workout","steps","cardio","weight","sleep","notes","_ts"]);
 const FOOD_KEYS=new Set([...Object.keys(MEALS),"extras","_ts"]);
-const SETTINGS_KEYS=new Set([...Object.keys(DEF),"_ts","targetFormulaVersion","builtinSelectionVersion","healthNoticeVersion","healthNoticeAcceptedAt","aiDisclosureVersion","aiDisclosureAcceptedAt"]);
+const SETTINGS_KEYS=new Set([...Object.keys(DEF),"_ts","targetFormulaVersion","builtinSelectionVersion","foodHistoryVersion","healthNoticeVersion","healthNoticeAcceptedAt","aiDisclosureVersion","aiDisclosureAcceptedAt"]);
 const ACTIVITY_VALUES=new Set([1.2,1.375,1.55,1.725]);
 const LEGACY_SOURCES=new Set(["legacy","import","remote"]);
 const OBJECT_PROTO_KEYS=new Set(["constructor","__defineGetter__","__defineSetter__","hasOwnProperty","__lookupGetter__","__lookupSetter__","isPrototypeOf","propertyIsEnumerable","toString","valueOf","__proto__","toLocaleString"]);
@@ -17,6 +17,8 @@ let KEY=null;
 let S=null;
 let stateSizeClass="normal";
 let storageWarning=false;
+let pendingRetirement=null;
+let pendingImport=null;
 const idbWriteChains=new Map();
 
 function normalizationFailure(reason){ return {ok:false,reason}; }
@@ -84,8 +86,8 @@ function validDayKey(value){
   return day<=monthDays[month-1];
 }
 function normalizeTimestamp(value,coerce){ return boundedNumber(value,0,Number.MAX_SAFE_INTEGER,{coerce,integer:true}); }
-function normalizeFood(raw,maxLabel,coerce,requireMacros){
-  if(!knownObject(raw,new Set(["t","k","p","f","c"]))) return null;
+function normalizeFood(raw,maxLabel,coerce,requireMacros,allowRetirement=false){
+  if(!knownObject(raw,new Set(["t","k","p","f","c",...(allowRetirement?["deletedFrom"]:[])]))) return null;
   if(typeof raw.t!=="string"||charLength(raw.t.trim())<1||charLength(raw.t.trim())>maxLabel) return null;
   const value={t:raw.t.trim()};
   const limits={k:[1,5000],p:[0,1250],f:[0,556],c:[0,1250]};
@@ -93,6 +95,10 @@ function normalizeFood(raw,maxLabel,coerce,requireMacros){
     const n=boundedNumber(raw[key],limits[key][0],limits[key][1],{coerce});
     if(n===null) return null;
     value[key]=n;
+  }
+  if(raw.deletedFrom!==undefined){
+    if(typeof raw.deletedFrom!=="string"||!validDayKey(raw.deletedFrom)) return null;
+    value.deletedFrom=raw.deletedFrom;
   }
   if(requireMacros&&macroMismatch(value)) return null;
   return value;
@@ -108,7 +114,7 @@ function normalizeFoods(raw,coerce,importedAt){
     value[key]=[];
     for(const item of list){
       if(item===null){ value[key].push(null); continue; }
-      const food=normalizeFood(item,160,coerce,false);
+      const food=normalizeFood(item,160,coerce,false,true);
       if(!food) return normalizationFailure("food");
       active++; value[key].push(food);
     }
@@ -144,9 +150,9 @@ function normalizeCalref(raw,coerce,importedAt){
   return {ok:true,value};
 }
 function normalizeSettings(raw,coerce,importedAt){
-  if(raw===undefined) return {ok:true,value:{builtinSelectionVersion:BUILTIN_SELECTION_VERSION}};
+  if(raw===undefined) return {ok:true,value:{builtinSelectionVersion:BUILTIN_SELECTION_VERSION,foodHistoryVersion:1}};
   if(!knownObject(raw,SETTINGS_KEYS)) return normalizationFailure("settings");
-  const value={builtinSelectionVersion:BUILTIN_SELECTION_VERSION};
+  const value={builtinSelectionVersion:BUILTIN_SELECTION_VERSION,foodHistoryVersion:1};
   if(raw.name!==undefined){
     if(typeof raw.name!=="string"||charLength(raw.name)>40) return normalizationFailure("settings");
     value.name=raw.name;
@@ -180,6 +186,7 @@ function normalizeSettings(raw,coerce,importedAt){
     const version=boundedNumber(raw.builtinSelectionVersion,1,BUILTIN_SELECTION_VERSION,{coerce,integer:true});
     if(version!==BUILTIN_SELECTION_VERSION) return normalizationFailure("settings");
   }
+  if(raw.foodHistoryVersion!==undefined&&boundedNumber(raw.foodHistoryVersion,1,1,{coerce,integer:true})!==1) return normalizationFailure("settings");
   const hasHealthVersion=raw.healthNoticeVersion!==undefined;
   const hasHealthTime=raw.healthNoticeAcceptedAt!==undefined;
   if(hasHealthVersion!==hasHealthTime) return normalizationFailure("settings");
@@ -292,9 +299,66 @@ function normalizeDays(raw,foods,coerce,importedAt,migrateBuiltins){
       if(ts===null) return normalizationFailure("timestamp");
       d._ts=ts;
     }
+    clearRetiredSelections(d,date,foods);
     value[date]=d;
   }
   return {ok:true,value};
+}
+function foodAvailable(food,date=cur){ return !!food&&(!food.deletedFrom||date<food.deletedFrom); }
+function clearRetiredSelections(d,date,foods){
+  let changed=false;
+  for(const key of Object.keys(MEALS)){
+    const selected=d[key];
+    if(typeof selected==="string"&&/^c\d+$/.test(selected)&&!foodAvailable((foods[key]||[])[Number(selected.slice(1))],date)){ d[key]=null; changed=true; }
+  }
+  if(d.extras){
+    const retained=d.extras.filter(selected=>typeof selected!=="string"||!/^c\d+$/.test(selected)||foodAvailable((foods.extras||[])[Number(selected.slice(1))],date));
+    if(retained.length!==d.extras.length){ d.extras=retained; changed=true; }
+  }
+  return changed;
+}
+function mergeFoodCatalogs(local,remote){
+  const value={};
+  for(const key of [...Object.keys(MEALS),"extras"]){
+    if(!local[key]&&!remote[key]) continue;
+    const left=local[key]||[],right=remote[key]||[]; value[key]=[];
+    for(let i=0;i<Math.max(left.length,right.length);i++){
+      const a=left[i],b=right[i];
+      if(a&&b){
+        if(["t","k","p","f","c"].some(field=>a[field]!==b[field])) return normalizationFailure("catalog-conflict");
+        const food={...a},cutoffs=[a.deletedFrom,b.deletedFrom].filter(Boolean).sort();
+        if(cutoffs.length) food.deletedFrom=cutoffs[0];
+        value[key].push(food);
+      }else if((a&&i<right.length)||(b&&i<left.length)) return normalizationFailure("catalog-conflict");
+      else value[key].push(a||b||null);
+    }
+  }
+  if(local._ts!==undefined||remote._ts!==undefined) value._ts=Math.max(local._ts||0,remote._ts||0);
+  return {ok:true,value};
+}
+async function retireFood(key,index){
+  if(!S||pendingRetirement||pendingImport||!Number.isInteger(index)||!foodAvailable((S.foods[key]||[])[index],today())) return false;
+  const uid=KEY,generation=typeof syncGeneration==="number"?syncGeneration:null,ref=typeof FB==="object"&&FB?FB.ref:null;
+  const sessionCurrent=()=>!(typeof deletingAll==="boolean"&&deletingAll)&&!!uid&&KEY===uid&&(generation===null||syncGeneration===generation)&&(!ref||FB.ref===ref)&&window.firebaseBridge?.currentUser()?.uid===uid;
+  if(!sessionCurrent()) return false;
+  const operation={remotes:[]},candidate=mutableState(),now=Date.now(),cutoff=today();
+  candidate.foods[key][index].deletedFrom=cutoff; candidate.foods._ts=now;
+  for(const [date,d] of Object.entries(candidate.days)) if(clearRetiredSelections(d,date,candidate.foods)) d._ts=now;
+  const normalized=normalizeState(candidate,"mutation");
+  if(!normalized.ok) return false;
+  pendingRetirement=operation;
+  try{
+    await writeVerifiedStateRecord(uid,normalized.value);
+    if(!sessionCurrent()) return false;
+    return applyNormalizedState(normalized,{persist:false,push:true});
+  }catch(_error){
+    if(sessionCurrent()){ setStorageMessage(); alert("المسح ماكملش لأن الحفظ على الجهاز مش متاح. بياناتك الحالية متغيّرتش."); }
+    return false;
+  }finally{
+    if(pendingRetirement===operation) pendingRetirement=null;
+    if(sessionCurrent()&&typeof mergeRemote==="function") for(const remote of operation.remotes) if(!mergeRemote(remote)) break;
+    if(sessionCurrent()&&operation.pushDeferred) schedulePush();
+  }
 }
 function sortedJsonValue(value){
   if(Array.isArray(value)) return value.map(sortedJsonValue);
@@ -447,7 +511,7 @@ function applyNormalizedState(normalized,{persist=true,push=true}={}){
   return true;
 }
 function commitMutation(change,{touchDay=null,touchSections=[]}={}){
-  if(!S||typeof change!=="function") return false;
+  if(!S||pendingRetirement||pendingImport||typeof change!=="function") return false;
   const candidate=mutableState(),now=Date.now();
   try{ change(candidate,now); }catch(_error){ return false; }
   if(touchDay&&candidate.days[touchDay]) candidate.days[touchDay]._ts=now;
@@ -483,6 +547,7 @@ function downloadJson(value,name){
 function exportData(){ if(S) downloadJson(S,"diet-tracker-backup-"+today()+".json"); }
 async function importData(inp){
   const f=inp.files&&inp.files[0]; if(!f) return;
+  if(pendingRetirement||pendingImport){ inp.value=""; alert("استنى لحد ما حفظ المسح يخلص وبعدين جرّب تاني."); return; }
   const uid=KEY,generation=typeof syncGeneration==="number"?syncGeneration:null,trackerRef=typeof FB==="object"&&FB?FB.ref:null;
   const sessionCurrent=()=>{
     const user=window.firebaseBridge&&window.firebaseBridge.currentUser();
@@ -496,13 +561,20 @@ async function importData(inp){
     normalized=normalizeState(JSON.parse(text),"import");
   }catch(_error){ alert("الملف مش صالح."); return; }
   if(!sessionCurrent()){ alert("جلسة الدخول اتغيرت قبل ما الاسترجاع يكتمل. بياناتك الحالية متغيّرتش."); return; }
+  if(pendingRetirement||pendingImport){ alert("استنى لحد ما حفظ المسح يخلص وبعدين جرّب تاني."); return; }
   if(!normalized.ok){ alert(normalized.reason==="size"?"النسخة أكبر من حد الاسترجاع والمزامنة (٦٠٠ كيلوبايت).":"الملف مش صالح أو فيه قيم خارج الحدود."); return; }
+  const operation={remotes:[]}; pendingImport=operation;
   try{
     await writeVerifiedStateRecord(uid,normalized.value);
     if(!sessionCurrent()) return;
-  }catch(_error){ setStorageMessage(); alert("الاسترجاع ماكملش لأن الحفظ على الجهاز مش متاح. بياناتك الحالية متغيّرتش."); return; }
+    applyNormalizedState(normalized,{persist:false,push:true});
+  }catch(_error){ if(sessionCurrent()){ setStorageMessage(); alert("الاسترجاع ماكملش لأن الحفظ على الجهاز مش متاح. بياناتك الحالية متغيّرتش."); } return; }
+  finally{
+    if(pendingImport===operation) pendingImport=null;
+    if(sessionCurrent()&&typeof mergeRemote==="function") for(const remote of operation.remotes) if(!mergeRemote(remote)) break;
+    if(sessionCurrent()&&operation.pushDeferred) schedulePush();
+  }
   if(!sessionCurrent()) return;
-  applyNormalizedState(normalized,{persist:false,push:true});
   if(typeof setWho==="function") setWho();
   renderFormulaReview(); renderDay();
   if(curTab==="prog") renderProg();
@@ -518,16 +590,16 @@ function getExtra(i){
   const legacy=legacyBuiltinSelection("extras",i); return legacy?legacy.food:EXTRAS[i];
 }
 console.assert(getExtra(0)===EXTRAS[0],"getExtra predefined");
-function foodNames(){
+function foodNames(date=cur){
   const f=S.foods||{};
-  const mine=Object.keys(f).filter(k=>k!=="_ts"&&!(MEALS[k]&&MEALS[k].legacyOnly)).flatMap(k=>f[k]||[]).filter(Boolean).reverse();
+  const mine=Object.keys(f).filter(k=>k!=="_ts"&&!(MEALS[k]&&MEALS[k].legacyOnly)).flatMap(k=>f[k]||[]).filter(food=>foodAvailable(food,date)).reverse();
   const refs=(((S.calref||{}).items)||[]).slice().reverse();
   const builtin=[...Object.values(MEALS).filter(m=>!m.legacyOnly).flatMap(m=>m.opts.filter(o=>!o.legacyOnly)),...EXTRAS,...CALREF.flatMap(g=>g.items)];
   const out=new Map(); [...mine,...refs,...builtin].forEach(o=>{ if(o&&o.t&&!out.has(o.t)) out.set(o.t,o); }); return [...out.values()];
 }
 function foodByName(t){ return foodNames().find(o=>o.t===t)||null; }
 const CRQTY=/\s*\(([^()]+)\)\s*$/;
-function crNames(){ return [...new Set(foodNames().map(o=>o.t.replace(CRQTY,"")).filter(Boolean))]; }
+function crNames(){ return [...new Set(foodNames(today()).map(o=>o.t.replace(CRQTY,"")).filter(Boolean))]; }
 function qtyNames(){
   const items=[...(((S.calref||{}).items)||[]).slice().reverse(),...CALREF.flatMap(g=>g.items)];
   return [...new Set(items.map(o=>(CRQTY.exec((o&&o.t)||"")||[])[1]).filter(Boolean))];

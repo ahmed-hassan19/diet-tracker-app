@@ -1,6 +1,6 @@
 import { readFile } from "node:fs/promises";
 import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
-import { collection, deleteDoc, doc, getDoc, getDocs, setDoc, updateDoc } from "firebase/firestore";
+import { collection, deleteDoc, deleteField, doc, getDoc, getDocs, setDoc, updateDoc } from "firebase/firestore";
 import test, { after, before } from "node:test";
 
 let env;
@@ -162,4 +162,20 @@ test("tracker subcollections, tracker listing, and unknown collections are expli
   await assertFails(getDocs(collection(db, "trackers")));
   await assertFails(getDoc(doc(db, "admins/path-deny")));
   await assertFails(setDoc(doc(db, "admins/path-deny"), { admin: true }));
+});
+
+
+test("upgraded history rejects delayed old-client replacements and marker removal while retaining owner recovery", async () => {
+  const db=await context("history-owner"),ref=doc(db,"trackers/history-owner");
+  const old=tracker();
+  await assertSucceeds(setDoc(ref,old));
+  const upgraded=tracker({settings:{builtinSelectionVersion:1,foodHistoryVersion:1},foods:{b:[{...storedFood(),deletedFrom:"2026-09-13"}]}});
+  await assertSucceeds(setDoc(ref,upgraded));
+  await assertFails(setDoc(ref,old));
+  await assertFails(updateDoc(ref,{"settings.foodHistoryVersion":deleteField()}));
+  for(const version of [0,2,"1",null]) await assertFails(updateDoc(ref,{"settings.foodHistoryVersion":version}));
+  await assertSucceeds(updateDoc(ref,{updated:Date.now()}));
+  await assertSucceeds(setDoc(ref,tracker({settings:{foodHistoryVersion:1}})));
+  await assertSucceeds(getDoc(ref));
+  await assertSucceeds(deleteDoc(ref));
 });

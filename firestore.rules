@@ -34,7 +34,7 @@ service cloud.firestore {
       return data is map
         && data.keys().hasOnly([
           'name', 'sex', 'age', 'ht', 'act', 'klo', 'khi', 'plo', 'phi',
-          'sw', 'gw', 'tw', '_ts', 'targetFormulaVersion', 'builtinSelectionVersion',
+          'sw', 'gw', 'tw', '_ts', 'targetFormulaVersion', 'builtinSelectionVersion', 'foodHistoryVersion',
           'aiDisclosureVersion', 'aiDisclosureAcceptedAt'
         ])
         && (!('name' in data) || (data.name is string && data.name.size() <= 40))
@@ -55,6 +55,7 @@ service cloud.firestore {
         && optionalMillis(data, '_ts')
         && (!('targetFormulaVersion' in data) || (data.targetFormulaVersion is int && data.targetFormulaVersion == 1))
         && (!('builtinSelectionVersion' in data) || (data.builtinSelectionVersion is int && data.builtinSelectionVersion == 1))
+        && (!('foodHistoryVersion' in data) || (data.foodHistoryVersion is int && data.foodHistoryVersion == 1))
         && (('aiDisclosureVersion' in data) == ('aiDisclosureAcceptedAt' in data))
         && (!('aiDisclosureVersion' in data) || (
           data.aiDisclosureVersion is int
@@ -95,9 +96,19 @@ service cloud.firestore {
         && validMillis(data.updated);
     }
 
+    // Once upgraded, delayed whole-document writes from older clients must fail.
+    function preservesFoodHistoryVersion() {
+      return !('settings' in resource.data)
+        || !(resource.data.settings is map)
+        || !('foodHistoryVersion' in resource.data.settings)
+        || (('foodHistoryVersion' in request.resource.data.settings)
+          && request.resource.data.settings.foodHistoryVersion == resource.data.settings.foodHistoryVersion);
+    }
+
     match /trackers/{uid} {
       allow get, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && validTracker(request.resource.data);
+      allow create: if isOwner(uid) && validTracker(request.resource.data);
+      allow update: if isOwner(uid) && validTracker(request.resource.data) && preservesFoodHistoryVersion();
     }
     match /trackers/{uid}/{document=**} {
       allow read, write: if false;

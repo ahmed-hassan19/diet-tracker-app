@@ -6,8 +6,8 @@
   "scripts": {
     "icons": "node scripts/generate-icons.mjs",
     "icons:check": "node scripts/generate-icons.mjs --check",
-    "format": "prettier --write \"*.md\" \"*.json\"",
-    "format:check": "prettier --check \"*.md\" \"*.json\"",
+    "format": "prettier --write \"*.md\" \"docs/*.md\" \"*.json\"",
+    "format:check": "prettier --check \"*.md\" \"docs/*.md\" \"*.json\"",
     "lint": "node scripts/validate.mjs",
     "test:unit": "node --test tests/unit/*.test.mjs",
     "test:rules": "firebase emulators:exec --only firestore \"node --test tests/rules/*.test.mjs\"",

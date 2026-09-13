@@ -7,161 +7,151 @@ has no Google or Firebase deployment credential.
 
 ## Prepare the release
 
-1. Merge the release changes into `main` through a reviewed pull request.
-2. Update local `main` with `git pull --ff-only origin main`.
-3. Set the new version in `package.json`, its two root `package-lock.json`
-   copies, `APP_VERSION` in `public/data.js`, and a dated `CHANGELOG.md` section.
-   The footer reads the checked runtime copy and must not hard-code a version.
-4. Run `npm run check`, the browser suite, and
-   `node scripts/version-contract.mjs --tag vX.Y.Z`.
-5. Create and push an annotated tag:
+1. Merge changes through focused, reviewed pull requests, keeping documentation
+   and verification changes separate from the food-history fix. Leave published
+   v3.15.0 unchanged; the next planned patch is v3.15.1.
+2. Prepare version changes on a focused branch: update `package.json`, its two
+   root `package-lock.json` copies, `APP_VERSION` in `public/data.js`, and a dated
+   `CHANGELOG.md` section. The footer reads the checked runtime version.
+3. Run affected tests while editing and `npm run check:static` before committing.
+   `npm run check` remains the full static/unit/Firestore-rules gate. CI runs it
+   and the browser suite on PRs and pushes to `main`; ordinary topic-branch pushes
+   and tag pushes do not repeat the quality suite.
+4. Merge the reviewed version PR, update local `main` with
+   `git pull --ff-only origin main`, and wait for successful quality on that exact
+   main commit. Desktop runs the complete browser suite; mobile retains RTL and
+   responsive layouts, setup, custom entries/import-export, suggestions, chart
+   touch/dismissal, deletion, and destructive confirmations. Viewport-independent
+   migration and request-only checks remain covered on desktop. Playwright stays
+   serialized with zero-console-error assertions.
+5. Run `node scripts/version-contract.mjs --tag vX.Y.Z`, then create and push an
+   annotated tag:
 
    ```sh
    git tag -a vX.Y.Z -m "vX.Y.Z"
    git push origin vX.Y.Z
    ```
 
-Wait for the tag-triggered `release` workflow to pass. It verifies that the tag
-points to `main`, applies the same version contract used by contributor checks
-and the deployment script, runs the full test suites, verifies every pinned
-Firebase browser SDK resource, and records checksums for the public bundle,
-Firestore Rules, Firestore indexes, runtime-resource manifest, and complete
-Hosting header configuration.
+Wait for the tag-triggered `release` workflow. It requires the tag to point to
+current `origin/main`, validates the version contract and pinned Firebase SDK
+resources, and records bundle, Rules, indexes, runtime-resource, and Hosting-header
+checksums. It reuses quality only for the exact tagged SHA, correct repository
+and quality workflow, `push` event, `main` branch, and completed successful run.
+Missing evidence blocks release; a PR run or a successful neighboring commit does
+not qualify. The owner deployment script also checks this evidence.
 
-## Verify Firebase settings
+## Complete release evidence
 
-Copy the template to the ignored `local/` directory:
+Copy the intentionally incomplete schema 7 template into the ignored directory:
 
 ```sh
 cp docs/release-verification.example.json local/release-verification-vX.Y.Z.json
 ```
 
-The checked-in schema 6 template represents the AI-enabled v3.13.0 posture. It
-contains blocking identity, time, control, paired-probe, and quota-inventory
-placeholders and is intentionally invalid until the current checks are
-completed. The release validator reads `window.AI_ENABLED` from the exact tagged
-`public/index.html` bytes and rejects a record whose stage disagrees; the record
-cannot choose its own enabled or disabled validation path. Within a disabled
-stage, `configurationState` explicitly selects either the preconfiguration
-contract or the hardened-disabled contract. Already-published tags keep the
-schema-4 or schema-5 validator contained in their immutable tagged source;
-v3.13.0 and later use schema 6.
+The first v3.15.1 schema 7 release changes the verification policy and food-history
+security rules, so it requires fresh qualification. The 30-day reuse window begins
+with that completed audit; existing schema 6 evidence is not reusable.
 
-Check the current Firebase and Google Cloud consoles, then complete the local
-record with the release tag, its 40-character commit SHA, and the current time.
-Every stage must confirm all of the following:
+Published tags retain the validators in their immutable tagged source. Schema 7
+separates fresh release evidence from reusable qualification; it does not upgrade
+old records by changing their schema number or refreshing their timestamps.
 
-- The project is on the Spark plan and has no linked Cloud Billing account.
-- The highest observed usage across Firestore, Hosting, Authentication, App
-  Check, and Firebase AI Logic quotas is no more than 70%.
-- The record names both exact production hosts and confirms Firestore App Check
-  enforcement.
-- The shipped model selection is exactly `gemini-flash-lite-latest`. Its target
-  can be hot-swapped to a stable, preview, or experimental release; that risk is
-  accepted for this app. Verify the alias and its current target remain
-  available without enabling billing, rerun the model checks, and record the
-  current backend RPM, RPD, input TPM, and input TPD rows plus Firebase AI Logic
-  telemetry mode. Spark/no-billing and manual entry remain the failure boundary
-  if a later alias target is unavailable or requires billing.
-- The Google-managed Firebase AI Logic P4SA and its
-  `roles/firebaseml.serviceAgent` role are present. No Gemini Developer API key
-  is embedded, any service-managed Gemini key stays server-side and obfuscated,
-  the public browser key does not allow the Generative Language API, and any
-  obsolete Gemini key has no recent consumers before removal.
-- The `_Default` bucket retains logs for 30 days, aggregate metrics remain
-  available, and no export sink exists.
-- The enablement-target section keeps the exact model, hosts, App Check and Auth
-  requirements, 6 RPM/user target, log filter, and required spot checks.
+Fresh evidence is valid for at most 24 hours and records the exact release tag,
+commit, both production hosts, and the current inspection time. Check Firebase
+and Google Cloud configuration for every release:
 
-For an AI-disabled tag whose controls have not yet been configured, use
-`stage: "ai-disabled-rollout"` and
-`configurationState: "disabled-preconfiguration"`. Record the observed
-preconfiguration baseline without claiming later success:
+- Spark plan, no linked Cloud Billing account, and at most 70% observed quota
+  usage across Firestore, Hosting, Authentication, App Check, and Firebase AI Logic.
+- Firestore and Firebase AI Logic App Check enforcement, authenticated-users mode,
+  and the current model's availability without billing. The accepted moving alias
+  is `gemini-flash-lite-latest`; record its resolved target when known, or `null`
+  when unresolved. An unresolved target must not be described as unchanged.
+- The Google-managed Firebase AI Logic P4SA and
+  `roles/firebaseml.serviceAgent`; no embedded Gemini Developer API key; the
+  service-managed key remains server-side and obfuscated; the public browser key
+  does not allow Generative Language API; obsolete keys have no recent consumers.
+- The exact Generate Content per-project/per-user metric and quota ID, all 38
+  named regions plus the grouped five-location bucket, and a limit of 6 in every
+  bucket for hardened/enabled releases. Never substitute the similarly named Bidi
+  metric. A changed inventory requires a reviewed validator/template update.
+- Firebase AI Logic telemetry mode `NONE`, the current free-tier quota rows, the
+  exact enabled Model log-body exclusion, `_Default` retention of 30 days, retained
+  aggregate metrics, and no export sink.
 
-- Firebase AI Logic App Check and authenticated-users mode are off; the Auth,
-  invalid-App-Check rejection, both-host, and model spot-check fields remain
-  false or empty.
-- Under `generateContentRpmPerUserQuota`, use only metric
-  `firebasevertexai.googleapis.com/generate_content_requests_per_minute_per_project_per_user`
-  and quota ID `GenerateContentRequestsPerMinutePerProjectPerUser`. Normalize
-  all 39 current `dimensionsInfos` entries into 38 named-region entries with an
-  empty `applicableLocations` array plus the one grouped entry with
-  `region: null`; every observed limit must be 100. The 38 names and the grouped
-  five-location set must exactly match the canonical arrays in
-  `aiEnablementTargets`; invented, missing, renamed, or newly reported regions
-  fail validation and require a reviewed schema update. Never substitute the
-  Bidi metric or collapse the applicable locations into a pseudo-scope.
-- The Model log exclusion resource and existing-log expiry remain unset in the
-  observed section: `exclusionDisabled`, `exclusionFilter`,
-  `exclusionCreatedAt`, `exclusionUpdatedAt`, `exclusionVerifiedAt`, and
-  `existingModelLogsExpireAt` are all `null`. The exact exclusion belongs in
-  the planned-target section only.
+Record the current log exclusion resource's exact filter, `disabled: false`, and
+canonical `createTime`/`updateTime` as `exclusionCreatedAt`/`exclusionUpdatedAt`.
+Set `exclusionVerifiedAt` to the actual inspection time, within 24 hours and no
+later than the release `verifiedAt`, with `created <= updated <= verified`.
+`existingModelLogsExpireAt` is exactly update time plus 30 days; this historical
+expiry may already have passed. Never advance the resource timestamps to make
+old evidence appear fresh.
 
-This baseline record is sufficient to deploy 3.7.0. Do not configure the
-post-deployment AI controls before its compatible client bytes are live.
+The validator derives `window.AI_ENABLED` from the exact tagged `index.html`;
+the record cannot select a different stage. Enabled tags use
+`stage: "ai-enabled-rollout"` and `configurationState: "enabled"`. A future
+hardened-disabled tag uses `stage: "ai-disabled-rollout"` and
+`configurationState: "disabled-hardened-invalid-app-check-rejected"` while
+retaining the hardened controls and qualification. AI failure requires manual
+entry or a reviewed fix-forward release; paid tiers, weaker Auth/App Check,
+automatic billing, and fallback models are not permitted.
 
-Release 3.7.0 historically kept `window.AI_ENABLED=false` while the controls
-were configured. Its immutable schema-4 validator required `403`; schema 5 later
-recorded the observed hardened-disabled `401` without claiming successful
-enablement. Those published contracts are not rewritten by schema 6.
+### Reusable qualification
 
-For a future AI-disabled tag with the hardened controls still active, keep
-`stage: "ai-disabled-rollout"` and use
-`configurationState: "disabled-hardened-invalid-app-check-rejected"`. This
-contract requires current evidence for Firestore and Firebase AI Logic App
-Check, authenticated-users mode, authenticated success, unauthenticated `401`,
-both production hosts, localhost debug-token access, calorie-reference and
-latency checks, the exact current Model log exclusion resource, and its derived
-30-day older-log expiry. It also requires the exact non-Bidi Generate Content
-quota metric and all 39 location buckets at 6 RPM/user, plus the Spark-plan
-reserve, model availability, P4SA, key restrictions, and telemetry checks shared
-by every stage.
+A full audit is reusable for at most 30 days from its original `qualification.auditedAt`.
+Retain its original audited `commitSha`, configuration hash, input hash, alias
+target, probe results, and spot-check completion time. Qualification includes:
 
-For v3.14.0 and later AI-enabled tags, use `stage: "ai-enabled-rollout"` and
-`configurationState: "enabled"`. Record all 39 exact location buckets at 6, the
-exact current log exclusion resource and older-log expiry, and current
-completion times for every spot check. Set
-`invalidAppCheckRejectionVerified: true` only after one paired probe in the same
-authenticated session: first an ordinary request with valid App Check must
-succeed, then the otherwise equivalent request with intentionally invalid App
-Check must be denied and must produce no model output. Record its exact observed
-status as `invalidAppCheckObservedHttpStatus: 401` or `403`; null, any success
-response, and every other status fail validation. Separately verify that a
-genuinely unauthenticated request returns exactly `401`. The record stores only
-booleans, canonical timestamps, and the observed status—never tokens, prompts,
-account identifiers, or raw logs.
+- One paired probe in the same authenticated session: a valid-App-Check control
+  succeeds, and an otherwise equivalent invalid-App-Check request returns `401`
+  or `403` without model output.
+- A genuinely unauthenticated request returning exactly `401`.
+- Registered localhost debug-token verification, calorie-reference checks,
+  latency comparison, and the original both-host spot checks.
 
-The deploy script rejects an enabled tagged client until all evidence is
-present. If any check fails, leave or restore AI disabled through a reviewed
-fix-forward release; another model, a paid tier, weakened Auth/App Check, and
-automatic billing are never fallbacks.
+The deployment script computes configuration and code comparisons; self-reported
+"unchanged" is insufficient. Use the helper to inspect the audited-to-release
+comparison:
 
-Read the current Cloud Logging
-[`LogExclusion` resource](https://docs.cloud.google.com/logging/docs/reference/v2/rest/v2/exclusions)
-and record its exact `filter` and `disabled` value together with its authoritative
-`createTime` and `updateTime`. Store those times as canonical UTC
-`exclusionCreatedAt` and `exclusionUpdatedAt`, add the canonical current time at
-which the resource was inspected as `exclusionVerifiedAt`, and require
-`created <= updated <= verified`. The exclusion must be enabled
-(`exclusionDisabled: false`), and verification must be no more than 24 hours old
-and no later than the release record's `verifiedAt`. Set
-`existingModelLogsExpireAt` to exactly 30 days after `exclusionUpdatedAt`. This
-is the conservative deadline for Model bodies ingested immediately before the
-latest exclusion configuration under the `_Default` retention. The deadline may
-already have passed; it remains useful historical evidence. If the resource is
-edited, advance the recorded update time and derived expiry. Missing,
-noncanonical, future-dated, stale, or inconsistent evidence fails validation.
+```sh
+node scripts/qualification-inputs.mjs AUDITED_COMMIT_SHA RELEASE_COMMIT_SHA
+```
 
-App Check and authenticated-users mode are console actions, never repository
-claims. Preserve the compatible client-before-enforcement ordering, test
-accounts with absent/disabled legacy membership and 401/403/429/offline recovery, run the paired
-valid/invalid App Check probe, unauthenticated `401`, localhost registered debug
-token, calorie benchmark, latency comparison, and repeat both-host verification
-after deployment. Automated browser tests stub or disable AI and must never call
-production.
+The audited commit must be an ancestor of the release. Every intervening commit
+is compared, including changes later reverted. AI/Auth/App Check behavior,
+Firebase SDKs, security configuration, model selection, and the verification
+policy are qualification inputs. Unrelated diet/UI edits do not invalidate an
+otherwise matching audit. The comparison hashes executable application code except an explicit allowlist of
+existing diet/UI functions, plus configuration/policy files. New functions,
+top-level code, shared persistence/session changes, and code outside that
+allowlist conservatively require fresh qualification; update the scope when
+responsibilities move.
+Record `qualificationDiffReview` with `auditedCommitSha`, `releaseCommitSha`,
+`reviewedAt`, and `noRelevantBehaviorChanges: true` only after inspecting the exact
+intervening diff, including allowed diet/UI bodies. This owner review must be
+within 24 hours and confirm no relevant AI, Auth, App Check, or security behavior
+changes. Matching computed inputs alone is not semantic proof. All five classic
+scripts are inspected; known nutrition literals and pure diet functions can be
+excluded. A function with sensitive references is bound in full, including its
+control flow; new executable code also remains bound.
 
-The record must be less than 24 hours old. Keep it under `local/`; do not commit
-console captures, account information, tokens, or the completed JSON file.
+The configuration hash is computed by `qualificationConfigurationHash()` in
+`scripts/release-lib.mjs` from the recorded inspected configuration.
+
+Relevant changes, a detected alias-target change, a failed probe or smoke check,
+or audit expiry require fresh qualification. `qualificationFailureDetected` must
+truthfully record detected failure; setting it false cannot substitute for
+investigation and a passing audit. Keep unresolved alias targets `null` rather
+than claiming stability. Do not copy current dates onto reused probes.
+
+### Historical rollout records
+
+The `disabled-preconfiguration` posture describes the historical AI-disabled
+rollout, with unenforced AI controls, 100 RPM/user quota buckets, null exclusion
+resource fields, and no claimed successful probes. Release 3.7.0 used schema 4;
+later immutable tags used their own schema 5 or 6 contracts. These records document
+past deployment ordering and are not evidence that today's enabled release is
+qualified. Beta membership checks and membership polling were removed in v3.15.0.
+Automated browser tests stub or disable AI and must never call production.
 
 ## Deploy and verify
 
@@ -173,40 +163,43 @@ npx --no-install firebase use
 node scripts/release-deploy.mjs vX.Y.Z
 ```
 
-The script requires successful validation for the exact tag, confirms the local
-release record, checks pinned tooling and the active Firebase project, deploys
-Firestore Rules and indexes, and compares the deployed configuration with the
-tag. It then deploys both Hosting targets and byte-compares every public file on
-both hosts. It also fetches all five Firebase SDK URLs and rejects changed
-bytes, undeclared imports, or version drift. Finally it verifies the exact CSP
-and security headers, including `no-store`, on `/`, HTML, JavaScript, the privacy
-page, and a rewritten missing path on both hosts.
+The script requires successful exact-tag validation and exact-main quality,
+validates the private evidence, checks pinned tooling and active project identity,
+deploys Rules/indexes, and compares their deployed configuration with the tag.
+It deploys both Hosting targets and byte-compares every public file. It fetches
+all pinned Firebase SDK resources and rejects changed bytes, undeclared imports,
+or version drift. It also checks exact CSP/security/cache headers, including
+`no-store`, on both hosts' root, HTML, JavaScript, privacy page, and rewritten paths.
 
-Because local browser tests bypass App Check, use the dedicated test
-account without a beta membership record on each production host after the bytes match. Confirm the
-reCAPTCHA/App Check bootstrap, Google sign-in, automatic access without activation, tracker read, and a
-permitted tracker write; request one generic-food AI draft, review it, cancel it
-without saving, and confirm zero console or CSP errors. Sign out from both
-origins before publication. This is a scoped smoke check against the
-already-deployed tagged client, not permission to change Firebase configuration.
+After the bytes match, perform a fresh smoke test on each production host using
+the dedicated test account: App Check bootstrap, Google sign-in, own tracker
+read/write, one generic-food AI draft followed by cancellation without saving,
+and zero console/CSP errors. Restore the test account's changes and sign out
+on both hosts. This scoped smoke does not authorize configuration changes.
 
-After deployment, repeat the Spark, billing, and configuration checks when
-prompted. The script writes a private manifest under `local/releases/` and
-prints the exact `gh workflow run release.yml` command for publication. The
-command includes the runtime-resource and Hosting-header hashes from the tagged
-revision; do not calculate or substitute them manually.
+Repeat the Spark, billing, and current configuration inspection when prompted.
+Update the private record with the actual fresh `verifiedAt` and
+`postDeployment.completedAt`, and both hosts' passing results for `bootstrap`,
+`signIn`, `ownDataRead`, `ownDataWrite`, `aiDraftCancelled`, `consoleClean`,
+`testDataRestored`, and `signedOut`. Preserve the original qualification block
+when reusing it. The script rereads and validates the post-deployment record;
+missing, stale, or failed smoke blocks publication. Keep `postDeployment: null`
+until the real deployed smoke is complete.
+
+The script writes a private manifest under `local/releases/` and prints the exact
+`gh workflow run release.yml` publication command, including tagged hashes. Do
+not substitute hashes manually. Never commit completed evidence, exported data,
+account identifiers, tokens, prompts, console captures, or raw logs.
 
 ## Publish
 
-Run the command printed by the deployment script. The workflow rechecks the tag,
-successful validation run, all tagged hashes, every live runtime dependency,
-both hosts' response headers, and every live public file before it creates or
-updates the GitHub Release. It then creates or reuses an exact-commit GitHub
-`production` deployment and marks it successful with the primary Hosting URL.
-This final metadata step is idempotent on workflow reruns and does not deploy or
-authenticate to Firebase.
+Run the printed command. Publication rechecks tag provenance, successful tag
+validation, hashes, runtime dependencies, headers, and every live public byte.
+This repeat byte verification detects drift after the initial deployment check
+and remains required. Only then does the workflow publish the GitHub Release
+and idempotently record the exact commit as a successful GitHub `production`
+deployment; it holds no Firebase credential and does not deploy.
 
-If deployment or verification fails, fix the problem through a new branch and
-pull request, then release a new Semantic Version. Never move or reuse a release
-tag, and never use a raw production `firebase deploy` outside the reviewed
-deployment script.
+If deployment or verification fails, fix forward through a reviewed branch and
+new SemVer tag. Never move or reuse published tags or run raw production
+`firebase deploy` outside the owner procedure.

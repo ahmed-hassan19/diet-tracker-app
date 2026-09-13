@@ -42,13 +42,14 @@ on:
 
 permissions:
   contents: read
+  actions: read
 
 concurrency:
   group: production
   cancel-in-progress: false
 
 jobs:
-  # Runs on the tag push with zero cloud credentials: provenance, checks, and
+  # Runs on the tag push with zero cloud credentials: provenance, reused quality, and
   # an immutable checksum record of the tagged public/ bundle.
   validate:
     if: github.event_name == 'push'
@@ -71,16 +72,14 @@ jobs:
         with:
           node-version: 22
           cache: npm
-      - uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961
-        with:
-          distribution: temurin
-          java-version: "21"
       - run: npm ci
       - run: node scripts/version-contract.mjs --tag "$GITHUB_REF_NAME"
       - run: node scripts/runtime-resources.mjs
-      - run: npx playwright install --with-deps chromium
-      - run: npm run check
-      - run: npx firebase emulators:exec --project diet-tracker-372ca --only auth,firestore,hosting "npm run test:browser"
+      - name: Reuse successful quality for the exact tagged main commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: node scripts/quality-evidence.mjs "$(git rev-parse HEAD)" > quality-evidence.json
       - name: Record tagged bundle, Rules, indexes, runtime resources, and Hosting-header checksums
         run: |
           node scripts/release-hashes.mjs > tagged-hashes.json
@@ -92,13 +91,8 @@ jobs:
           path: |
             bundle.txt
             tagged-hashes.json
+            quality-evidence.json
           retention-days: 90
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
-        if: failure()
-        with:
-          name: playwright-report
-          path: playwright-report/
-          retention-days: 7
 
   # Triggered by hand after scripts/release-deploy.mjs has deployed and verified
   # production from the exact tag using human Firebase OAuth. This job holds no
@@ -110,6 +104,7 @@ jobs:
     permissions:
       contents: write
       deployments: write
+      actions: read
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1

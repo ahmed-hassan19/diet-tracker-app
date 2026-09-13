@@ -44,6 +44,25 @@ function isoWeekYear(day){
   const week=Math.ceil((((utc-yearStart)/864e5)+1)/7);
   return weekYear+"-W"+String(week).padStart(2,"0");
 }
+/* إحصاءات الأوزان المسجلة فقط؛ المقارنة الأسبوعية مع الأسبوع التقويمي السابق. */
+function weightHistoryStats(weights){
+  const sorted=weights.slice().sort((a,b)=>a.date.localeCompare(b.date)),groups=new Map();
+  sorted.forEach(point=>{
+    const week=isoWeekYear(point.date);
+    if(!groups.has(week)) groups.set(week,{week,date:point.date,total:0,count:0});
+    const group=groups.get(week); group.total+=point.w; group.count++;
+  });
+  const weeks=Array.from(groups.values(),group=>{
+    const priorDate=new Date(Date.parse(group.date+"T00:00:00.000Z")-7*864e5).toISOString().slice(0,10),prior=groups.get(isoWeekYear(priorDate)),average=group.total/group.count;
+    return {week:group.week,average,delta:prior?average-prior.total/prior.count:null};
+  });
+  const weekStats=new Map(weeks.map(week=>[week.week,week]));
+  const points=sorted.map((point,index)=>{
+    const previous=sorted[index-1],week=isoWeekYear(point.date);
+    return {...point,previousDate:previous?previous.date:null,delta:previous?point.w-previous.w:null,week,weeklyDelta:weekStats.get(week).delta};
+  });
+  return {points,weeks};
+}
 function validProfile(p){
   const goalBmi=p.gw/(p.ht/100)**2;
   return (p.sex==="m"||p.sex==="f")&&p.act>=1.2&&p.act<=1.9

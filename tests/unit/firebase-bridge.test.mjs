@@ -3,7 +3,7 @@ import fs from "node:fs";
 import test from "node:test";
 import vm from "node:vm";
 
-function bridgeHarness({ enabled = true, userAgent = "" } = {}) {
+function bridgeHarness({ enabled = true, userAgent = "", generate = null } = {}) {
   const html = fs.readFileSync("public/index.html", "utf8");
   const moduleSource = html.match(/<script type="module">([\s\S]*?)<\/script>/)[1]
     .replace(/^import .*;$/gm, "");
@@ -39,6 +39,7 @@ function bridgeHarness({ enabled = true, userAgent = "" } = {}) {
     getGenerativeModel() {
       return { generateContent: async (prompt) => {
         modelCalls.push(prompt);
+        if (generate) return generate();
         return { response: { text: () => '{"k":100,"p":1,"f":0,"c":24}' } };
       } };
     },
@@ -77,25 +78,34 @@ test("one app owns Auth, Firestore, App Check, and AI without exposing SDK objec
   assert.equal(Object.hasOwn(h.bridge, "db"), false);
 });
 
-test("every AI call freshly checks membership and disabled or denied calls fail closed", async () => {
+test("AI is available to signed-in users without membership reads, but disabled and signed-out calls stop", async () => {
   const disabled = bridgeHarness({ enabled: false });
   await assert.rejects(disabled.bridge.estimateFood("تفاحة"), { code: "ai/disabled" });
-  assert.equal(disabled.membershipReads(), 0);
   assert.equal(disabled.modelCalls.length, 0);
-
-  const denied = bridgeHarness();
-  denied.memberships.push(null);
-  await assert.rejects(denied.bridge.estimateFood("تفاحة"), { code: "ai/forbidden" });
-  assert.equal(denied.membershipReads(), 1);
-  assert.equal(denied.modelCalls.length, 0);
-
+  const signedOut = bridgeHarness();
+  signedOut.auth.currentUser = null;
+  await assert.rejects(signedOut.bridge.estimateFood("تفاحة"), { code: "ai/unauthenticated" });
+  assert.equal(signedOut.modelCalls.length, 0);
   const allowed = bridgeHarness();
-  allowed.memberships.push({ enabled: true }, { enabled: true });
-  await allowed.bridge.estimateFood("تفاحة");
-  await allowed.bridge.estimateFood("موزة");
-  assert.equal(allowed.memberships.length, 0);
-  assert.equal(allowed.membershipReads(), 2);
-  assert.equal(allowed.modelCalls.length, 2);
+  for (const membership of [null, { enabled: false }, { enabled: true }]) {
+    allowed.memberships.push(membership);
+    const result = await allowed.bridge.estimateFood("تفاحة");
+    assert.equal(result.k, 100);
+  }
+  assert.equal(allowed.membershipReads(), 0);
+  assert.equal(allowed.modelCalls.length, 3);
+  assert.equal(Object.hasOwn(allowed.bridge, "readMembership"), false);
+});
+
+test("AI discards results if authentication changes during generation", async () => {
+  for (const nextUser of [null, { uid: "other-account" }, { uid: "member-1" }]) {
+    let resolve;
+    const h = bridgeHarness({ generate: () => new Promise(done => { resolve = done; }) });
+    const pending = h.bridge.estimateFood("تفاحة");
+    h.auth.currentUser = nextUser;
+    resolve({ response: { text: () => '{"k":100,"p":1,"f":0,"c":24}' } });
+    await assert.rejects(pending, { code: "ai/unauthenticated" });
+  }
 });
 
 test("mobile Google sign-in uses a full-page redirect instead of a popup", async () => {

@@ -84,7 +84,12 @@
   .macro-warn{display:block; color:var(--orange); font-size:11px; margin-top:3px}
   .day-nav{display:flex; align-items:center; gap:10px; justify-content:center; margin-bottom:14px}
   .day-nav button{background:var(--card); border:1px solid var(--line); color:var(--teal); border-radius:8px; width:36px; height:36px; font-size:17px; cursor:pointer}
-  #chart-box{overflow-x:auto}
+  .weight-chart{position:relative}
+  .chart-scroll{overflow-x:auto}
+  .chart-scroll svg{display:block}
+  .chart-tooltip{position:absolute;z-index:4;max-width:100%;width:max-content;padding:10px 12px;border:1px solid var(--teal);border-radius:9px;background:var(--card2);color:var(--txt);font-size:12px;line-height:1.8;pointer-events:none;box-shadow:0 4px 16px #0006}
+  .chart-tooltip bdi{font-weight:700}
+  .weight-point:focus{outline:none;stroke:var(--txt);stroke-width:2}
   .legend{display:flex; gap:16px; font-size:12px; color:var(--muted); margin-top:6px; flex-wrap:wrap}
   .legend span::before{content:"—"; font-weight:900; margin-inline-end:4px}
   .lg-a::before{color:var(--teal)} .lg-p::before{color:var(--orange)} .lg-g::before{color:var(--muted)}
@@ -281,9 +286,9 @@
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
 import { initializeAppCheck, ReCaptchaV3Provider } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app-check.js";
 import { browserLocalPersistence, connectAuthEmulator, getAuth, getRedirectResult, GoogleAuthProvider, initializeAuth, onAuthStateChanged, signInAnonymously, signInWithPopup, signInWithRedirect, signOut } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
-import { connectFirestoreEmulator, deleteDoc, doc, getDoc, getDocFromServer, getFirestore, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+import { connectFirestoreEmulator, deleteDoc, doc, getFirestore, onSnapshot, setDoc } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
 import { getAI, getGenerativeModel, GoogleAIBackend, Schema } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-ai.js";
-// The reviewed bridge is enabled only for server-confirmed beta members.
+// AI estimation is available to every signed-in user.
 // Manual entry remains complete and generated drafts are never saved automatically.
 window.AI_ENABLED=true;
 const app=initializeApp(FB_BUILTIN.config);
@@ -326,7 +331,6 @@ const bridge=Object.freeze({
     }
   },
   signOut:()=>signOut(auth),
-  readMembership:(uid,fresh=false)=>(fresh?getDocFromServer:getDoc)(doc(db,"betaMembers",uid)).then(plainSnapshot),
   listenTracker:(uid,next,error)=>Promise.resolve(onSnapshot(doc(db,"trackers",uid),s=>next(plainSnapshot(s)),error)),
   writeTracker:(uid,value)=>setDoc(doc(db,"trackers",uid),value),
   deleteTracker:uid=>deleteDoc(doc(db,"trackers",uid)),
@@ -334,11 +338,8 @@ const bridge=Object.freeze({
     if(window.AI_ENABLED!==true) throw fail("ai/disabled","AI estimation is disabled in this release");
     const user=auth.currentUser;
     if(!user) throw fail("ai/unauthenticated","Authentication is required");
-    // Fail closed on a new server read immediately before every model request.
-    const membership=await getDocFromServer(doc(db,"betaMembers",user.uid));
-    if(auth.currentUser?.uid!==user.uid) throw fail("ai/unauthenticated","Authentication changed");
-    if(!membership.exists()||membership.data().enabled!==true) throw fail("ai/forbidden","Membership is not enabled");
     const result=await model.generateContent("قدّر إجمالي السعرات k والبروتين p والدهون f والكارب c بالجرام. استخدم الكمية المكتوبة، ولو مش موجودة استخدم حصة مصرية معتادة. الأكل والكمية فقط: "+String(text).slice(0,200));
+    if(auth.currentUser!==user) throw fail("ai/unauthenticated","Authentication changed");
     return JSON.parse(result.response.text());
   }
 });

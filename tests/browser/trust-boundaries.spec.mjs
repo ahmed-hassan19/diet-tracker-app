@@ -295,9 +295,8 @@ test("keeps cloud recovery and export usable when app IndexedDB access is denied
   await expect(page.locator("#storage-note")).toContainText("بياناتك الحالية لسه في الذاكرة والسحابة");
   expect(await page.evaluate(async () => {
     const uid = window.firebaseBridge.currentUser().uid;
-    const membership = await window.firebaseBridge.readMembership(uid);
-    return { signedIn: !!window.firebaseBridge.currentUser(), membershipExists: membership.exists, legacyRetained: !!localStorage.getItem("diet_tracker_v1_" + uid) };
-  })).toEqual({ signedIn: true, membershipExists: false, legacyRetained: true });
+    return { signedIn: !!window.firebaseBridge.currentUser(), legacyRetained: !!localStorage.getItem("diet_tracker_v1_" + uid) };
+  })).toEqual({ signedIn: true, legacyRetained: true });
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: /نسخة احتياطية/ }).click();
   expect((await downloadPromise).suggestedFilename()).toContain("diet-tracker-backup");

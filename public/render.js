@@ -94,7 +94,9 @@ function keepFormulaReview(){ finishFormulaReview(false); }
 
 /* ================= تبويبات ================= */
 let curTab="day";
+let dismissChartDetails=()=>{};
 function showTab(t){
+  dismissChartDetails();
   curTab=t;
   ["day","prog","examples","cal"].forEach(x=>{
     document.getElementById("pg-"+x).style.display=x===t?"":"none";
@@ -214,7 +216,6 @@ const AI_FAIL_COPY={
   auth:"🔑 جلسة الدخول انتهت — سجّل دخولك تاني، أو اكتب الأرقام بنفسك.",
   verification:"🔐 التحقق من جلسة الدخول أو أمان التطبيق منجحش — حدّث الصفحة وسجّل دخولك تاني، أو اكتب الأرقام بنفسك.",
   appCheck:"🛡️ التحقق من أمان التطبيق منجحش — حدّث الصفحة، أو اكتب الأرقام بنفسك.",
-  membership:"🔒 الحساب مش مفعّل لتقدير AI — اكتب الأرقام بنفسك.",
   quota:"⏳ حصة التقدير خلصت دلوقتي — جرّب بعد شوية، أو اكتب الأرقام بنفسك.",
   offline:"📴 مفيش اتصال دلوقتي — اكتب الأرقام بنفسك، وجرّب التقدير لما النت يرجع.",
   invalid:"⚠️ التقدير رجع أرقام غير متناسقة — راجع الملصق واكتب الأرقام بنفسك."
@@ -244,7 +245,6 @@ function aiFailKind(error){
   const custom=error&&error.customErrorData&&typeof error.customErrorData==="object"?error.customErrorData:{};
   const status=Number(custom.status??(error&&(error.status??error.httpStatus))),message=String((error&&error.message)||"").toLowerCase();
   if(status===403||code.includes("permission-denied")||code.includes("app-check")||message.includes("app check")||message.includes("appcheck")||message.includes(" 403")) return "appCheck";
-  if(code==="ai/forbidden") return "membership";
   if(code==="ai/unauthenticated"||code.includes("unauthenticated")) return "auth";
   if(status===401||message.includes(" 401")) return "verification";
   if(status===429||code.includes("resource-exhausted")||code.includes("quota")||message.includes(" 429")) return "quota";
@@ -448,6 +448,7 @@ function labeledInput(label,key,value,{type="number",width="90px",step=""}={}){
   const input=makeInput({type,value,width,step}); input.addEventListener("change",()=>setT(key,input.value)); return [node("label",{className:"muted",text:label}),input];
 }
 function renderProg(){
+  dismissChartDetails();
   const g=T(),gw=g.gw,weights=weightSeries(),last=weights.length?weights[weights.length-1]:{date:today(),w:g.sw};
   const bmiNow=g.ht?last.w/(g.ht/100)**2:null,bmiGoal=g.ht?gw/(g.ht/100)**2:null,projection=project(last.w,last.date);
   const projected=projection.points,arrivalCopy={"already-at-goal":"متحقق بالفعل",reached:projected.length?projected[projected.length-1].date:"—",equilibrium:"المسار يتوازن قبل الهدف","wrong-direction":"السعرات تحرّك الوزن عكس الهدف",limit:"أبعد من ٦٠ أسبوع",invalid:"بيانات غير مكتملة"};
@@ -458,16 +459,7 @@ function renderProg(){
     const at=weight=>calcTargets({sex:g.sex,age:g.age,ht:g.ht,w:weight,act:g.act,gw:g.gw}),reviewWeight=Number(g.tw)||basis,suggestion=at(basis);
     if(targetsMoved(at(reviewWeight),suggestion)&&validTargets(suggestion)) stale={tw:reviewWeight,sug:suggestion};
   }
-  const weekly={};
-  weights.forEach(point=>{
-    const week=isoWeekYear(point.date); if(!week) return;
-    (weekly[week]=weekly[week]||[]).push(point.w);
-  });
-  const weekRows=[]; let previous=null;
-  Object.keys(weekly).sort().forEach(week=>{
-    const average=weekly[week].reduce((a,b)=>a+b,0)/weekly[week].length,diff=previous===null?"—":(average-previous>=0?"+":"")+(average-previous).toFixed(2)+" كجم";
-    weekRows.push([week,average.toFixed(1),diff]); previous=average;
-  });
+  const historyStats=weightHistoryStats(weights),weekRows=historyStats.weeks.map(week=>[week.week,week.average.toFixed(1),weightDeltaText(week.delta)]);
   const down=gw<=g.sw; let milestone=down?Math.floor(g.sw/5)*5:Math.ceil(g.sw/5)*5;
   if(down?milestone>=g.sw:milestone<=g.sw) milestone+=down?-5:5;
   const milestones=[]; for(let value=milestone;down?value>gw:value<gw;value+=down?-5:5) milestones.push(value); milestones.push(gw);
@@ -485,14 +477,14 @@ function renderProg(){
   const overview=card(),grid=node("div",{className:"grid2"});
   add(grid,stat(last.w.toFixed(1),"آخر وزن (كجم)"),stat((lost>=0?"−":"+")+Math.abs(lost).toFixed(1),"التغيير من البداية","var(--green)"),stat(Math.abs(last.w-gw).toFixed(1),"فاضل للهدف ("+gw+")","var(--orange)"),stat(goalDate,"نهاية المسار الحسابي")); add(overview,grid);
   if(bmiNow) add(overview,setStyle(muted("BMI الحالي "+bmiNow.toFixed(1)+" · عند الهدف "+bmiGoal.toFixed(1)+"."),{marginTop:"10px"})); fragment.append(overview);
-  const chart=card("📈 منحنى الوزن"),chartBox=node("div",{id:"chart-box"}); add(chartBox,drawChart(weights,projected));
+  const chart=card("📈 منحنى الوزن"),chartBox=node("div",{id:"chart-box"}); add(chartBox,drawChart(weights,projected,historyStats));
   const legend=node("div",{className:"legend"}); add(legend,node("span",{className:"lg-a",text:"وزنك المسجّل"}),node("span",{className:"lg-p",text:"المسار الحسابي الثابت (~"+(g.klo+g.khi)/2+" سعر/يوم)"}),node("span",{className:"lg-g",text:"الهدف "+gw+" كجم"}));
   add(chart,chartBox,legend,muted("ده مسار رياضي خطي باستخدام 7700 سعر/كجم لمدة أقصاها 60 أسبوع، مش تنبؤ ولا قياس. الجسم بيتكيف واحتياج الطاقة بيتغير، فالنتيجة الفعلية ممكن تختلف.")); fragment.append(chart);
   const milestonesCard=card("🚩 المحطات"); if(milestoneRows.length) add(milestonesCard,tableNode(["الوزن","وصلت / المسار الحسابي"],milestoneRows)); else add(milestonesCard,muted("مفيش محطة فعلية أو محطة عبرها المسار الحسابي المتاح.")); fragment.append(milestonesCard);
   const weeklyCard=card("📅 متوسط أسبوعي");
   if(weekRows.length) add(weeklyCard,tableNode(["الأسبوع","المتوسط","التغيير"],weekRows)); else add(weeklyCard,muted("سجّل وزنك يوميًا وهتلاقي المتوسطات هنا."));
   if(rate) add(weeklyCard,setStyle(muted("هدف السعرات الحالي ينتج نطاق حسابي تقريبي "+rate.lo+"–"+rate.hi+" كجم/أسبوع عند احتياج الطاقة الحالي؛ ده مش قياس ولا تنبؤ ولا توصية مصدرية. بص على متوسط 3 أسابيع لأن السوائل ممكن تخفي الاتجاه."),{marginTop:"8px"}));
-  add(weeklyCard,muted("أيام متسجلة: "+tracked+" يوم")); fragment.append(weeklyCard);
+  add(weeklyCard,muted("التغيير هو فرق متوسط الأسبوع عن الأسبوع اللي قبله (من الاثنين للأحد)، باستخدام الأوزان المسجلة بس حتى لو الأسبوع لسه مكملش. لو الأسبوع اللي قبله فاضي، بنعرض —."),muted("أيام متسجلة: "+tracked+" يوم")); fragment.append(weeklyCard);
   const history=card(),historyTitle=node("h2",{text:"🗓️ سجل الأيام "}); add(historyTitle,node("span",{className:"muted",text:"(دوس على أي يوم يفتحلك)"})); history.append(historyTitle);
   Object.keys(S.days).sort().reverse().forEach(date=>{
     const d=S.days[date],total=totals(d),bits=[];
@@ -522,13 +514,28 @@ function svgElement(tag,attrs={}){
   });
   return out;
 }
-function drawChart(weights,projection){
+function weightDeltaText(value){
+  if(value===null) return "—";
+  const rounded=Number(value.toFixed(2));
+  return (rounded>0?"+":"")+rounded.toFixed(2)+" كجم";
+}
+function chartPointDetails(point){
+  return [
+    ["التاريخ",point.date],
+    ["الوزن",point.w.toFixed(1)+" كجم"],
+    [point.previousDate?"التغيير من آخر تسجيل ("+point.previousDate+")":"التغيير من آخر تسجيل",weightDeltaText(point.delta)],
+    ["فرق متوسط الأسبوع ("+point.week+")",weightDeltaText(point.weeklyDelta)]
+  ];
+}
+function drawChart(weights,projection,historyStats=weightHistoryStats(weights)){
   const gw=T().gw,W=780,H=300,PL=42,PR=12,PT=14,PB=34,all=weights.concat(projection.map(point=>({date:point.date,w:point.w})));
   if(!all.length) return muted("مفيش بيانات لسه.");
   const t0=Date.parse(all[0].date+"T00:00:00.000Z")-5*864e5,t1=Date.parse(all[all.length-1].date+"T00:00:00.000Z")+5*864e5;
   const wmin=Math.min(gw,...all.map(point=>point.w))-2,wmax=Math.max(...all.map(point=>point.w))+2;
   const X=time=>PL+(time-t0)/(t1-t0)*(W-PL-PR),Y=weight=>PT+(wmax-weight)/(wmax-wmin)*(H-PT-PB);
-  const svg=svgElement("svg",{viewBox:"0 0 "+W+" "+H,xmlns:SVG_NS}); svg.style.minWidth="600px"; svg.style.width="100%";
+  const svg=svgElement("svg",{viewBox:"0 0 "+W+" "+H,xmlns:SVG_NS,"aria-label":"منحنى الوزن المسجل والمسار الحسابي"}); svg.style.minWidth="600px"; svg.style.width="100%";
+  const wrapper=node("div",{className:"weight-chart"}),scroll=node("div",{className:"chart-scroll"}),tooltip=node("div",{className:"chart-tooltip",id:"weight-tooltip"});
+  tooltip.setAttribute("role","tooltip"); tooltip.hidden=true; add(scroll,svg); add(wrapper,scroll,tooltip);
   for(let weight=Math.ceil(wmin/5)*5;weight<=wmax;weight+=5){
     svg.append(svgElement("line",{x1:PL,y1:Y(weight),x2:W-PR,y2:Y(weight),stroke:"#2a3948","stroke-width":1}));
     const label=svgElement("text",{x:PL-6,y:Y(weight)+4,fill:"#8ba0b5","font-size":11,"text-anchor":"end"}); label.textContent=String(weight); svg.append(label);
@@ -546,7 +553,58 @@ function drawChart(weights,projection){
   if(weights.length){
     const coords=weights.map(point=>[X(Date.parse(point.date+"T00:00:00.000Z")),Y(point.w)]),path=coords.map((pair,index)=>(index?"L ":"M ")+pair[0]+" "+pair[1]).join(" ");
     svg.append(svgElement("path",{d:path,fill:"none",stroke:"#2dd4bf","stroke-width":2.5}));
-    weights.forEach((point,index)=>{ const circle=svgElement("circle",{cx:coords[index][0],cy:coords[index][1],r:3.5,fill:"#2dd4bf"}),title=svgElement("title"); title.textContent=point.date+": "+point.w+" كجم"; circle.append(title); svg.append(circle); });
+    const circles=weights.map((point,index)=>{
+      const details=chartPointDetails(historyStats.points[index]),circle=svgElement("circle",{cx:coords[index][0],cy:coords[index][1],r:3.5,fill:"#2dd4bf",class:"weight-point",tabindex:index===0?0:-1,role:"img","data-date":point.date,"aria-label":details.map(row=>row.join(": ")).join("، ")}),title=svgElement("title");
+      title.textContent=point.date+": "+point.w+" كجم"; circle.append(title); svg.append(circle); return circle;
+    });
+    let selected=null,keyboardSelection=false;
+    const hide=()=>{
+      if(selected!==null){ circles[selected].setAttribute("r",3.5); circles[selected].removeAttribute("aria-describedby"); }
+      selected=null; keyboardSelection=false; tooltip.hidden=true;
+      document.removeEventListener("pointerdown",outside); document.removeEventListener("keydown",escape); window.removeEventListener("resize",hide);
+    };
+    const outside=event=>{ if(!svg.contains(event.target)) hide(); };
+    const escape=event=>{ if(event.key==="Escape") hide(); };
+    const show=(index,keyboard=false)=>{
+      hide(); selected=index; keyboardSelection=keyboard;
+      circles[index].setAttribute("r",6); circles[index].setAttribute("aria-describedby",tooltip.id);
+      tooltip.replaceChildren(...chartPointDetails(historyStats.points[index]).map(([label,value])=>{
+        const row=node("div"),caption=node("span"),number=node("bdi",{text:value}); number.dir="ltr";
+        label.split(/(\d{4}-\d{2}-\d{2}|\d{4}-W\d{2})/).forEach(part=>{
+          if(/^\d{4}-/.test(part)){ const date=node("bdi",{text:part}); date.dir="ltr"; caption.append(date); }
+          else caption.append(document.createTextNode(part));
+        });
+        caption.append(document.createTextNode(": ")); return add(row,caption,number);
+      }));
+      tooltip.hidden=false;
+      const bounds=wrapper.getBoundingClientRect(),point=circles[index].getBoundingClientRect(),tip=tooltip.getBoundingClientRect(),x=point.left+point.width/2-bounds.left,y=point.top-bounds.top;
+      tooltip.style.left=Math.max(0,Math.min(bounds.width-tip.width,x+12))+"px";
+      const top=Math.max(0,-bounds.top),bottom=Math.min(scroll.clientHeight,window.innerHeight-bounds.top);
+      tooltip.style.top=Math.max(top,Math.min(bottom-tip.height,y-tip.height-10>=top?y-tip.height-10:y+20))+"px";
+      document.addEventListener("pointerdown",outside); document.addEventListener("keydown",escape); window.addEventListener("resize",hide);
+    };
+    const selectAt=event=>{
+      const matrix=svg.getScreenCTM(); if(!matrix) return;
+      const point=new DOMPoint(event.clientX,event.clientY).matrixTransform(matrix.inverse()),first=coords[0][0],last=coords[coords.length-1][0];
+      if(point.y<PT||point.y>H-PB||point.x<first-8||point.x>last+8){ hide(); return; }
+      let index=0; coords.forEach((pair,i)=>{ if(Math.abs(pair[0]-point.x)<Math.abs(coords[index][0]-point.x)) index=i; }); show(index);
+    };
+    circles.forEach((circle,index)=>{
+      circle.addEventListener("focus",()=>{ circles.forEach((item,i)=>item.setAttribute("tabindex",i===index?0:-1)); show(index,true); });
+      circle.addEventListener("blur",hide);
+      circle.addEventListener("keydown",event=>{
+        const next=event.key==="ArrowRight"?Math.min(circles.length-1,index+1):event.key==="ArrowLeft"?Math.max(0,index-1):event.key==="Home"?0:event.key==="End"?circles.length-1:null;
+        if(next!==null){ event.preventDefault(); circles[next].focus(); }
+      });
+    });
+    svg.addEventListener("pointermove",event=>{ if(event.pointerType!=="touch") selectAt(event); });
+    svg.addEventListener("click",selectAt);
+    svg.addEventListener("pointerleave",event=>{ if(event.pointerType!=="touch") hide(); });
+    svg.addEventListener("pointercancel",hide);
+    scroll.addEventListener("scroll",()=>{ if(selected!==null&&keyboardSelection&&document.activeElement===circles[selected]) show(selected,true); else hide(); });
+    dismissChartDetails=hide;
+    add(wrapper,muted("حرّك الماوس أو دوس على الرسم عشان تشوف التفاصيل. بالكيبورد: Tab وبعدين الأسهم للتنقل بين الأوزان."));
+
   }
-  return svg;
+  return wrapper;
 }

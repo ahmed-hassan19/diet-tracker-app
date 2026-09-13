@@ -237,10 +237,11 @@ export function guardAiModule(inlineScript, { version } = {}) {
   add(/getGenerativeModel\s*\(\s*getAI\s*\(\s*app\s*,\s*\{\s*backend\s*:\s*new\s+GoogleAIBackend\s*\(\s*\)\s*\}\s*\)\s*,/.test(code),
     "getGenerativeModel must receive getAI(app, {backend:new GoogleAIBackend()}) directly");
   const disabledAt = code.indexOf("window.AI_ENABLED!==true");
-  const membershipAt = code.indexOf('getDocFromServer(doc(db,"betaMembers",user.uid))');
+  const authAt = code.indexOf('if(!user) throw fail("ai/unauthenticated"');
   const requestAt = code.indexOf("model.generateContent(");
-  add(disabledAt >= 0 && membershipAt > disabledAt && requestAt > membershipAt,
-    "AI requests must check the disabled flag, then freshly read membership, then call the model");
+  add(disabledAt >= 0 && authAt > disabledAt && requestAt > authAt,
+    "AI requests must check the disabled flag and authentication before calling the model");
+  add(!/betaMembers|readMembership/.test(code), "AI must be available without beta membership provisioning");
   for (const marker of [
     "VertexAIBackend",
     "GoogleGenerativeAI",

@@ -15,66 +15,31 @@ const TEST_MODE = /^(localhost|127\.0\.0\.1)$/.test(location.hostname) && new UR
 let FB={ref:null, active:false, pushTimer:null, unsub:null};
 let deletingAll=false;
 let syncGeneration=0;
-let membershipGeneration=0;
 let cloudWriteBlocked=false;
 let rawCloudState=null;
-/* ================= بوابة العضوية (betaMembers) =================
-   Tracker cloud writes require an enabled /betaMembers/{uid} doc provisioned by
-   the owner in the console. Local use, export, and delete always keep working. */
+/* ================= حالة المزامنة ================= */
 const GATE_COPY={
-  pending:"🔒 تسجيل اليوم على السحابة متوقف مؤقتًا لحين تفعيل حسابك في البرنامج التجريبي. كل حاجة بتسجلها محفوظة على جهازك، والنسخة الاحتياطية والحذف شغالين عادي.",
+  permission:"⚠️ السحابة رفضت الحفظ — حدّث الصفحة وجرّب تاني. لو المشكلة مستمرة، بلّغ صاحب التطبيق. بياناتك محفوظة على جهازك والتصدير والحذف لسه متاحين.",
   auth:"🔑 جلسة الدخول انتهت — سجّل دخولك تاني عشان المزامنة ترجع. بياناتك المحفوظة على جهازك في أمان.",
   quota:"⏳ حصة السحابة خلصت دلوقتي — جرّب بعد شوية. التسجيل على جهازك شغال عادي وهيتزامن لاحقًا."
 };
-let GATE={state:"ok", enabled:false};
-const GATE_RECHECK_MS=300000;
-let gateRecheck=null;
-function clearGateRecheck(){
-  if(gateRecheck!==null){ clearTimeout(gateRecheck); gateRecheck=null; }
-}
-function scheduleGateRecheck(){
-  clearGateRecheck();
-  if(!FB.ref||!window.firebaseBridge||!window.firebaseBridge.currentUser()) return;
-  gateRecheck=setTimeout(()=>{
-    gateRecheck=null;
-    loadMembership();
-  },GATE_RECHECK_MS);
-}
+let GATE={state:"ok"};
 function setGate(state){
-  if(state==="pending") scheduleGateRecheck(); else clearGateRecheck();
-  const wasPending=GATE.state==="pending";
-  GATE={state, enabled:state==="ok"};
+  GATE={state};
   const el=document.getElementById("gate-note");
   if(el){
     el.textContent=GATE_COPY[state]||"";
     el.style.display=state==="ok"?"none":"";
   }
-  // membership restored while paused: flush the edits saved locally meanwhile
-  if(wasPending&&state==="ok") schedulePush();
 }
 function syncFailKind(code){
-  return code==="permission-denied"?"pending"
+  return code==="permission-denied"?"permission"
     :(code==="unauthenticated"?"auth"
     :(code==="resource-exhausted"?"quota":""));
 }
 function syncContextCurrent(generation,uid,ref){
   const current=window.firebaseBridge&&window.firebaseBridge.currentUser();
   return generation===syncGeneration&&!!current&&current.uid===uid&&FB.ref===ref;
-}
-async function loadMembership(){
-  const u=window.firebaseBridge&&window.firebaseBridge.currentUser();
-  if(!u||!FB.ref) return;
-  const trackerRef=FB.ref, sync=syncGeneration, membership=++membershipGeneration;
-  try{
-    const snap=await window.firebaseBridge.readMembership(u.uid);
-    if(!syncContextCurrent(sync,u.uid,trackerRef)||membership!==membershipGeneration) return;
-    const enabled=!!(snap.exists&&snap.data&&snap.data.enabled===true);
-    setGate(enabled?"ok":"pending");
-  }catch(e){
-    // can't verify membership → stay quiet; a failed push will classify itself
-    if(!syncContextCurrent(sync,u.uid,trackerRef)||membership!==membershipGeneration) return;
-    setGate(GATE.state==="pending"?"pending":"ok");
-  }
 }
 function setSyncStatus(s){ const el=document.getElementById("sync-status"); if(el) el.textContent=s; }
 function setSyncSuccess(){
@@ -131,8 +96,8 @@ async function initSync(){
   }
 }
 function resetSyncContext(){
+  if(typeof dismissChartDetails==="function") dismissChartDetails();
   syncGeneration++;
-  membershipGeneration++;
   if(FB.unsub) FB.unsub();
   clearTimeout(FB.pushTimer);
   FB={ref:null, active:false, pushTimer:null, unsub:null};
@@ -164,7 +129,6 @@ async function start(u){
     if(syncContextCurrent(sync,u.uid,trackerRef)) FB.unsub=unsub;
     else unsub();
   });
-  loadMembership();
   routeSignedIn(u);
 }
 function setWho(){ const u=window.firebaseBridge&&window.firebaseBridge.currentUser(); document.getElementById("who").textContent=(S&&S.settings&&S.settings.name)||(u&&(u.displayName||u.email))||""; }
@@ -319,9 +283,7 @@ function schedulePush(){
   clearTimeout(FB.pushTimer);
   FB.pushTimer=setTimeout(()=>{
     if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
-    // known nonmember/revoked: skip the doomed write (each denial still bills
-    // Rules reads); loadMembership's bounded recheck resumes the flush
-    if(GATE.state==="pending"||cloudWriteBlocked||(typeof stateSizeClass!=="undefined"&&stateSizeClass==="oversized")) return;
+    if(cloudWriteBlocked||(typeof stateSizeClass!=="undefined"&&stateSizeClass==="oversized")) return;
     const checked=typeof normalizeState==="function"?normalizeState(S,"cloud"):{ok:true};
     if(!checked.ok){
       setSyncStatus("⚠️ البيانات أكبر من حد المزامنة أو فيها قيمة محتاجة مراجعة. التصدير والحذف لسه متاحين.");
@@ -338,11 +300,6 @@ function schedulePush(){
         if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
         const kind=syncFailKind(e&&e.code);
         if(!kind){ setSyncStatus("⚠️ هيتزامن أول ما النت يرجع"); return; }
-        if(kind==="pending"){
-          setSyncStatus("");
-          setGate("pending");
-          return;
-        }
         setSyncStatus("");
         setGate(kind);
       });

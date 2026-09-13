@@ -131,13 +131,28 @@ and [public/nutrition-sources.json](public/nutrition-sources.json) for the exact
 runtime nutrition inventory and source ledger.
 Never commit service-account keys, debug tokens, completed release records, or
 console captures. The one modular Firebase app uses invisible reCAPTCHA v3 for
-App Check. v3.14.0 adds reCAPTCHA's required connection source, narrowly
-delegates Storage Access to the two Google reCAPTCHA origins, and restores AI
-estimation for enabled beta members. It deliberately uses the moving
-`gemini-flash-lite-latest` alias, whose target can change without an app release;
-Spark/no-billing and manual entry remain the failure boundary. The hardened
-controls and fresh membership check stay in place, and manual macro entry
-remains available to invited, pending, revoked, and uninvited users.
+App Check. AI estimation and cloud saving are available to every signed-in user
+without an invitation, activation button, or owner-provisioned membership record.
+Firestore permits only the authenticated owner to read, save, or delete their
+tracker, and validates both creates and updates. Legacy `betaMembers` records
+no longer control access; their own-get-only rules remain for older clients.
+The app deliberately uses the moving `gemini-flash-lite-latest` alias, whose
+target can change without an app release. App Check, authenticated-users mode,
+quotas, Spark/no-billing, and complete manual entry remain in place. The first AI
+request still explains what is sent to Google and asks for disclosure acceptance;
+this is separate from account activation. Generated drafts are never saved automatically.
+
+If a deployed client still asks for beta activation, it is running the previous
+access policy. Release the updated client and Firestore rules together through
+the reviewed release procedure, then reload the app. No per-user provisioning or
+migration is needed, including for accounts with disabled legacy membership.
+A cloud permission error now means a rules/configuration problem rather than a
+request to join a beta; inspect the deployed rules and signed-in account.
+
+The progress chart supports mouse hover, touch, and keyboard navigation between
+recorded weights. Changes compare with the previous recorded weigh-in and with
+the immediately preceding ISO calendar week's average. Missing comparison data
+is shown as unavailable, and projected weights never enter these statistics.
 
 Previously published material may remain in older commits, tags, downloaded
 archives, clones, and intermediary caches even after it is removed from the

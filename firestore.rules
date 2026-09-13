@@ -4,20 +4,14 @@ service cloud.firestore {
     // Data model:
     // /trackers/{uid}: exactly days (map), settings (map), foods (map),
     // calref (map), and updated (integer milliseconds). The document is private
-    // to uid. Enabled /betaMembers/{uid} membership is required only for create
-    // and update; owner get/read/export/delete remains available after revocation.
-    // /betaMembers/{uid}: owner-provisioned membership; app clients may only get
-    // their own document and can never list or write membership documents.
+    // to uid. Every authenticated owner can save without membership provisioning.
+    // /betaMembers/{uid}: legacy records no longer control access; own-get-only
+    // remains for older clients. App clients cannot list or write these records.
     function isAuthenticated() {
       return request.auth != null;
     }
     function isOwner(uid) {
       return isAuthenticated() && request.auth.uid == uid;
-    }
-    function betaEnabled() {
-      return isAuthenticated()
-        && exists(/databases/$(database)/documents/betaMembers/$(request.auth.uid))
-        && get(/databases/$(database)/documents/betaMembers/$(request.auth.uid)).data.enabled == true;
     }
     function validMillis(value) {
       return value is int
@@ -103,7 +97,7 @@ service cloud.firestore {
 
     match /trackers/{uid} {
       allow get, delete: if isOwner(uid);
-      allow create, update: if isOwner(uid) && betaEnabled() && validTracker(request.resource.data);
+      allow create, update: if isOwner(uid) && validTracker(request.resource.data);
     }
     match /trackers/{uid}/{document=**} {
       allow read, write: if false;

@@ -101,7 +101,7 @@ test("AI failures stay console-clean and preserve manual entry", async ({ page }
   await page.evaluate(() => {
     const original = window.firebaseBridge;
     window.__aiOutcomes = [
-      { error: { code: "ai/forbidden" } },
+      { error: { code: "ai/unauthenticated" } },
       { error: { code: "AI/fetch-error", customErrorData: { status: 401 } } },
       { error: { code: "AI/fetch-error", customErrorData: { status: 403 } } },
       { error: { code: "AI/fetch-error", customErrorData: { status: 429 } } },
@@ -118,7 +118,7 @@ test("AI failures stay console-clean and preserve manual entry", async ({ page }
     });
   });
   const expected = [
-    "الحساب مش مفعّل",
+    "جلسة الدخول انتهت",
     "التحقق من جلسة الدخول أو أمان التطبيق منجحش",
     "التحقق من أمان التطبيق منجحش",
     "حصة التقدير خلصت",

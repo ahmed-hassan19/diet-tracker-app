@@ -13,11 +13,6 @@ const deferred = () => {
   });
   return { promise, reject, resolve };
 };
-const membershipSnapshot = (exists, enabled = false) => ({
-  exists,
-  data: { enabled },
-});
-
 function createHarness(loadState = () => ({ settings: { ht: 170, name: "" }, days: {} })) {
   const elements = new Map();
   const membershipReads = [];
@@ -136,85 +131,45 @@ test("a superseded account load cannot replace the active account state", async 
   assert.equal(app.evaluate("S.settings.name"),"الحساب ب");
 });
 
-test("absent membership schedules one five-minute recheck", async () => {
+test("new accounts save immediately without a membership read or recheck timer", async () => {
   const app = createHarness();
   app.start();
-  app.membershipReads[0].resolve(membershipSnapshot(false));
   await flushPromises();
-
-  assert.equal(app.evaluate("GATE.state"), "pending");
-  assert.equal(app.timersAt(300000).length, 1);
-});
-
-test("disabled membership keeps one recurring recheck and flushes on recovery", async () => {
-  const app = createHarness();
-  app.start();
-  app.membershipReads[0].resolve(membershipSnapshot(true, false));
-  await flushPromises();
-
-  assert.equal(app.evaluate("GATE.state"), "pending");
-  assert.equal(app.timersAt(300000).length, 1);
-  const firstTimer = app.timersAt(300000)[0][0];
-  app.evaluate('setGate("pending")');
-  assert.equal(app.timers.has(firstTimer), false);
-  assert.equal(app.timersAt(300000).length, 1);
-
-  app.runTimer(300000);
-  app.membershipReads[1].resolve(membershipSnapshot(true, false));
-  await flushPromises();
-  assert.equal(app.evaluate("GATE.state"), "pending");
-  assert.equal(app.timersAt(300000).length, 1);
-
-  app.runTimer(300000);
-  app.membershipReads[2].reject(new Error("offline"));
-  await flushPromises();
-  assert.equal(app.evaluate("GATE.state"), "pending");
-  assert.equal(app.timersAt(300000).length, 1);
-
-  app.evaluate(
-    'S.days["2026-08-24"]={water:1,_ts:123}; schedulePush()',
-  );
-  app.runTimer(1200);
-  assert.equal(app.writes.length, 0);
-  assert.equal(app.timersAt(300000).length, 1);
-
-  app.runTimer(300000);
-  app.membershipReads[3].resolve(membershipSnapshot(true, true));
-  await flushPromises();
+  assert.equal(app.membershipReads.length, 0);
   assert.equal(app.evaluate("GATE.state"), "ok");
   assert.equal(app.timersAt(300000).length, 0);
-  assert.equal(app.timersAt(1200).length, 1);
-
+  app.evaluate('S.days["2026-08-24"]={water:1,_ts:123}; schedulePush()');
   app.runTimer(1200);
   assert.equal(app.writes.length, 1);
+  assert.equal(app.writes[0].value.days["2026-08-24"].water, 1);
   app.writes[0].resolve();
   await flushPromises();
-  assert.deepEqual(
-    JSON.parse(JSON.stringify(app.writes[0].value.days["2026-08-24"])),
-    { water: 1, _ts: 123 },
-  );
+  assert.equal(app.elements.get("gate-note").style.display, "none");
 });
 
-test("newer membership read wins when overlapping reads settle out of order", async () => {
+test("permission failures retain local data, never request activation, and allow a later retry", async () => {
   const app = createHarness();
   app.start();
-  app.evaluate("loadMembership()");
-  assert.equal(app.membershipReads.length, 2);
-
-  app.membershipReads[1].resolve(membershipSnapshot(true, true));
   await flushPromises();
-  assert.equal(app.evaluate("GATE.state"), "ok");
-
-  app.membershipReads[0].resolve(membershipSnapshot(true, false));
+  app.evaluate('S.days["2026-08-24"]={water:1}; schedulePush()');
+  app.runTimer(1200);
+  app.writes[0].reject({ code: "permission-denied" });
   await flushPromises();
-  assert.equal(app.evaluate("GATE.state"), "ok");
+  assert.equal(app.evaluate("GATE.state"), "permission");
+  assert.match(app.elements.get("gate-note").textContent, /السحابة رفضت الحفظ/);
+  assert.doesNotMatch(app.elements.get("gate-note").textContent, /تفعيل|تجريبي/);
   assert.equal(app.timersAt(300000).length, 0);
+  assert.equal(app.evaluate('S.days["2026-08-24"].water'), 1);
+  app.evaluate("schedulePush()");
+  app.runTimer(1200);
+  app.writes[1].resolve();
+  await flushPromises();
+  assert.equal(app.evaluate("GATE.state"), "ok");
 });
 
 test("denied write settling after logout cannot change gate timer or status", async () => {
   const app = createHarness();
   app.start();
-  app.membershipReads[0].resolve(membershipSnapshot(true, true));
   await flushPromises();
   app.evaluate("schedulePush()");
   app.runTimer(1200);
@@ -234,26 +189,24 @@ test("denied write settling after logout cannot change gate timer or status", as
   );
 });
 
-test("successful old-account write cannot alter the new pending session", async () => {
+test("successful old-account write cannot alter the new session error", async () => {
   const app = createHarness();
   app.start("member-1");
-  app.membershipReads[0].resolve(membershipSnapshot(true, true));
   await flushPromises();
   app.evaluate("schedulePush()");
   app.runTimer(1200);
   assert.equal(app.writes.length, 1);
 
   app.start("member-2");
-  app.membershipReads[1].resolve(membershipSnapshot(true, false));
   await flushPromises();
-  app.evaluate('document.getElementById("sync-status").textContent="new account"');
-  assert.equal(app.evaluate("GATE.state"), "pending");
-  assert.equal(app.timersAt(300000).length, 1);
+  app.evaluate('setGate("quota"); document.getElementById("sync-status").textContent="new account"');
+  assert.equal(app.evaluate("GATE.state"), "quota");
+  assert.equal(app.timersAt(300000).length, 0);
 
   app.writes[0].resolve();
   await flushPromises();
-  assert.equal(app.evaluate("GATE.state"), "pending");
-  assert.equal(app.timersAt(300000).length, 1);
+  assert.equal(app.evaluate("GATE.state"), "quota");
+  assert.equal(app.timersAt(300000).length, 0);
   assert.equal(
     app.evaluate('document.getElementById("sync-status").textContent'),
     "new account",

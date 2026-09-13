@@ -37,6 +37,31 @@ test("shows the quota fallback copy while local tracking stays available", async
   await expect(page.locator("#app")).toBeVisible();
 });
 
+test("new accounts sync without activation and recover their tracker after local data is cleared", async ({ page, request }) => {
+  await page.locator("#meals-box .opt").first().click();
+  await page.evaluate(() => window.__dietTest.flushStorage());
+  const { uid, date } = await page.evaluate(() => ({ uid: window.firebaseBridge.currentUser().uid, date: today() }));
+  const base = "http://127.0.0.1:8080/v1/projects/diet-tracker-372ca/databases/(default)/documents/";
+  const options = { headers: { Authorization: "Bearer owner" } }; // Emulator-only administrative inspection.
+  await expect.poll(async () => {
+    const response = await request.get(base + "trackers/" + uid, options);
+    if (!response.ok()) return false;
+    const document = await response.json();
+    return document.fields?.days?.mapValue?.fields?.[date]?.mapValue?.fields?.b !== undefined;
+  }).toBe(true);
+  await expect(page.locator("#gate-note")).toBeHidden();
+  expect((await request.get(base + "betaMembers/" + uid, options)).status()).toBe(404);
+  await page.evaluate(async () => {
+    const uid = window.firebaseBridge.currentUser().uid;
+    await flushStateWrites(uid);
+    await deleteStateRecord(uid);
+  });
+  await page.reload();
+  await expect(page.locator("#app")).toBeVisible();
+  await expect(page.locator("#meals-box .opt").first()).toHaveClass(/sel/);
+  await expect(page.locator("#gate-note")).toBeHidden();
+});
+
 test("modular Firebase bridge is narrow and an isolated disabled flag stops AI before network", async ({ page }) => {
   let aiOrMembershipRequests = 0;
   await page.route(/firebasevertexai|generativelanguage|betaMembers/, async (route) => {
@@ -57,7 +82,7 @@ test("modular Firebase bridge is narrow and an isolated disabled flag stops AI b
     frozen: true,
     keys: [
       "currentUser", "deleteTracker", "estimateFood", "listenTracker",
-      "observeAuth", "readMembership", "signInForTest", "signInGoogle",
+      "observeAuth", "signInForTest", "signInGoogle",
       "signOut", "writeTracker",
     ],
   });
@@ -81,7 +106,7 @@ test("is RTL, responsive, and persists meal totals after reload", async ({
 });
 
 test("renders the runtime version and hosted-install resources", async ({ page, request }) => {
-  await expect(page.locator("#app-version")).toHaveText("v3.14.1");
+  await expect(page.locator("#app-version")).toHaveText("v3.15.0");
   const link = page.locator('link[rel="manifest"]');
   await expect(link).toHaveAttribute("href", "/manifest.webmanifest");
   const manifestResponse = await request.get("/manifest.webmanifest");

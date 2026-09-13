@@ -220,24 +220,59 @@ test("binds an import to the session that selected the file", async ({ page }) =
   expect(result).toBe(before);
 });
 
-test("deleting custom catalog entries clears every historical reference", async ({ page }) => {
-  await page.evaluate(() => {
-    const state=JSON.parse(JSON.stringify(S));
+test("deleting custom meals and extras preserves earlier history through reload and export/import", async ({ page }) => {
+  const dates=await page.evaluate(async () => {
+    const date=today(),shift=offset=>{const d=new Date(date+"T12:00:00");d.setDate(d.getDate()+offset);return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");};
+    const dates=[shift(-1),date,shift(1)],state=JSON.parse(JSON.stringify(S));
     state.foods={b:[{t:"وجبة مخصصة",k:100,p:10,f:4,c:6}],extras:[{t:"إضافة مخصصة",k:100,p:10,f:4,c:6}]};
-    state.days={"2026-08-23":{b:"c0",extras:["c0"]},"2026-08-24":{b:"c0",extras:["c0"]}};
-    window.__dietTest.setState(state);
+    state.days=Object.fromEntries(dates.map(date=>[date,{b:"c0",extras:["c0"],_ts:123}]));
+    window.__dietTest.setState(state);cur=dates[0];renderDay();
+    await window.__dietTest.flushStorage();
+    return dates;
   });
-  page.once("dialog",dialog=>dialog.accept());
-  await page.evaluate(()=>delFood("b",0));
-  page.once("dialog",dialog=>dialog.accept());
-  await page.evaluate(()=>delExtra(0));
-  const state=await page.evaluate(()=>JSON.parse(JSON.stringify(S)));
-  for(const day of Object.values(state.days)){
-    expect(day.b).toBeNull();
-    expect(day.extras).toEqual([]);
+  for(const [box,title] of [["#meals-box","وجبة مخصصة"],["#extras-box","إضافة مخصصة"]]){
+    page.once("dialog",async dialog=>{expect(dialog.message()).toContain("من النهارده وطالع");expect(dialog.message()).toContain("الأيام اللي فاتت");await dialog.accept();});
+    await page.locator(box).getByText(title).locator("..").getByRole("button").click();
+    await expect.poll(()=>page.evaluate(()=>pendingRetirement===null)).toBe(true);
   }
-  expect(state.foods.b[0]).toBeNull();
-  expect(state.foods.extras[0]).toBeNull();
+  const state=await page.evaluate(()=>JSON.parse(JSON.stringify(S)));
+  expect(state.days[dates[0]]).toEqual({b:"c0",extras:["c0"],_ts:123});
+  expect(await page.evaluate(date=>totals(S.days[date]),dates[0])).toEqual({k:200,p:20,f:8,c:12});
+  for(const date of dates.slice(1)){
+    expect(state.days[date].b).toBeNull();expect(state.days[date].extras).toEqual([]);
+  }
+  expect(state.foods.b[0].deletedFrom).toBe(dates[1]);
+  expect(state.foods.extras[0].deletedFrom).toBe(dates[1]);
+  await expect(page.locator("#meals-box").getByText("وجبة مخصصة")).toBeVisible();
+  await page.evaluate(date=>{cur=date;renderDay();},dates[1]);
+  await expect(page.locator("#meals-box").getByText("وجبة مخصصة")).toHaveCount(0);
+  await expect(page.locator("#extras-box").getByText("إضافة مخصصة")).toHaveCount(0);
+  expect(await page.evaluate(()=>foodNames().some(item=>item.t==="وجبة مخصصة"))).toBe(false);
+  await page.reload();
+  await expect(page.locator("#app")).toBeVisible();
+  expect(await page.evaluate(()=>S.foods.b[0].deletedFrom)).toBe(dates[1]);
+  const backup=await page.evaluate(()=>{let exported;const original=downloadJson;downloadJson=value=>{exported=value;};exportData();downloadJson=original;return exported;});
+  await upload(page,{name:"history.json",mimeType:"application/json",buffer:Buffer.from(JSON.stringify(backup))},"تم الاسترجاع");
+  expect(await page.evaluate(date=>totals(S.days[date]),dates[0])).toEqual({k:200,p:20,f:8,c:12});
+  expect(await page.evaluate(()=>S.foods.extras[0].deletedFrom)).toBe(dates[1]);
+});
+
+test("custom deletion cancellation and storage failure preserve live history", async ({ page }) => {
+  const before=await page.evaluate(()=>{
+    commitMutation(candidate=>{candidate.foods.b=[{t:"وجبة محفوظة",k:100,p:10,f:4,c:6}];ensureDay(candidate).b="c0";},{touchDay:cur,touchSections:["foods"]});
+    renderDay();return JSON.stringify(S);
+  });
+  page.once("dialog",dialog=>dialog.dismiss());
+  await page.evaluate(()=>delFood("b",0));
+  expect(await page.evaluate(()=>JSON.stringify(S))).toBe(before);
+  page.on("dialog",dialog=>dialog.accept());
+  await page.evaluate(async()=>{
+    await flushStateWrites();const original=IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put=function(){throw new DOMException("quota","QuotaExceededError");};
+    try{await delFood("b",0);}finally{IDBObjectStore.prototype.put=original;}
+  });
+  expect(await page.evaluate(()=>JSON.stringify(S))).toBe(before);
+  await expect(page.locator("#meals-box").getByText("وجبة محفوظة")).toBeVisible();
 });
 
 test("keeps memory and recovery available through IndexedDB quota, corruption, and cache loss", async ({ page }) => {

@@ -98,6 +98,7 @@ async function initSync(){
 function resetSyncContext(){
   if(typeof dismissChartDetails==="function") dismissChartDetails();
   syncGeneration++;
+  if(typeof pendingRetirement!=="undefined"){ pendingRetirement=null; pendingImport=null; }
   if(FB.unsub) FB.unsub();
   clearTimeout(FB.pushTimer);
   FB={ref:null, active:false, pushTimer:null, unsub:null};
@@ -243,6 +244,8 @@ async function deleteAllData(){
   alert(localFailed?"اتحذفت بيانات السحابة ومش هترجع تترفع. امسح بيانات الموقع من إعدادات المتصفح عشان تزيل أي نسخة محلية متبقية.":"اتحذفت كل بيانات المتابعة من الجهاز والسحابة ✅");
 }
 function mergeRemote(remote){
+  const pending=typeof pendingRetirement!=="undefined"&&(pendingRetirement||pendingImport);
+  if(pending){ pending.remotes.push(remote); return true; }
   const normalized=normalizeState(remote,"remote");
   if(!normalized.ok){
     setCloudRecovery("⚠️ نسخة السحابة مش قابلة للعرض بأمان. المزامنة متوقفة عشان بياناتها متتكتبش فوقها؛ تقدر تنزّل نسخة خام أو تحذف كل بياناتك.",remote);
@@ -253,13 +256,18 @@ function mergeRemote(remote){
     setCloudRecovery("⚠️ نسخة السحابة أكبر من حد المزامنة الحالي. هي متاحة للقراءة والتصدير والحذف، والكتابة متوقفة لحد ما الحجم يقل.",remote);
   }else setCloudRecovery("");
   const clean=normalized.value,candidate=mutableState();
-  let changed=false;
+  const foods=mergeFoodCatalogs(candidate.foods,clean.foods);
+  if(!foods.ok){
+    setCloudRecovery("⚠️ فيه تعارض في الأكلات المحفوظة. المزامنة متوقفة عشان تسجيلاتك القديمة متتغيّرش؛ نزّل نسخة خام للمراجعة.",remote);
+    return false;
+  }
+  let changed=!sameCanonicalState(candidate.foods,foods.value);
+  candidate.foods=foods.value;
   for(const k in clean.days){
     const r=clean.days[k],l=candidate.days[k];
     if(!l||(r._ts||0)>(l._ts||0)){ candidate.days[k]=r; changed=true; }
   }
   if((clean.settings._ts||0)>((candidate.settings&&candidate.settings._ts)||0)){ candidate.settings=clean.settings; changed=true; }
-  if((clean.foods._ts||0)>((candidate.foods&&candidate.foods._ts)||0)){ candidate.foods=clean.foods; changed=true; }
   if((clean.calref._ts||0)>((candidate.calref&&candidate.calref._ts)||0)){ candidate.calref=clean.calref; changed=true; }
   if(changed){
     const merged=normalizeState(candidate,"mutation");
@@ -283,6 +291,8 @@ function schedulePush(){
   clearTimeout(FB.pushTimer);
   FB.pushTimer=setTimeout(()=>{
     if(!syncContextCurrent(sync,u.uid,trackerRef)) return;
+    const pending=typeof pendingRetirement!=="undefined"&&(pendingRetirement||pendingImport);
+    if(pending){ pending.pushDeferred=true; return; }
     if(cloudWriteBlocked||(typeof stateSizeClass!=="undefined"&&stateSizeClass==="oversized")) return;
     const checked=typeof normalizeState==="function"?normalizeState(S,"cloud"):{ok:true};
     if(!checked.ok){

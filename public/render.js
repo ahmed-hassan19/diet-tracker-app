@@ -153,7 +153,7 @@ function renderDay(){
       meals.append(optionRow(food.t,{selected,legacy:food.legacyOnly,food,onPick:()=>pick(key,index)}));
     });
     ((S.foods&&S.foods[key])||[]).forEach((food,index)=>{
-      if(!food) return;
+      if(!foodAvailable(food,cur)) return;
       const selected=d[key]==="c"+index;
       meals.append(optionRow(food.t,{selected,food,onPick:()=>pick(key,"c"+index),onDelete:()=>delFood(key,index)}));
     });
@@ -167,7 +167,7 @@ function renderDay(){
   });
   EXTRAS.forEach((food,index)=>extras.append(optionRow(food.t,{selected:selectedExtras.includes(index),food,caloriesOnly:true,onPick:()=>pickExtra(index)})));
   ((S.foods&&S.foods.extras)||[]).forEach((food,index)=>{
-    if(!food) return;
+    if(!foodAvailable(food,cur)) return;
     extras.append(optionRow(food.t,{selected:selectedExtras.includes("c"+index),food,caloriesOnly:true,onPick:()=>pickExtra("c"+index),onDelete:()=>delExtra(index)}));
   });
   extras.append(addOpen==="extras"?addForm(saveExtra,"اكتب الإضافة... مثال: ٢ تمرة + ١٠ جم لوز"):optionRow("➕ أضف إضافة",{onPick:()=>openAdd("extras")}));
@@ -293,12 +293,9 @@ function saveFood(key){
   if(!ok){ draft.st="وصلت للحد الأقصى للأكلات المخصصة."; renderDay(); return; }
   addOpen=null; draft={}; renderDay();
 }
-function delFood(key,index){
-  if(!confirm("تمسح الأكلة دي من قايمتك؟")) return;
-  commitMutation((candidate,now)=>{
-    candidate.foods[key][index]=null;
-    for(const d of Object.values(candidate.days)) if(d[key]==="c"+index){ d[key]=null; d._ts=now; }
-  },{touchSections:["foods"]}); renderDay();
+async function delFood(key,index){
+  if(!confirm("تمسح الأكلة دي من النهارده وطالع؟ تسجيلات الأيام اللي فاتت هتفضل زي ما هي.")) return;
+  if(await retireFood(key,index)) renderDay();
 }
 function saveExtra(){
   const food=draftFood(draft.t);
@@ -310,15 +307,9 @@ function saveExtra(){
   if(!ok){ draft.st="وصلت لحد الإضافات أو الأكلات المخصصة."; renderDay(); return; }
   addOpen=null; draft={}; renderDay();
 }
-function delExtra(index){
-  if(!confirm("تمسح الإضافة دي من قايمتك؟")) return;
-  commitMutation((candidate,now)=>{
-    candidate.foods.extras[index]=null;
-    for(const d of Object.values(candidate.days)){
-      const extras=d.extras||[],filtered=extras.filter(item=>item!=="c"+index);
-      if(filtered.length!==extras.length){ d.extras=filtered; d._ts=now; }
-    }
-  },{touchSections:["foods"]}); renderDay();
+async function delExtra(index){
+  if(!confirm("تمسح الإضافة دي من النهارده وطالع؟ تسجيلات الأيام اللي فاتت هتفضل زي ما هي.")) return;
+  if(await retireFood("extras",index)) renderDay();
 }
 function pickExtra(selection){
   const ok=commitMutation(candidate=>{

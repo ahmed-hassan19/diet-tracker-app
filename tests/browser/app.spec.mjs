@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { routePinnedRuntimeResources } from "./runtime-resources.mjs";
 
@@ -106,7 +107,8 @@ test("is RTL, responsive, and persists meal totals after reload", async ({
 });
 
 test("renders the runtime version and hosted-install resources", async ({ page, request }) => {
-  await expect(page.locator("#app-version")).toHaveText("v3.15.0");
+  const { version } = JSON.parse(readFileSync(new URL("../../package.json", import.meta.url), "utf8"));
+  await expect(page.locator("#app-version")).toHaveText("v" + version);
   const link = page.locator('link[rel="manifest"]');
   await expect(link).toHaveAttribute("href", "/manifest.webmanifest");
   const manifestResponse = await request.get("/manifest.webmanifest");

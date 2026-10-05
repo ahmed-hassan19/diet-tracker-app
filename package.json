@@ -20,8 +20,8 @@
     "@firebase/rules-unit-testing": "5.0.2",
     "@playwright/test": "1.63.0",
     "firebase": "12.19.0",
-    "firebase-tools": "15.32.0",
-    "prettier": "3.9.8"
+    "firebase-tools": "15.32.1",
+    "prettier": "3.9.9"
   },
   "overrides": {
     "@google-cloud/pubsub": "6.0.1",

@@ -20,7 +20,7 @@
     "@firebase/rules-unit-testing": "6.0.0",
     "@playwright/test": "1.64.0",
     "firebase": "13.0.0",
-    "firebase-tools": "15.33.0",
+    "firebase-tools": "15.36.0",
     "prettier": "3.9.10"
   },
   "overrides": {
